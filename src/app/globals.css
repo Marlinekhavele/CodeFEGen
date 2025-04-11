@@ -1,0 +1,295 @@
+@import "swiper/css";
+@import "swiper/css/navigation";
+@import "swiper/css/pagination";
+@import "swiper/css/scrollbar";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 98%;
+    --foreground: 222.2 84% 4.9%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+
+    --default: 222 47% 11%;
+    --default-foreground: 0 0% 100%;
+
+    --primary: 240 8% 9%;
+    --primary-foreground: 0 0% 100%;
+
+    --dark-blue: 247 100% 5%;
+
+    /* Green theme colors */
+    --secondary-green-25: 160 84% 95%;
+    --secondary-green-50: 160 84% 90%;
+    --secondary-green-100: 160 84% 85%;
+    --secondary-green-200: 160 84% 75%;
+    --secondary-green-300: 160 84% 65%;
+    --secondary-green-400: 160 84% 55%;
+    --secondary-green-500: 160 84% 45%;
+    --secondary-green-600: 160 84% 39%;
+    --secondary-green-700: 160 84% 33%;
+    --secondary-green-800: 160 84% 27%;
+    --secondary-green-900: 160 84% 21%;
+
+    --secondary-foreground: 222.2 47.4% 11.2%;
+
+    --neutral-charcoal-50: 240 11% 96%;
+    --neutral-charcoal-75: 0 0% 96%;
+    --neutral-charcoal-100: 240 6% 90%;
+    --neutral-charcoal-200: 240 3% 77%;
+    --neutral-charcoal-300: 240 1% 75%;
+    --neutral-charcoal-400: 240 1% 50%;
+    --neutral-charcoal-500: 240 1% 36%;
+    --neutral-charcoal-600: 240 1% 25%;
+    --neutral-charcoal-700: 0 0% 16%;
+    --neutral-charcoal-800: 0 0% 10%;
+    --neutral-charcoal-900: 0 0% 8%;
+
+    --error-red-100: 15 95% 83%;
+    --error-red-300: 5 92% 67%;
+    --error-red-600: 349 78% 39%;
+
+    --warning-carrot-100: 41 100% 84%;
+    --warning-carrot-400: 33 100% 59%;
+    --warning-carrot-500: 30 74% 49%;
+
+    --success-grass-100: 103 80% 82%;
+    --success-grass-300: 114 50% 57%;
+    --success-grass-600: 129 69% 27%;
+
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+
+    --destructive: 0 84% 60%;
+    --destructive-hover: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+
+    --subtle: 210 40% 96%;
+    --subtle-hover: 214 32% 91%;
+    --subtle-foreground: 222 47% 11%;
+
+    --loading: 222 47% 11%;
+    --loading-hover: 215 25% 27%;
+    --loading-foreground: 0 0% 100%;
+
+    --outline: 0 0% 100%;
+    --outline-hover: 210 40% 96%;
+    --outline-foreground: 222 47% 11%;
+
+    --link: 222 47% 11%;
+
+    --error: 0 72% 51%;
+    --error-50: 0 85% 95%;
+    --error-700: 0 90% 34%;
+    --success: 102 51% 52%;
+    --success-50: 128 50% 94%;
+    --success-700: 126 84% 26%;
+    --warning: 45 93% 47%;
+    --warning-50: 25% 100% 98%;
+
+    --border: 214 32% 91%;
+    --input: 214 32% 91%;
+    --ring: 222.2 84% 4.9%;
+
+    --radius: 0.5rem;
+
+    --stroke-colors-stroke: 213 27% 84%;
+
+    --neutralColor-dark-1: 0 0% 32%;
+    --neutralColor-dark-2: 0 0% 4%;
+    --description-text: 215 16% 47%;
+    --breadcrumb-page: 0 0% 42%;
+    --breadcrumb-foreground: 0 0% 13%;
+    --desaturated-blue: 212.73 26.83% 83.92%;
+    --grey50: 0 0% 85.1%;
+
+    --toast-bg: 128, 50%, 94%;
+    --toast-border: 126, 50%, 58%;
+
+    --default-badge-bg: 222, 47%, 11%, 0.1;
+    --primary-badge-bg: 25, 95%, 53%, 0.1;
+    --success-badge-bg: 102, 51%, 52%, 0.1;
+    --error-badge-bg: 0, 72%, 51%, 0.1;
+
+    --blog-related-article-bg: 0°, 0%, 98%;
+    --blog-related-article-heading: 0°, 0%, 32%;
+    --blog-related-article-timeread-bg: 220°, 14%, 96%;
+  }
+}
+
+.show_scrollbar::-webkit-scrollbar {
+  height: 8px;
+}
+.show_scrollbar ::-webkit-scrollbar-thumb {
+  border-radius: 12px;
+}
+.hide_scrollbar::-webkit-scrollbar {
+  height: 0.1px;
+  width: 0.1px;
+}
+/* Custom Scrollbar Styling */
+/* For Webkit Browsers */
+::-webkit-scrollbar {
+  width: 12px; /* Width of the scrollbar */
+}
+
+::selection {
+  @apply bg-black;
+  color: white;
+}
+::-webkit-scrollbar-thumb {
+  @apply bg-primary;
+  border: 4px solid transparent;
+  border-radius: 10px;
+  background-clip: content-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-primary;
+  background-clip: content-box;
+}
+
+.modal::-webkit-scrollbar-track {
+  @apply bg-neutral-50; /* Color of the track */
+  border-radius: 10px; /* Rounded corners of the track */
+}
+
+.modal::-webkit-scrollbar {
+  width: 6px; /* Scrollbar width */
+  height: 6px; /* Horizontal scrollbar height */
+}
+
+.modal::-webkit-scrollbar-track {
+  @apply /* Track background color */ bg-neutral-50;
+}
+
+.modal::-webkit-scrollbar-thumb {
+  border-radius: 4px; /* Roundness of the thumb */
+  border: 1px solid; /* Optional border for contrast */
+  @apply /* Scrollbar thumb color */ cursor-pointer border-neutral-100 bg-neutral-300;
+}
+
+.modal::-webkit-scrollbar-thumb:hover {
+  @apply /* Darken on hover */ bg-neutral-500;
+}
+
+/* For Firefox */
+.html {
+  scrollbar-width: thin; /* Options are 'auto', 'thin', 'none' */
+  @apply bg-primary;
+}
+
+/* For Internet Explorer and Legacy Edge */
+body {
+  -ms-overflow-style: scrollbar; /* Standard scrollbar */
+}
+
+.tabs input[type="text"]:not(:focus) {
+  background: transparent;
+  border: none;
+}
+
+/* Framer Btn */
+.radial-gradient {
+  background: radial-gradient(circle at 50% 0%, hsl(160 84% 45%), transparent 60%), hsl(160 84% 45%);
+}
+.linear-mask {
+  mask-image: linear-gradient(
+    -75deg,
+    white calc(var(--x) + 20%),
+    transparent calc(var(--x) + 30%),
+    white calc(var(--x) + 100%)
+  );
+
+  -webkit-mask-image: linear-gradient(
+    -75deg,
+    white calc(var(--x) + 20%),
+    transparent calc(var(--x) + 30%),
+    white calc(var(--x) + 100%)
+  );
+}
+.linear-overlay {
+  background: linear-gradient(
+    -75deg,
+    hsl(160 84% 45%) calc(var(--x) + 20%),
+    rgb(255, 255, 255) calc(var(--x) + 25%),
+    hsl(160 84% 45%) calc(var(--x) + 100%)
+  );
+  mask: linear-gradient(black, black) content-box, linear-gradient(black, black);
+  -webkit-mask: linear-gradient(black, black) content-box, linear-gradient(black, black);
+  mask-composite: exclude;
+  -webkit-mask-composite: xor;
+}
+
+/* Framer Btn */
+
+.spinner_V8m1 {
+  transform-origin: center;
+  animation: spinner_zKoa 2s linear infinite;
+}
+.spinner_V8m1 circle {
+  stroke-linecap: round;
+  animation: spinner_YpZS 1.5s ease-in-out infinite;
+}
+@keyframes spinner_zKoa {
+  100% {
+    transform: rotate(360deg);
+  }
+}
+@keyframes spinner_YpZS {
+  0% {
+    stroke-dasharray: 0 150;
+    stroke-dashoffset: 0;
+  }
+  47.5% {
+    stroke-dasharray: 42 150;
+    stroke-dashoffset: -16;
+  }
+  95%,
+  100% {
+    stroke-dasharray: 42 150;
+    stroke-dashoffset: -59;
+  }
+}
+
+@keyframes fadeInSlideRight {
+  from {
+    opacity: 0;
+    transform: translateX(50%);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes fadeOutSlideRight {
+  from {
+    opacity: 1;
+    transform: translateX(0);
+  }
+
+  to {
+    opacity: 0;
+    transform: translateX(50%);
+  }
+}
+
+.modal-appear {
+  animation: fadeInSlideRight 300ms ease-out;
+}
+
+.modal-disappear {
+  animation: fadeOutSlideRight 300ms ease-in forwards;
+}
