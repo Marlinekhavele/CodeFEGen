@@ -67,6 +67,8 @@
   }
   body {
     @apply bg-background text-foreground;
+    background-color: hsl(var(--background)); /* Use the --background variable */
+    color: hsl(var(--foreground)); /* Use the --foreground variable */
   }
 }
 
