@@ -2,7 +2,7 @@ import type { CodeGenData, CodeChatActivationResponse } from '~/types'
 import { BaseService } from './base-service'
 class CodeGenService extends BaseService {
   constructor() {
-    super('/', 'v2')
+    super('/', 'v1')
   }
 
   public async generateCode(CodeGenData: CodeGenData) {
