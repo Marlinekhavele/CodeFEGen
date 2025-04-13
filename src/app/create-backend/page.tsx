@@ -37,9 +37,9 @@ export default function CreateBackend() {
       </header>
       <main className="flex-1">
         <div className="container py-8">
-          <Link href="/" className="inline-flex items-center gap-2 text-zinc-400 hover:text-[#7dff00] mb-6">
+          <Link href="/init-project" className="inline-flex items-center gap-2 text-zinc-400 hover:text-[#7dff00] mb-6">
             <ArrowLeft className="h-4 w-4" />
-            Back to Home
+            Back to Project Setup
           </Link>
           <h1 className="text-3xl font-bold mb-8 text-white">Create a New Backend</h1>
 
@@ -53,7 +53,9 @@ export default function CreateBackend() {
               <p className="text-zinc-400 mb-4">
                 Create a standard REST API with authentication, database models, and CRUD operations.
               </p>
-              <Button className="w-full bg-zinc-800 hover:bg-zinc-700 text-zinc-100">Select Template</Button>
+              <Link href="/create-backend/backend-editor">
+                <Button className="w-full bg-zinc-800 hover:bg-zinc-700 text-zinc-100">Select Template</Button>
+              </Link>
             </div>
 
             <div className="group rounded-lg border border-zinc-800 bg-zinc-900 p-6 transition-all hover:border-[#7dff00]/50 hover:shadow-[0_0_15px_rgba(125,255,0,0.15)]">
@@ -64,7 +66,9 @@ export default function CreateBackend() {
               <p className="text-zinc-400 mb-4">
                 Build a GraphQL API with schemas, resolvers, and authentication middleware.
               </p>
-              <Button className="w-full bg-zinc-800 hover:bg-zinc-700 text-zinc-100">Select Template</Button>
+              <Link href="/create-backend/backend-editor">
+                <Button className="w-full bg-zinc-800 hover:bg-zinc-700 text-zinc-100">Select Template</Button>
+              </Link>
             </div>
 
             <div className="group rounded-lg border border-zinc-800 bg-zinc-900 p-6 transition-all hover:border-[#7dff00]/50 hover:shadow-[0_0_15px_rgba(125,255,0,0.15)]">
@@ -75,7 +79,9 @@ export default function CreateBackend() {
               <p className="text-zinc-400 mb-4">
                 Deploy individual serverless functions with event-driven architecture.
               </p>
-              <Button className="w-full bg-zinc-800 hover:bg-zinc-700 text-zinc-100">Select Template</Button>
+              <Link href="/create-backend/backend-editor">
+                <Button className="w-full bg-zinc-800 hover:bg-zinc-700 text-zinc-100">Select Template</Button>
+              </Link>
             </div>
 
             <div className="group rounded-lg border border-zinc-800 bg-zinc-900 p-6 transition-all hover:border-[#7dff00]/50 hover:shadow-[0_0_15px_rgba(125,255,0,0.15)]">
@@ -86,7 +92,9 @@ export default function CreateBackend() {
               <p className="text-zinc-400 mb-4">
                 Build a WebSocket-based real-time API for chat, notifications, and live updates.
               </p>
-              <Button className="w-full bg-zinc-800 hover:bg-zinc-700 text-zinc-100">Select Template</Button>
+              <Link href="/create-backend/backend-editor">
+                <Button className="w-full bg-zinc-800 hover:bg-zinc-700 text-zinc-100">Select Template</Button>
+              </Link>
             </div>
 
             <div className="group rounded-lg border border-zinc-800 bg-zinc-900 p-6 transition-all hover:border-[#7dff00]/50 hover:shadow-[0_0_15px_rgba(125,255,0,0.15)]">
@@ -97,7 +105,9 @@ export default function CreateBackend() {
               <p className="text-zinc-400 mb-4">
                 Complete e-commerce backend with products, orders, payments, and user management.
               </p>
-              <Button className="w-full bg-zinc-800 hover:bg-zinc-700 text-zinc-100">Select Template</Button>
+              <Link href="/create-backend/backend-editor">
+                <Button className="w-full bg-zinc-800 hover:bg-zinc-700 text-zinc-100">Select Template</Button>
+              </Link>
             </div>
 
             <div className="group rounded-lg border border-zinc-800 bg-zinc-900 p-6 transition-all hover:border-[#7dff00]/50 hover:shadow-[0_0_15px_rgba(125,255,0,0.15)]">
@@ -108,7 +118,9 @@ export default function CreateBackend() {
               <p className="text-zinc-400 mb-4">
                 Authentication and authorization service with OAuth, JWT, and role-based access control.
               </p>
-              <Button className="w-full bg-zinc-800 hover:bg-zinc-700 text-zinc-100">Select Template</Button>
+              <Link href="/create-backend/backend-editor">
+                <Button className="w-full bg-zinc-800 hover:bg-zinc-700 text-zinc-100">Select Template</Button>
+              </Link>
             </div>
           </div>
 
@@ -124,9 +136,11 @@ export default function CreateBackend() {
                 placeholder="Describe your backend requirements... (e.g., 'Create a REST API for a blog with user authentication, posts, comments, and categories')"
               ></textarea>
             </div>
-            <Button className="bg-[#7dff00] text-black hover:bg-[#9aff33] dark:bg-[#7dff00] dark:text-black dark:hover:bg-[#9aff33]">
-              Generate Backend
-            </Button>
+            <Link href="/create-backend/backend-editor">
+              <Button className="bg-[#7dff00] text-black hover:bg-[#9aff33] dark:bg-[#7dff00] dark:text-black dark:hover:bg-[#9aff33]">
+                Generate Backend
+              </Button>
+            </Link>
           </div>
         </div>
       </main>

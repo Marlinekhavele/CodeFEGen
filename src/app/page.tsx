@@ -2,7 +2,6 @@ import type { Metadata } from "next"
 import Image from "next/image"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
-import { BackendGenerator } from "@/components/backend-generator"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { Footer } from "@/components/footer"
 import { AnimatedPhones } from "@/components/mobile-phones"
@@ -30,7 +29,7 @@ export default function Home() {
           </div>
           <div className="flex items-center gap-4">
             <ThemeToggle />
-            <Link href="/initialize-project">
+            <Link href="/init-project">
               <Button className="rounded-md bg-[#7dff00] text-black hover:bg-[#9aff33] dark:bg-[#7dff00] dark:text-black dark:hover:bg-[#9aff33]">
                 Get Started
               </Button>
@@ -55,7 +54,7 @@ export default function Home() {
               CodeBEGen — no need to jump between tools!
               </p>
               <div className="flex flex-col gap-2 min-[400px]:flex-row">
-                <Link href="/initialize-project">
+                <Link href="/init-project">
                   <Button
                     size="lg"
                     className="bg-[#7dff00] text-black hover:bg-[#9aff33] dark:bg-[#7dff00] dark:text-black dark:hover:bg-[#9aff33]"
