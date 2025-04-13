@@ -1,6 +1,7 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { useTheme } from "next-themes"
 import { MonacoEditor } from "@/components/monaco-editor"
 
 const DEFAULT_LOGIN_CODE = `@app.route("/api/auth/login", methods=["POST"])
@@ -26,14 +27,29 @@ def login():
 
 export default function EditorPage() {
   const [code, setCode] = useState(DEFAULT_LOGIN_CODE)
+  const { theme } = useTheme()
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   const handleCodeChange = (newCode: string) => {
     setCode(newCode)
   }
 
+  if (!mounted) {
+    return null
+  }
+
   return (
-    <div className="w-full h-screen bg-zinc-950">
-      <MonacoEditor code={code} language="python" onChange={handleCodeChange} />
+    <div className="w-full h-screen bg-white dark:bg-zinc-950">
+      <MonacoEditor
+        code={code}
+        language="python"
+        onChange={handleCodeChange}
+        theme={theme === "dark" ? "vs-dark" : "vs-light"}
+      />
     </div>
   )
 }

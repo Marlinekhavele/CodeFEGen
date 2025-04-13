@@ -13,8 +13,8 @@ export const metadata: Metadata = {
 
 export default function CreateBackend() {
   return (
-    <div className="flex min-h-screen flex-col bg-zinc-900 text-zinc-100 dark:bg-zinc-950">
-      <header className="sticky top-0 z-50 w-full border-b border-zinc-800 bg-zinc-900/80 backdrop-blur-sm dark:bg-zinc-950/80">
+    <div className="flex min-h-screen flex-col bg-zinc-100 text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100">
+      <header className="sticky top-0 z-50 w-full border-b border-zinc-200 bg-zinc-100/80 backdrop-blur-sm dark:border-zinc-800 dark:bg-zinc-950/80">
         <div className="container flex h-16 items-center justify-between">
           <div className="flex items-center gap-3">
             <Link href="/" className="flex items-center gap-2">
@@ -37,102 +37,129 @@ export default function CreateBackend() {
       </header>
       <main className="flex-1">
         <div className="container py-8">
-          <Link href="/init-project" className="inline-flex items-center gap-2 text-zinc-400 hover:text-[#7dff00] mb-6">
+          <Link
+            href="/init-project"
+            className="inline-flex items-center gap-2 text-zinc-600 hover:text-[#7dff00] dark:text-zinc-400 dark:hover:text-[#7dff00] mb-6"
+          >
             <ArrowLeft className="h-4 w-4" />
             Back to Project Setup
           </Link>
-          <h1 className="text-3xl font-bold mb-8 text-white">Create a New Backend</h1>
+          <h1 className="text-3xl font-bold mb-8 text-zinc-900 dark:text-white">Create a New Backend</h1>
 
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             {/* Backend Template Cards */}
-            <div className="group rounded-lg border border-zinc-800 bg-zinc-900 p-6 transition-all hover:border-[#7dff00]/50 hover:shadow-[0_0_15px_rgba(125,255,0,0.15)]">
+            <div className="group rounded-lg border border-zinc-200 bg-white p-6 transition-all hover:border-[#7dff00]/50 hover:shadow-[0_0_15px_rgba(125,255,0,0.15)] dark:border-zinc-800 dark:bg-zinc-900">
               <div className="mb-4 rounded-full bg-[#7dff00]/10 p-3 w-fit">
                 <Database className="h-6 w-6 text-[#7dff00]" />
               </div>
-              <h3 className="text-xl font-medium mb-2 text-white group-hover:text-[#7dff00]">REST API</h3>
-              <p className="text-zinc-400 mb-4">
+              <h3 className="text-xl font-medium mb-2 text-zinc-900 group-hover:text-[#7dff00] dark:text-white">
+                REST API
+              </h3>
+              <p className="text-zinc-600 mb-4 dark:text-zinc-400">
                 Create a standard REST API with authentication, database models, and CRUD operations.
               </p>
               <Link href="/create-backend/backend-editor">
-                <Button className="w-full bg-zinc-800 hover:bg-zinc-700 text-zinc-100">Select Template</Button>
+                <Button className="w-full bg-zinc-100 hover:bg-zinc-200 text-zinc-900 dark:bg-zinc-800 dark:hover:bg-zinc-700 dark:text-zinc-100">
+                  Select Template
+                </Button>
               </Link>
             </div>
 
-            <div className="group rounded-lg border border-zinc-800 bg-zinc-900 p-6 transition-all hover:border-[#7dff00]/50 hover:shadow-[0_0_15px_rgba(125,255,0,0.15)]">
+            <div className="group rounded-lg border border-zinc-200 bg-white p-6 transition-all hover:border-[#7dff00]/50 hover:shadow-[0_0_15px_rgba(125,255,0,0.15)] dark:border-zinc-800 dark:bg-zinc-900">
               <div className="mb-4 rounded-full bg-[#7dff00]/10 p-3 w-fit">
                 <Server className="h-6 w-6 text-[#7dff00]" />
               </div>
-              <h3 className="text-xl font-medium mb-2 text-white group-hover:text-[#7dff00]">GraphQL API</h3>
-              <p className="text-zinc-400 mb-4">
+              <h3 className="text-xl font-medium mb-2 text-zinc-900 group-hover:text-[#7dff00] dark:text-white">
+                GraphQL API
+              </h3>
+              <p className="text-zinc-600 mb-4 dark:text-zinc-400">
                 Build a GraphQL API with schemas, resolvers, and authentication middleware.
               </p>
               <Link href="/create-backend/backend-editor">
-                <Button className="w-full bg-zinc-800 hover:bg-zinc-700 text-zinc-100">Select Template</Button>
+                <Button className="w-full bg-zinc-100 hover:bg-zinc-200 text-zinc-900 dark:bg-zinc-800 dark:hover:bg-zinc-700 dark:text-zinc-100">
+                  Select Template
+                </Button>
               </Link>
             </div>
 
-            <div className="group rounded-lg border border-zinc-800 bg-zinc-900 p-6 transition-all hover:border-[#7dff00]/50 hover:shadow-[0_0_15px_rgba(125,255,0,0.15)]">
+            <div className="group rounded-lg border border-zinc-200 bg-white p-6 transition-all hover:border-[#7dff00]/50 hover:shadow-[0_0_15px_rgba(125,255,0,0.15)] dark:border-zinc-800 dark:bg-zinc-900">
               <div className="mb-4 rounded-full bg-[#7dff00]/10 p-3 w-fit">
                 <Code className="h-6 w-6 text-[#7dff00]" />
               </div>
-              <h3 className="text-xl font-medium mb-2 text-white group-hover:text-[#7dff00]">Serverless Functions</h3>
-              <p className="text-zinc-400 mb-4">
+              <h3 className="text-xl font-medium mb-2 text-zinc-900 group-hover:text-[#7dff00] dark:text-white">
+                Serverless Functions
+              </h3>
+              <p className="text-zinc-600 mb-4 dark:text-zinc-400">
                 Deploy individual serverless functions with event-driven architecture.
               </p>
               <Link href="/create-backend/backend-editor">
-                <Button className="w-full bg-zinc-800 hover:bg-zinc-700 text-zinc-100">Select Template</Button>
+                <Button className="w-full bg-zinc-100 hover:bg-zinc-200 text-zinc-900 dark:bg-zinc-800 dark:hover:bg-zinc-700 dark:text-zinc-100">
+                  Select Template
+                </Button>
               </Link>
             </div>
 
-            <div className="group rounded-lg border border-zinc-800 bg-zinc-900 p-6 transition-all hover:border-[#7dff00]/50 hover:shadow-[0_0_15px_rgba(125,255,0,0.15)]">
+            <div className="group rounded-lg border border-zinc-200 bg-white p-6 transition-all hover:border-[#7dff00]/50 hover:shadow-[0_0_15px_rgba(125,255,0,0.15)] dark:border-zinc-800 dark:bg-zinc-900">
               <div className="mb-4 rounded-full bg-[#7dff00]/10 p-3 w-fit">
                 <Zap className="h-6 w-6 text-[#7dff00]" />
               </div>
-              <h3 className="text-xl font-medium mb-2 text-white group-hover:text-[#7dff00]">Real-time API</h3>
-              <p className="text-zinc-400 mb-4">
+              <h3 className="text-xl font-medium mb-2 text-zinc-900 group-hover:text-[#7dff00] dark:text-white">
+                Real-time API
+              </h3>
+              <p className="text-zinc-600 mb-4 dark:text-zinc-400">
                 Build a WebSocket-based real-time API for chat, notifications, and live updates.
               </p>
               <Link href="/create-backend/backend-editor">
-                <Button className="w-full bg-zinc-800 hover:bg-zinc-700 text-zinc-100">Select Template</Button>
+                <Button className="w-full bg-zinc-100 hover:bg-zinc-200 text-zinc-900 dark:bg-zinc-800 dark:hover:bg-zinc-700 dark:text-zinc-100">
+                  Select Template
+                </Button>
               </Link>
             </div>
 
-            <div className="group rounded-lg border border-zinc-800 bg-zinc-900 p-6 transition-all hover:border-[#7dff00]/50 hover:shadow-[0_0_15px_rgba(125,255,0,0.15)]">
+            <div className="group rounded-lg border border-zinc-200 bg-white p-6 transition-all hover:border-[#7dff00]/50 hover:shadow-[0_0_15px_rgba(125,255,0,0.15)] dark:border-zinc-800 dark:bg-zinc-900">
               <div className="mb-4 rounded-full bg-[#7dff00]/10 p-3 w-fit">
                 <Globe className="h-6 w-6 text-[#7dff00]" />
               </div>
-              <h3 className="text-xl font-medium mb-2 text-white group-hover:text-[#7dff00]">E-commerce API</h3>
-              <p className="text-zinc-400 mb-4">
+              <h3 className="text-xl font-medium mb-2 text-zinc-900 group-hover:text-[#7dff00] dark:text-white">
+                E-commerce API
+              </h3>
+              <p className="text-zinc-600 mb-4 dark:text-zinc-400">
                 Complete e-commerce backend with products, orders, payments, and user management.
               </p>
               <Link href="/create-backend/backend-editor">
-                <Button className="w-full bg-zinc-800 hover:bg-zinc-700 text-zinc-100">Select Template</Button>
+                <Button className="w-full bg-zinc-100 hover:bg-zinc-200 text-zinc-900 dark:bg-zinc-800 dark:hover:bg-zinc-700 dark:text-zinc-100">
+                  Select Template
+                </Button>
               </Link>
             </div>
 
-            <div className="group rounded-lg border border-zinc-800 bg-zinc-900 p-6 transition-all hover:border-[#7dff00]/50 hover:shadow-[0_0_15px_rgba(125,255,0,0.15)]">
+            <div className="group rounded-lg border border-zinc-200 bg-white p-6 transition-all hover:border-[#7dff00]/50 hover:shadow-[0_0_15px_rgba(125,255,0,0.15)] dark:border-zinc-800 dark:bg-zinc-900">
               <div className="mb-4 rounded-full bg-[#7dff00]/10 p-3 w-fit">
                 <Lock className="h-6 w-6 text-[#7dff00]" />
               </div>
-              <h3 className="text-xl font-medium mb-2 text-white group-hover:text-[#7dff00]">Auth Service</h3>
-              <p className="text-zinc-400 mb-4">
+              <h3 className="text-xl font-medium mb-2 text-zinc-900 group-hover:text-[#7dff00] dark:text-white">
+                Auth Service
+              </h3>
+              <p className="text-zinc-600 mb-4 dark:text-zinc-400">
                 Authentication and authorization service with OAuth, JWT, and role-based access control.
               </p>
               <Link href="/create-backend/backend-editor">
-                <Button className="w-full bg-zinc-800 hover:bg-zinc-700 text-zinc-100">Select Template</Button>
+                <Button className="w-full bg-zinc-100 hover:bg-zinc-200 text-zinc-900 dark:bg-zinc-800 dark:hover:bg-zinc-700 dark:text-zinc-100">
+                  Select Template
+                </Button>
               </Link>
             </div>
           </div>
 
-          <div className="mt-12 rounded-lg border border-zinc-800 bg-zinc-900 p-6">
-            <h2 className="text-2xl font-bold mb-4 text-white">Create Custom Backend</h2>
-            <p className="text-zinc-400 mb-6">
+          <div className="mt-12 rounded-lg border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900">
+            <h2 className="text-2xl font-bold mb-4 text-zinc-900 dark:text-white">Create Custom Backend</h2>
+            <p className="text-zinc-600 mb-6 dark:text-zinc-400">
               Describe your backend requirements in natural language and our AI will generate the perfect backend for
               you.
             </p>
             <div className="mb-6">
               <textarea
-                className="w-full rounded-md border border-zinc-700 bg-zinc-800 px-4 py-3 text-zinc-300 placeholder:text-zinc-500 focus:border-[#7dff00] focus:outline-none min-h-[150px]"
+                className="w-full rounded-md border border-zinc-300 bg-zinc-50 px-4 py-3 text-zinc-700 placeholder:text-zinc-500 focus:border-[#7dff00] focus:outline-none min-h-[150px] dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300"
                 placeholder="Describe your backend requirements... (e.g., 'Create a REST API for a blog with user authentication, posts, comments, and categories')"
               ></textarea>
             </div>
