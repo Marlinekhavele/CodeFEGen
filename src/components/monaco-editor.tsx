@@ -8,9 +8,16 @@ interface MonacoEditorProps {
   language?: string
   onChange?: (code: string) => void
   readOnly?: boolean
+  theme?: string
 }
 
-export function MonacoEditor({ code, language = "python", onChange, readOnly = false }: MonacoEditorProps) {
+export function MonacoEditor({
+  code,
+  language = "python",
+  onChange,
+  readOnly = false,
+  theme = "vs-dark",
+}: MonacoEditorProps) {
   const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
@@ -24,7 +31,7 @@ export function MonacoEditor({ code, language = "python", onChange, readOnly = f
   }
 
   return (
-    <div className="h-full w-full border border-zinc-800 bg-zinc-950 rounded-md overflow-hidden">
+    <div className="h-full w-full border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 rounded-md overflow-hidden">
       {mounted ? (
         <Editor
           height="100%"
@@ -32,7 +39,7 @@ export function MonacoEditor({ code, language = "python", onChange, readOnly = f
           defaultValue={code}
           value={code}
           onChange={handleEditorChange}
-          theme="vs-dark"
+          theme={theme}
           options={{
             readOnly,
             minimap: { enabled: true },
@@ -46,10 +53,11 @@ export function MonacoEditor({ code, language = "python", onChange, readOnly = f
               horizontalScrollbarSize: 10,
             },
             padding: { top: 10 },
+            automaticLayout: true,
           }}
         />
       ) : (
-        <div className="h-full w-full flex items-center justify-center bg-zinc-950 text-zinc-400">
+        <div className="h-full w-full flex items-center justify-center bg-white dark:bg-zinc-950 text-zinc-500 dark:text-zinc-400">
           Loading editor...
         </div>
       )}

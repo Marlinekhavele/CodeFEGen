@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-
+import Image from 'next/image'
 import { useState, useRef, useEffect } from "react"
 import { Send, ThumbsUp, ThumbsDown, Copy, CornerUpRight, Paperclip, Maximize2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -77,7 +77,14 @@ export function AIChat() {
   return (
     <div className="flex flex-col h-full border border-zinc-200 rounded-lg overflow-hidden dark:border-zinc-800">
       <div className="p-3 border-b border-zinc-200 bg-white dark:bg-zinc-900 dark:border-zinc-800 flex items-center justify-between">
-        <h3 className="text-sm font-medium text-zinc-900 dark:text-zinc-100">AI Assistant</h3>
+        <div>
+          <Image
+          src="/codeBE-logo.png"
+          alt="CodeBEgen Logo"
+          width={30}
+          height={30}
+          />
+        </div>            
         <div className="flex items-center gap-1">
           <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full">
             <Maximize2 className="h-4 w-4 text-zinc-500 dark:text-zinc-400" />

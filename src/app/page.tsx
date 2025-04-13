@@ -71,10 +71,10 @@ export default function Home() {
 
               <AnimatedPhones />
               
-              <div className="rounded-lg border border-zinc-200 bg-white/80 shadow-lg overflow-hidden w-full h-[200px] lg:block dark:border-zinc-950/80">
+              <div className="rounded-lg border border-zinc-200 bg-white/80 shadow-lg overflow-hidden w-full h-[200px] lg:block dark:border-zinc-950/60">
               <div className="h-full w-full backdrop-blur-sm flex items-center justify-center">
-                <p className="text-center text-zinc-600 max-w-md px-6 dark:text-zinc-400">
-                  <span className="text-[#7dff00] font-semibold">Mobile-friendly</span> endpoint management and code 
+                <p className="text-center text-zinc-600 max-w-md px-6 dark:text-zinc-600">
+                  <span className="text-[#45b807] font-semibold">Mobile-friendly</span> endpoint management and code 
                   editing. Take your backend development anywhere.
                   </p>
               </div>

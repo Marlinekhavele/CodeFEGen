@@ -1,4 +1,5 @@
 import Link from "next/link"
+import Image from 'next/image'
 import { Github, Twitter, Linkedin } from "lucide-react"
 
 export function Footer() {
@@ -6,7 +7,16 @@ export function Footer() {
     <footer className="w-full border-t border-zinc-800 bg-zinc-900 py-8 dark:bg-zinc-950">
       <div className="container grid gap-8 md:grid-cols-2 lg:grid-cols-4">
         <div className="space-y-4">
-          <h3 className="text-lg font-medium text-[#7dff00]">CodeBEGen</h3>
+          <div className="flex gap-2">
+            <Image
+            src="/codeBE-logo.png"
+            alt="CodeBEgen Logo"
+            width={30}
+            height={30}
+            />
+          
+           <h3 className="text-lg font-medium text-[#7dff00]">CodeBEGen</h3>
+          </div>
           <p className="text-sm text-zinc-400">
             Generate backend code using AI. Deploy and test it inside CodeBEGen — without switching tools.
           </p>

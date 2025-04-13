@@ -33,6 +33,15 @@ export function ProjectInitForm() {
       // In a real environment, this would call the actual API
       // await initService.endpointInitialization(projectName)
 
+      // Store project name in localStorage for use across pages
+      localStorage.setItem("currentProjectName", projectName)
+
+      // Create a URL-friendly version of the project name
+      const urlFriendlyName = projectName
+        .toLowerCase()
+        .replace(/\s+/g, "-")
+        .replace(/[^a-z0-9-]/g, "")
+
       // Simulate API delay
       await new Promise((resolve) => setTimeout(resolve, 1000))
 
@@ -49,7 +58,7 @@ export function ProjectInitForm() {
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       <div className="space-y-2">
-        <Label htmlFor="project-name" className="text-zinc-200">
+        <Label htmlFor="project-name" className="text-zinc-200 dark:text-zinc-200">
           Project Name
         </Label>
         <Input
@@ -57,7 +66,7 @@ export function ProjectInitForm() {
           value={projectName}
           onChange={(e) => setProjectName(e.target.value)}
           placeholder="My Awesome Backend"
-          className="bg-zinc-800 border-zinc-700 text-zinc-200 focus:border-[#7dff00] focus:ring-[#7dff00]/20"
+          className="bg-zinc-800 border-zinc-700 text-zinc-200 focus:border-[#7dff00] focus:ring-[#7dff00]/20 dark:bg-zinc-800 dark:border-zinc-700"
           disabled={isLoading}
         />
         <p className="text-xs text-zinc-400">This will be the name of your backend project</p>

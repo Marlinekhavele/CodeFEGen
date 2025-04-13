@@ -30,12 +30,40 @@ export default function EditorPage() {
   const { theme } = useTheme()
   const [mounted, setMounted] = useState(false)
 
+  // Listen for messages from parent window to update code
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      if (event.data && event.data.type === "UPDATE_CODE") {
+        setCode(event.data.code)
+      }
+    }
+
+    window.addEventListener("message", handleMessage)
+    return () => window.removeEventListener("message", handleMessage)
+  }, [])
+
   useEffect(() => {
     setMounted(true)
-  }, [])
+
+    // Send message to parent when code changes
+    const sendCodeToParent = () => {
+      if (window.parent) {
+        window.parent.postMessage({ type: "CODE_CHANGED", code }, "*")
+      }
+    }
+
+    // Set up interval to check for code changes
+    const interval = setInterval(sendCodeToParent, 1000)
+    return () => clearInterval(interval)
+  }, [code])
 
   const handleCodeChange = (newCode: string) => {
     setCode(newCode)
+
+    // Send code to parent window
+    if (window.parent) {
+      window.parent.postMessage({ type: "CODE_CHANGED", code: newCode }, "*")
+    }
   }
 
   if (!mounted) {
