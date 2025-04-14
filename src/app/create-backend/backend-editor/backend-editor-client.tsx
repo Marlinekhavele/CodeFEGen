@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import Image from "next/image"
 import Link from "next/link"
 import {
@@ -23,6 +23,7 @@ import { Footer } from "@/components/footer"
 import { AIChat } from "@/components/ai-chat"
 import { toast } from "@/components/ui/use-toast"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { useTheme } from "@/components/theme-provider"
 
 // Sample generated code for different sections
 const sampleCode = {
@@ -166,10 +167,15 @@ export default function BackendEditorClient() {
   const [currentCode, setCurrentCode] = useState("")
   const [isGenerating, setIsGenerating] = useState(false)
   const [activeSection, setActiveSection] = useState<string>("endpoints")
+  const { theme, setTheme } = useTheme()
+  const iframeRef = useRef<HTMLIFrameElement>(null)
+  const [iframeLoaded, setIframeLoaded] = useState(false)
 
   useEffect(() => {
-    // Get project name from localStorage if available
+    // Get project name and language from localStorage if available
     const storedProjectName = localStorage.getItem("currentProjectName")
+    const storedLanguage = localStorage.getItem("currentProjectLanguage") || "python"
+
     if (storedProjectName) {
       setProjectName(storedProjectName)
       setUrlFriendlyName(
@@ -218,17 +224,61 @@ export default function BackendEditorClient() {
 
     // Simulate code generation
     simulateCodeGeneration()
+
+    // Listen for messages from the iframe
+    const handleMessage = (event: MessageEvent) => {
+      if (event.data && event.data.type === "CODE_CHANGED") {
+        setCurrentCode(event.data.code)
+      }
+      if (event.data && event.data.type === "REQUEST_THEME") {
+        // Send current theme to iframe
+        if (iframeRef.current && iframeRef.current.contentWindow) {
+          iframeRef.current.contentWindow.postMessage({ type: "THEME_CHANGED", theme }, "*")
+        }
+      }
+    }
+
+    window.addEventListener("message", handleMessage)
+    return () => window.removeEventListener("message", handleMessage)
   }, [])
 
   // Update current code when selected file changes
   useEffect(() => {
-    if (selectedFile) {
+    if (selectedFile && iframeLoaded) {
       const file = files.find((f) => f.id === selectedFile)
       if (file) {
         setCurrentCode(file.code)
+
+        // Send code to iframe
+        if (iframeRef.current && iframeRef.current.contentWindow) {
+          iframeRef.current.contentWindow.postMessage({ type: "UPDATE_CODE", code: file.code }, "*")
+        }
       }
     }
-  }, [selectedFile, files])
+  }, [selectedFile, files, iframeLoaded])
+
+  // Update iframe when theme changes
+  useEffect(() => {
+    if (iframeRef.current && iframeRef.current.contentWindow && iframeLoaded) {
+      iframeRef.current.contentWindow.postMessage({ type: "THEME_CHANGED", theme }, "*")
+    }
+  }, [theme, iframeLoaded])
+
+  const handleIframeLoad = () => {
+    setIframeLoaded(true)
+
+    // Send initial theme and code to iframe
+    if (iframeRef.current && iframeRef.current.contentWindow) {
+      iframeRef.current.contentWindow.postMessage({ type: "THEME_CHANGED", theme }, "*")
+
+      if (selectedFile) {
+        const file = files.find((f) => f.id === selectedFile)
+        if (file) {
+          iframeRef.current.contentWindow.postMessage({ type: "UPDATE_CODE", code: file.code }, "*")
+        }
+      }
+    }
+  }
 
   const simulateCodeGeneration = () => {
     setIsGenerating(true)
@@ -454,7 +504,7 @@ export default function BackendEditorClient() {
             </Button>
           </div>
 
-          <div className="grid grid-cols-[280px_1fr_300px] gap-6 h-[calc(100vh-240px)]">
+          <div className="grid grid-cols-[280px_1fr_300px] gap-6" style={{ height: "calc(100vh - 200px)" }}>
             {/* Sidebar */}
             <div className="rounded-lg border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950 overflow-hidden">
               <div className="p-4 border-b border-zinc-200 dark:border-zinc-800">
@@ -464,7 +514,7 @@ export default function BackendEditorClient() {
                 </div>
               </div>
 
-              <div className="p-2 overflow-auto" style={{ maxHeight: "calc(100vh - 300px)" }}>
+              <div className="p-2 overflow-auto" style={{ height: "calc(100vh - 300px)" }}>
                 {/* Endpoints Section */}
                 <div
                   className={`p-2 ${activeSection === "endpoints" ? "bg-zinc-100/50 dark:bg-zinc-800/50" : ""} rounded-md mb-2 cursor-pointer`}
@@ -604,8 +654,8 @@ export default function BackendEditorClient() {
             </div>
 
             {/* Main Content */}
-            <div className="flex flex-col rounded-lg border border-zinc-200 dark:border-zinc-800 overflow-hidden">
-              <Tabs defaultValue="code" className="flex-1">
+            <div className="flex flex-col rounded-lg border border-zinc-200 dark:border-zinc-800 overflow-hidden h-full">
+              <Tabs defaultValue="code" className="flex-1 h-full">
                 <div className="flex items-center justify-between border-b border-zinc-200 px-4 py-2 bg-white dark:border-zinc-800 dark:bg-zinc-950">
                   <div className="flex items-center gap-2">
                     {selectedFile && (
@@ -642,13 +692,16 @@ export default function BackendEditorClient() {
                   </TabsList>
                 </div>
 
-                <TabsContent value="code" className="flex-1 p-0 data-[state=active]:flex">
+                <TabsContent value="code" className="flex-1 p-0 data-[state=active]:flex bg-transparent h-full">
                   <div className="w-full h-full" id="monaco-editor-container">
                     {/* Monaco Editor will be mounted here via client component */}
                     <iframe
+                      ref={iframeRef}
                       src="/create-backend/backend-editor/editor"
-                      className="w-full h-full border-0"
+                      className="w-full h-full border-0 bg-transparent"
                       title="Code Editor"
+                      style={{ height: "calc(100vh - 300px)" }}
+                      onLoad={handleIframeLoad}
                     />
                   </div>
                 </TabsContent>

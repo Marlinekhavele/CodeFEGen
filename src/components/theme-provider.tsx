@@ -1,60 +1,70 @@
-'use client'
-import { createContext, useContext, useEffect, useLayoutEffect, useState } from 'react'
+"use client"
+import { createContext, useContext, useEffect, useState } from "react"
+import { ThemeProvider as NextThemesProvider } from "next-themes"
+import type { ReactNode } from "react"
 
-type Theme = 'light' | 'dark' | null
-
-interface ThemeContextType {
-  theme: Theme
-  toggleTheme: () => void
+interface ThemeProviderProps {
+  children: ReactNode
+  attribute?: string
+  defaultTheme?: string
+  enableSystem?: boolean
+  disableTransitionOnChange?: boolean
+  [key: string]: any
 }
 
-const ThemeContext = createContext<ThemeContextType | undefined>(undefined)
+// Create a context to track theme changes
+const ThemeContext = createContext({ theme: "", setTheme: (theme: string) => {} })
 
-export const useTheme = () => {
-  const context = useContext(ThemeContext)
-  if (!context) {
-    throw new Error('useTheme must be used within a ThemeProvider')
-  }
-  return context
-}
+export function ThemeProvider({
+  children,
+  attribute = "class",
+  defaultTheme = "system",
+  enableSystem = true,
+  disableTransitionOnChange = false,
+  ...props
+}: ThemeProviderProps) {
+  const [theme, setTheme] = useState(defaultTheme)
 
-export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setTheme] = useState<Theme>(null)
-
-  // Run only once on mount to set the initial theme
-  useLayoutEffect(() => {
-    const storedTheme = localStorage.getItem('theme') as 'light' | 'dark'
-    if (storedTheme) {
-      // Apply stored theme
-      setTheme(storedTheme)
-    } else {
-      // Default to dark if no theme stored
-      setTheme('dark')
-    }
-  }, [])
-
+  // Force a re-render when the theme changes
   useEffect(() => {
-    // If theme has been set, update the class and localStorage
-    if (theme !== null) {
-      // Toggle the class on the document element based on theme
-      document.documentElement.classList.toggle('dark', theme === 'dark')
-      localStorage.setItem('theme', theme)
+    const htmlElement = document.documentElement
+    if (theme === "dark") {
+      htmlElement.classList.add("dark")
+    } else {
+      htmlElement.classList.remove("dark")
     }
-  }, [theme])  // Only run when theme state changes
-
-  const toggleTheme = () => {
-    // Toggle between 'dark' and 'light' themes
-    setTheme((prevTheme) => (prevTheme === 'dark' ? 'light' : 'dark'))
-  }
-
-  // If theme is still null (initial state), do not render anything
-  if (theme === null) {
-    return null
-  }
+  }, [theme])
 
   return (
-    <ThemeContext.Provider value={{ theme, toggleTheme }}>
-      {children}
+    <ThemeContext.Provider value={{ theme, setTheme }}>
+      <NextThemesProvider
+        attribute={attribute}
+        defaultTheme={defaultTheme}
+        enableSystem={enableSystem}
+        disableTransitionOnChange={disableTransitionOnChange}
+        {...props}
+      >
+        {children}
+      </NextThemesProvider>
     </ThemeContext.Provider>
   )
+}
+
+// Export the useTheme hook that uses both our context and next-themes
+export function useTheme() {
+  const context = useContext(ThemeContext)
+  const { theme, setTheme } = context
+
+  // Ensure theme changes are applied immediately
+  useEffect(() => {
+    // Force theme application
+    const htmlElement = document.documentElement
+    if (theme === "dark") {
+      htmlElement.classList.add("dark")
+    } else {
+      htmlElement.classList.remove("dark")
+    }
+  }, [theme])
+
+  return { theme, setTheme, resolvedTheme: theme }
 }

@@ -13,7 +13,7 @@
     --popover: 0 0% 100%;
     --popover-foreground: 240 10% 3.9%;
     --primary: 240 5.9% 10%;
-    --primary-foreground: 0 0% 98%;
+    --primary-foreground: 0 0% 0%;
     --secondary: 240 4.8% 95.9%;
     --secondary-foreground: 240 5.9% 10%;
     --muted: 240 4.8% 95.9%;
@@ -39,8 +39,8 @@
     --card: 240 10% 3.9%;
     --card-foreground: 0 0% 98%;
     --popover: 240 10% 3.9%;
-    --popover-foreground: 0 0% 98%;
-    --primary: 0 0% 98%;
+    --popover-foreground: 0 0% 0%;
+    --primary: 0 100% 50%;
     --primary-foreground: 240 5.9% 10%;
     --secondary: 240 3.7% 15.9%;
     --secondary-foreground: 0 0% 98%;
@@ -59,7 +59,7 @@
     --chart-4: 280 65% 60%;
     --chart-5: 340 75% 55%;
   }
-}
+
 
 @layer base {
   * {
@@ -70,6 +70,17 @@
     background-color: hsl(var(--background)); /* Use the --background variable */
     color: hsl(var(--foreground)); /* Use the --foreground variable */
   }
+}
+
+/* Ensure dark mode is applied */
+.dark body {
+  @apply bg-zinc-950 text-zinc-100;
+}
+
+/* Ensure light mode is applied */
+:root:not(.dark) body {
+  @apply bg-white text-zinc-900;
+}
 }
 
 /* Add glow effect for neon elements */

@@ -30,16 +30,46 @@ export function MonacoEditor({
     }
   }
 
+  const handleEditorWillMount = (monaco: any) => {
+    // Configure editor options
+    monaco.editor.defineTheme("custom-dark", {
+      base: "vs-dark",
+      inherit: true,
+      rules: [],
+      colors: {
+        "editor.background": "#18181b", // zinc-900
+      },
+    })
+
+    monaco.editor.defineTheme("custom-light", {
+      base: "vs",
+      inherit: true,
+      rules: [],
+      colors: {
+        "editor.background": "#ffffff", // white
+      },
+    })
+  }
+
+  // Map theme to custom theme
+  const getTheme = () => {
+    if (theme === "vs-dark") return "custom-dark"
+    if (theme === "vs-light" || theme === "vs") return "custom-light"
+    return theme
+  }
+
   return (
-    <div className="h-full w-full border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 rounded-md overflow-hidden">
+    <div className="h-full w-full border-0 bg-transparent overflow-hidden">
       {mounted ? (
         <Editor
-          height="100%"
+          height="100vh"
+          width="100%"
           defaultLanguage={language}
           defaultValue={code}
           value={code}
           onChange={handleEditorChange}
-          theme={theme}
+          theme={getTheme()}
+          beforeMount={handleEditorWillMount}
           options={{
             readOnly,
             minimap: { enabled: true },
@@ -55,9 +85,10 @@ export function MonacoEditor({
             padding: { top: 10 },
             automaticLayout: true,
           }}
+          className="h-full w-full"
         />
       ) : (
-        <div className="h-full w-full flex items-center justify-center bg-white dark:bg-zinc-950 text-zinc-500 dark:text-zinc-400">
+        <div className="h-full w-full flex items-center justify-center bg-zinc-900 text-zinc-500 dark:text-zinc-400">
           Loading editor...
         </div>
       )}

@@ -8,10 +8,24 @@ import { ArrowRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import InitializationService from "@/services/initialization-service"
+
+// Define available programming languages
+const PROGRAMMING_LANGUAGES = [
+  { value: "python", label: "Python" },
+  { value: "javascript", label: "JavaScript" },
+  { value: "typescript", label: "TypeScript" },
+  { value: "go", label: "Go" },
+  { value: "java", label: "Java" },
+  { value: "csharp", label: "C#" },
+  { value: "ruby", label: "Ruby" },
+  { value: "php", label: "PHP" },
+]
 
 export function ProjectInitForm() {
   const [projectName, setProjectName] = useState("")
+  const [language, setLanguage] = useState("python")
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState("")
   const router = useRouter()
@@ -33,8 +47,9 @@ export function ProjectInitForm() {
       // In a real environment, this would call the actual API
       // await initService.endpointInitialization(projectName)
 
-      // Store project name in localStorage for use across pages
+      // Store project name and language in localStorage for use across pages
       localStorage.setItem("currentProjectName", projectName)
+      localStorage.setItem("currentProjectLanguage", language)
 
       // Create a URL-friendly version of the project name
       const urlFriendlyName = projectName
@@ -71,6 +86,28 @@ export function ProjectInitForm() {
         />
         <p className="text-xs text-zinc-400">This will be the name of your backend project</p>
         {error && <p className="text-xs text-red-400">{error}</p>}
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="language" className="text-zinc-200 dark:text-zinc-200">
+          Programming Language
+        </Label>
+        <Select value={language} onValueChange={setLanguage} disabled={isLoading}>
+          <SelectTrigger
+            id="language"
+            className="bg-zinc-800 border-zinc-700 text-zinc-200 focus:border-[#7dff00] focus:ring-[#7dff00]/20 dark:bg-zinc-800 dark:border-zinc-700"
+          >
+            <SelectValue placeholder="Select a language" />
+          </SelectTrigger>
+          <SelectContent className="bg-zinc-800 border-zinc-700 text-zinc-200">
+            {PROGRAMMING_LANGUAGES.map((lang) => (
+              <SelectItem key={lang.value} value={lang.value} className="focus:bg-zinc-700 focus:text-zinc-100">
+                {lang.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <p className="text-xs text-zinc-400">Choose the programming language for your backend</p>
       </div>
 
       <div className="pt-4">
