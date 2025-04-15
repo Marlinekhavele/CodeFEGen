@@ -1,5 +1,5 @@
 import axios, { AxiosInstance, RawAxiosRequestHeaders } from 'axios'
-const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL
+const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL  || "https://codebegen.canadacentral.cloudapp.azure.com"
 
 const createAxiosInstance = (
   clientUrl: string,
@@ -9,7 +9,6 @@ const createAxiosInstance = (
   return axios.create({
     timeout: 120000,
     baseURL: `${baseUrl}/api/${version}${clientUrl}/`,
-    withCredentials: true,
     headers: {
       'Content-Type': 'application/json',
       ...headers,

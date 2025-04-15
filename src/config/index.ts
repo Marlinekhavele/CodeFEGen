@@ -1,4 +1,4 @@
-import { AppLogLevel } from '~/utils/logger/log-level.const'
+import { AppLogLevel } from '@/utils/logger/log-level.const'
 
 const definedLogLevel = process.env.NEXT_PUBLIC_LOG_LEVEL || 'error'
 const appEnv = process.env.NEXT_PUBLIC_APP_ENV || 'development'

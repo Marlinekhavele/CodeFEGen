@@ -1,9 +1,3 @@
-export interface InitializationResponse {
-    success: boolean
-    message: string
-    project_id?: string
-  }
-
   export interface EditorFileData {
     project_id: string
     endpoint_path: string

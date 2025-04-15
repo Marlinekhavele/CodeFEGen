@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import InitializationService from "@/services/initialization-service"
+import InitializationService from "@/app/api/services/initialization-service"
 
 // Define available programming languages
 const PROGRAMMING_LANGUAGES = [
@@ -45,11 +45,11 @@ export function ProjectInitForm() {
     try {
       // Mock API call for testing without a real backend
       // In a real environment, this would call the actual API
-      // await initService.endpointInitialization(projectName)
+      await initService.endpointInitialization(projectName)
 
       // Store project name and language in localStorage for use across pages
-      localStorage.setItem("currentProjectName", projectName)
-      localStorage.setItem("currentProjectLanguage", language)
+      // localStorage.setItem("currentProjectName", projectName)
+      // localStorage.setItem("currentProjectLanguage", language)
 
       // Create a URL-friendly version of the project name
       const urlFriendlyName = projectName
