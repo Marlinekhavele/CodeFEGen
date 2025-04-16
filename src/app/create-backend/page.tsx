@@ -1,4 +1,7 @@
-import type { Metadata } from "next"
+"use client"
+
+import { useEffect, useState } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import Image from "next/image"
 import Link from "next/link"
 import { ArrowLeft, Database, Server, Code, Zap, Globe, Lock } from "lucide-react"
@@ -6,12 +9,31 @@ import { Button } from "@/components/ui/button"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { Footer } from "@/components/footer"
 
-export const metadata: Metadata = {
-  title: "Create Backend - CodeBEGen",
-  description: "Create a new AI-powered backend with CodeBEGen",
-}
-
 export default function CreateBackend() {
+  const [projectName, setProjectName] = useState("")
+  const [urlFriendlyName, setUrlFriendlyName] = useState("")
+  const searchParams = useSearchParams()
+  const router = useRouter()
+
+  useEffect(() => {
+    // Get project details from URL parameters
+    const nameFromUrl = searchParams.get("name")
+    const urlFromUrl = searchParams.get("url")
+
+    if (nameFromUrl && urlFromUrl) {
+      setProjectName(nameFromUrl)
+      setUrlFriendlyName(urlFromUrl)
+    } else {
+      // If no parameters found, redirect to project initialization
+      router.push("/init-project")
+    }
+  }, [searchParams, router])
+
+  // Template selection handler
+  const selectTemplate = (templateId: string) => {
+    router.push(`/create-backend/backend-editor?name=${projectName}&url=${urlFriendlyName}&template=${templateId}`)
+  }
+
   return (
     <div className="flex min-h-screen flex-col bg-zinc-100 text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100">
       <header className="sticky top-0 z-50 w-full border-b border-zinc-200 bg-zinc-100/80 backdrop-blur-sm dark:border-zinc-800 dark:bg-zinc-950/80">
@@ -19,19 +41,16 @@ export default function CreateBackend() {
           <div className="flex items-center gap-3">
             <Link href="/" className="flex items-center gap-2">
               <Image
-                src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/codeBE-logo-28i3MSrg38VV5t71KZaV9P29xWpbJf.png"
-                alt="CodeBEGen Logo"
-                width={36}
-                height={36}
+              src="/codeBE-logo.png"
+              alt="CodeBEgen Logo"
+              width={36}
+              height={36}
               />
               <span className="text-xl font-bold text-[#7dff00] dark:text-[#7dff00]">CodeBEGen</span>
             </Link>
           </div>
           <div className="flex items-center gap-4">
             <ThemeToggle />
-            <Button className="rounded-md bg-[#7dff00] text-black hover:bg-[#9aff33] dark:bg-[#7dff00] dark:text-black dark:hover:bg-[#9aff33]">
-              Dashboard
-            </Button>
           </div>
         </div>
       </header>
@@ -58,11 +77,12 @@ export default function CreateBackend() {
               <p className="text-zinc-600 mb-4 dark:text-zinc-400">
                 Create a standard REST API with authentication, database models, and CRUD operations.
               </p>
-              <Link href="/create-backend/backend-editor">
-                <Button className="w-full bg-zinc-100 hover:bg-zinc-200 text-zinc-900 dark:bg-zinc-800 dark:hover:bg-zinc-700 dark:text-zinc-100">
-                  Select Template
-                </Button>
-              </Link>
+              <Button 
+                className="w-full bg-zinc-100 hover:bg-zinc-200 text-zinc-900 dark:bg-zinc-800 dark:hover:bg-zinc-700 dark:text-zinc-100"
+                onClick={() => selectTemplate("rest-api")}
+              >
+                Select Template
+              </Button>
             </div>
 
             <div className="group rounded-lg border border-zinc-200 bg-white p-6 transition-all hover:border-[#7dff00]/50 hover:shadow-[0_0_15px_rgba(125,255,0,0.15)] dark:border-zinc-800 dark:bg-zinc-900">
@@ -75,11 +95,12 @@ export default function CreateBackend() {
               <p className="text-zinc-600 mb-4 dark:text-zinc-400">
                 Build a GraphQL API with schemas, resolvers, and authentication middleware.
               </p>
-              <Link href="/create-backend/backend-editor">
-                <Button className="w-full bg-zinc-100 hover:bg-zinc-200 text-zinc-900 dark:bg-zinc-800 dark:hover:bg-zinc-700 dark:text-zinc-100">
-                  Select Template
-                </Button>
-              </Link>
+              <Button 
+                className="w-full bg-zinc-100 hover:bg-zinc-200 text-zinc-900 dark:bg-zinc-800 dark:hover:bg-zinc-700 dark:text-zinc-100"
+                onClick={() => selectTemplate("graphql-api")}
+              >
+                Select Template
+              </Button>
             </div>
 
             <div className="group rounded-lg border border-zinc-200 bg-white p-6 transition-all hover:border-[#7dff00]/50 hover:shadow-[0_0_15px_rgba(125,255,0,0.15)] dark:border-zinc-800 dark:bg-zinc-900">
@@ -92,11 +113,12 @@ export default function CreateBackend() {
               <p className="text-zinc-600 mb-4 dark:text-zinc-400">
                 Deploy individual serverless functions with event-driven architecture.
               </p>
-              <Link href="/create-backend/backend-editor">
-                <Button className="w-full bg-zinc-100 hover:bg-zinc-200 text-zinc-900 dark:bg-zinc-800 dark:hover:bg-zinc-700 dark:text-zinc-100">
-                  Select Template
-                </Button>
-              </Link>
+              <Button 
+                className="w-full bg-zinc-100 hover:bg-zinc-200 text-zinc-900 dark:bg-zinc-800 dark:hover:bg-zinc-700 dark:text-zinc-100"
+                onClick={() => selectTemplate("serverless")}
+              >
+                Select Template
+              </Button>
             </div>
 
             <div className="group rounded-lg border border-zinc-200 bg-white p-6 transition-all hover:border-[#7dff00]/50 hover:shadow-[0_0_15px_rgba(125,255,0,0.15)] dark:border-zinc-800 dark:bg-zinc-900">
@@ -109,11 +131,12 @@ export default function CreateBackend() {
               <p className="text-zinc-600 mb-4 dark:text-zinc-400">
                 Build a WebSocket-based real-time API for chat, notifications, and live updates.
               </p>
-              <Link href="/create-backend/backend-editor">
-                <Button className="w-full bg-zinc-100 hover:bg-zinc-200 text-zinc-900 dark:bg-zinc-800 dark:hover:bg-zinc-700 dark:text-zinc-100">
-                  Select Template
-                </Button>
-              </Link>
+              <Button 
+                className="w-full bg-zinc-100 hover:bg-zinc-200 text-zinc-900 dark:bg-zinc-800 dark:hover:bg-zinc-700 dark:text-zinc-100"
+                onClick={() => selectTemplate("realtime-api")}
+              >
+                Select Template
+              </Button>
             </div>
 
             <div className="group rounded-lg border border-zinc-200 bg-white p-6 transition-all hover:border-[#7dff00]/50 hover:shadow-[0_0_15px_rgba(125,255,0,0.15)] dark:border-zinc-800 dark:bg-zinc-900">
@@ -126,11 +149,12 @@ export default function CreateBackend() {
               <p className="text-zinc-600 mb-4 dark:text-zinc-400">
                 Complete e-commerce backend with products, orders, payments, and user management.
               </p>
-              <Link href="/create-backend/backend-editor">
-                <Button className="w-full bg-zinc-100 hover:bg-zinc-200 text-zinc-900 dark:bg-zinc-800 dark:hover:bg-zinc-700 dark:text-zinc-100">
-                  Select Template
-                </Button>
-              </Link>
+              <Button 
+                className="w-full bg-zinc-100 hover:bg-zinc-200 text-zinc-900 dark:bg-zinc-800 dark:hover:bg-zinc-700 dark:text-zinc-100"
+                onClick={() => selectTemplate("ecommerce-api")}
+              >
+                Select Template
+              </Button>
             </div>
 
             <div className="group rounded-lg border border-zinc-200 bg-white p-6 transition-all hover:border-[#7dff00]/50 hover:shadow-[0_0_15px_rgba(125,255,0,0.15)] dark:border-zinc-800 dark:bg-zinc-900">
@@ -143,11 +167,12 @@ export default function CreateBackend() {
               <p className="text-zinc-600 mb-4 dark:text-zinc-400">
                 Authentication and authorization service with OAuth, JWT, and role-based access control.
               </p>
-              <Link href="/create-backend/backend-editor">
-                <Button className="w-full bg-zinc-100 hover:bg-zinc-200 text-zinc-900 dark:bg-zinc-800 dark:hover:bg-zinc-700 dark:text-zinc-100">
-                  Select Template
-                </Button>
-              </Link>
+              <Button 
+                className="w-full bg-zinc-100 hover:bg-zinc-200 text-zinc-900 dark:bg-zinc-800 dark:hover:bg-zinc-700 dark:text-zinc-100"
+                onClick={() => selectTemplate("auth-service")}
+              >
+                Select Template
+              </Button>
             </div>
           </div>
 
@@ -161,13 +186,19 @@ export default function CreateBackend() {
               <textarea
                 className="w-full rounded-md border border-zinc-300 bg-zinc-50 px-4 py-3 text-zinc-700 placeholder:text-zinc-500 focus:border-[#7dff00] focus:outline-none min-h-[150px] dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300"
                 placeholder="Describe your backend requirements... (e.g., 'Create a REST API for a blog with user authentication, posts, comments, and categories')"
+                id="custom-requirements"
               ></textarea>
             </div>
-            <Link href="/create-backend/backend-editor">
-              <Button className="bg-[#7dff00] text-black hover:bg-[#9aff33] dark:bg-[#7dff00] dark:text-black dark:hover:bg-[#9aff33]">
-                Generate Backend
-              </Button>
-            </Link>
+            <Button 
+              className="bg-[#7dff00] text-black hover:bg-[#9aff33] dark:bg-[#7dff00] dark:text-black dark:hover:bg-[#9aff33]"
+              onClick={() => {
+                const customRequirementsElement = document.getElementById("custom-requirements");
+                const customRequirements = customRequirementsElement ? (customRequirementsElement as HTMLTextAreaElement).value : "";
+                router.push(`/create-backend/backend-editor?name=${projectName}&url=${urlFriendlyName}&template=custom&requirements=${encodeURIComponent(customRequirements)}`);
+              }}
+            >
+              Generate Backend
+            </Button>
           </div>
         </div>
       </main>

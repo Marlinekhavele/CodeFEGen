@@ -1,125 +1,160 @@
 "use client"
 
-import type React from "react"
-
 import { useState } from "react"
-import { useRouter } from "next/navigation"
-import { ArrowRight } from "lucide-react"
+import { zodResolver } from "@hookform/resolvers/zod"
+import { useForm } from "react-hook-form"
+import type * as z from "zod"
+import InitializationService from "@/app/api/services/initialization-service"
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
+import { CreateBackendFormSchema } from "@/schemas"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import InitializationService from "@/app/api/services/initialization-service"
+import { Loader2 } from "lucide-react"
+import { useRouter } from "next/navigation"
 
-// Define available programming languages
-const PROGRAMMING_LANGUAGES = [
-  { value: "python", label: "Python" },
-  { value: "javascript", label: "JavaScript" },
-  { value: "typescript", label: "TypeScript" },
-  { value: "go", label: "Go" },
-  { value: "java", label: "Java" },
-  { value: "csharp", label: "C#" },
-  { value: "ruby", label: "Ruby" },
-  { value: "php", label: "PHP" },
-]
+interface ProjectInitFormProps {
+  onProjectInitialized?: (projectName: string, urlFriendlyName: string) => void
+}
 
-export function ProjectInitForm() {
-  const [projectName, setProjectName] = useState("")
-  const [language, setLanguage] = useState("python")
+export function ProjectInitForm({ onProjectInitialized }: ProjectInitFormProps) {
+  const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState("")
   const router = useRouter()
-  const initService = new InitializationService()
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const form = useForm<z.infer<typeof CreateBackendFormSchema>>({
+    resolver: zodResolver(CreateBackendFormSchema),
+    defaultValues: {
+      project_name: "",
+      language: "python", // Default language
+      framework: "flask", // Default framework
+    },
+  })
 
-    if (!projectName.trim()) {
-      setError("Project name is required")
-      return
-    }
+  const { isDirty, isSubmitting } = form.formState
 
+  const handleSubmit = async (values: z.infer<typeof CreateBackendFormSchema>) => {
+    setError(null)
     setIsLoading(true)
-    setError("")
+    const projectInitialization = new InitializationService()
 
     try {
-      // Mock API call for testing without a real backend
-      // In a real environment, this would call the actual API
-      await initService.endpointInitialization(projectName)
+      const response = await projectInitialization.endpointInitialization(
+        values.project_name,
+        values.language,
+        values.framework,
+      )
 
-      // Store project name and language in localStorage for use across pages
-      // localStorage.setItem("currentProjectName", projectName)
-      // localStorage.setItem("currentProjectLanguage", language)
+      if (response) {
+        // Assuming the response contains a url_friendly_name field
+        // If not, you might need to generate it here or adjust based on your API response
+        const urlFriendlyName = values.project_name
+          .toLowerCase()
+          .replace(/\s+/g, "-")
+          .replace(/[^a-z0-9-]/g, "")
 
-      // Create a URL-friendly version of the project name
-      const urlFriendlyName = projectName
-        .toLowerCase()
-        .replace(/\s+/g, "-")
-        .replace(/[^a-z0-9-]/g, "")
-
-      // Simulate API delay
-      await new Promise((resolve) => setTimeout(resolve, 1000))
-
-      // Navigate to the create-backend page
-      router.push("/create-backend")
+        if (onProjectInitialized) {
+          // If callback is provided, use it
+          onProjectInitialized(values.project_name, urlFriendlyName)
+        } else {
+          // Otherwise, redirect to the editor with project details in URL parameters
+          router.push(
+            `/create-backend?name=${encodeURIComponent(values.project_name)}&url=${encodeURIComponent(urlFriendlyName)}`,
+          )
+        }
+      }
     } catch (err) {
-      console.error("Failed to initialize project:", err)
-      setError("Failed to initialize project. Please try again.")
+      console.error("Error initializing project:", err)
+      setError("Error while initializing project. Please try again.")
     } finally {
       setIsLoading(false)
     }
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
-      <div className="space-y-2">
-        <Label htmlFor="project-name" className="text-zinc-200 dark:text-zinc-200">
-          Project Name
-        </Label>
-        <Input
-          id="project-name"
-          value={projectName}
-          onChange={(e) => setProjectName(e.target.value)}
-          placeholder="My Awesome Backend"
-          className="bg-zinc-800 border-zinc-700 text-zinc-200 focus:border-[#7dff00] focus:ring-[#7dff00]/20 dark:bg-zinc-800 dark:border-zinc-700"
-          disabled={isLoading}
-        />
-        <p className="text-xs text-zinc-400">This will be the name of your backend project</p>
-        {error && <p className="text-xs text-red-400">{error}</p>}
+    <div className="space-y-8 rounded-lg border border-zinc-800 bg-zinc-950 p-6 shadow-lg">
+      <div className="text-center">
+        <h1 className="text-2xl font-bold text-white">Create Backend Project</h1>
+        <p className="mt-2 text-sm text-zinc-400">Fill in the details below to initialize your backend project.</p>
       </div>
 
-      <div className="space-y-2">
-        <Label htmlFor="language" className="text-zinc-200 dark:text-zinc-200">
-          Programming Language
-        </Label>
-        <Select value={language} onValueChange={setLanguage} disabled={isLoading}>
-          <SelectTrigger
-            id="language"
-            className="bg-zinc-800 border-zinc-700 text-zinc-200 focus:border-[#7dff00] focus:ring-[#7dff00]/20 dark:bg-zinc-800 dark:border-zinc-700"
-          >
-            <SelectValue placeholder="Select a language" />
-          </SelectTrigger>
-          <SelectContent className="bg-zinc-800 border-zinc-700 text-zinc-200">
-            {PROGRAMMING_LANGUAGES.map((lang) => (
-              <SelectItem key={lang.value} value={lang.value} className="focus:bg-zinc-700 focus:text-zinc-100">
-                {lang.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <p className="text-xs text-zinc-400">Choose the programming language for your backend</p>
-      </div>
+      <Form {...form}>
+        <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
+          <FormField
+            name="project_name"
+            control={form.control}
+            render={({ field }) => (
+              <FormItem className="space-y-2">
+                <FormLabel className="text-zinc-200">Project Name</FormLabel>
+                <FormControl>
+                  <Input
+                    {...field}
+                    type="text"
+                    placeholder="Enter Project Name"
+                    className="bg-zinc-800 border-zinc-700 text-zinc-200 focus:border-[#7dff00] focus:ring-[#7dff00]/20"
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
 
-      <div className="pt-4">
-        <Button
-          type="submit"
-          className="w-full bg-[#7dff00] text-black hover:bg-[#9aff33] dark:bg-[#7dff00] dark:text-black dark:hover:bg-[#9aff33] group"
-          disabled={isLoading}
-        >
-          {isLoading ? "Initializing..." : "Continue to Select Template"}
-          <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
-        </Button>
-      </div>
-    </form>
+          <FormField
+            name="language"
+            control={form.control}
+            render={({ field }) => (
+              <FormItem className="space-y-2">
+                <FormLabel className="text-zinc-200">Language</FormLabel>
+                <FormControl>
+                  <Input
+                    {...field}
+                    type="text"
+                    placeholder="Enter Language (e.g., Python)"
+                    className="bg-zinc-800 border-zinc-700 text-zinc-200 focus:border-[#7dff00] focus:ring-[#7dff00]/20"
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            name="framework"
+            control={form.control}
+            render={({ field }) => (
+              <FormItem className="space-y-2">
+                <FormLabel className="text-zinc-200">Framework</FormLabel>
+                <FormControl>
+                  <Input
+                    {...field}
+                    type="text"
+                    placeholder="Enter Framework (e.g., Flask)"
+                    className="bg-zinc-800 border-zinc-700 text-zinc-200 focus:border-[#7dff00] focus:ring-[#7dff00]/20"
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <div className="space-y-2">
+            {error && <p className="text-xs text-red-400">{error}</p>}
+            <Button
+              type="submit"
+              className="w-full bg-[#7dff00] text-black hover:bg-[#9aff33]"
+              disabled={!isDirty || isSubmitting || isLoading}
+            >
+              {isLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Creating...
+                </>
+              ) : (
+                "Create Backend"
+              )}
+            </Button>
+          </div>
+        </form>
+      </Form>
+    </div>
   )
 }

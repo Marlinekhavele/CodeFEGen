@@ -117,12 +117,14 @@
       project_id: string
       status: string
       websocket_url: string
+      code?: string
     }
   }
   
   export interface CodeGenData {
     project_id: string
-    endpoint_description: string
+    prompt: string
+    language: string
     method: string
     endpoint_path: string
     additional_context?: string

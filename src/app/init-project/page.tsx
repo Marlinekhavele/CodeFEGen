@@ -17,11 +17,11 @@ export default function InitProject() {
         <div className="container flex h-16 items-center justify-between">
           <div className="flex items-center gap-3">
             <Link href="/" className="flex items-center gap-2">
-              <Image
-                src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/codeBE-logo-28i3MSrg38VV5t71KZaV9P29xWpbJf.png"
-                alt="CodeBEGen Logo"
-                width={36}
-                height={36}
+            <Image
+            src="/codeBE-logo.png"
+            alt="CodeBEgen Logo"
+            width={36}
+            height={36}
               />
               <span className="text-xl font-bold text-[#7dff00] dark:text-[#7dff00]">CodeBEGen</span>
             </Link>

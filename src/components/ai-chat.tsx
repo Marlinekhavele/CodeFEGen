@@ -1,12 +1,13 @@
 "use client"
 
 import type React from "react"
-import Image from 'next/image'
+import Image from "next/image"
 import { useState, useRef, useEffect } from "react"
-import { Send, ThumbsUp, ThumbsDown, Copy, CornerUpRight, Paperclip, Maximize2 } from "lucide-react"
+import { Send, ThumbsUp, ThumbsDown, Copy, CornerUpRight, Paperclip, Maximize2, TriangleAlert } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
+import CodeGenService from "@/app/api/services/code-gen-service"
 
 type Message = {
   id: string
@@ -15,10 +16,20 @@ type Message = {
   timestamp: Date
 }
 
-export function AIChat() {
+type CodeGenStatus = "idle" | "generating" | "generated" | "generationFailed"
+
+// Update the component props to accept projectId
+type AIChartProps = {
+  projectId: string
+}
+
+export function AIChat({ projectId }: AIChartProps) {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState("")
   const [isLoading, setIsLoading] = useState(false)
+  const [codeGenStatus, setCodeGenStatus] = useState<CodeGenStatus>("idle")
+  const [successMessage, setSuccessMessage] = useState<string | null>(null)
+  const [lastMessage, setLastMessage] = useState<string | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
 
@@ -27,6 +38,7 @@ export function AIChat() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
   }, [messages])
 
+  // Update the handleSubmit function to use the projectId from props
   const handleSubmit = async (e?: React.FormEvent) => {
     e?.preventDefault()
     if (!input.trim() || isLoading) return
@@ -39,8 +51,11 @@ export function AIChat() {
     }
 
     setMessages((prev) => [...prev, userMessage])
+    setLastMessage(input.trim())
     setInput("")
     setIsLoading(true)
+    setCodeGenStatus("generating")
+    setSuccessMessage("Generating code...")
 
     // Focus the input after sending
     setTimeout(() => {
@@ -48,20 +63,91 @@ export function AIChat() {
     }, 100)
 
     try {
-      // Simulate AI response
-      await new Promise((resolve) => setTimeout(resolve, 1000))
+      // Use the CodeGenService to generate code
+      const codeGenService = new CodeGenService()
+      const response = await codeGenService.generateCode({
+        project_id: projectId,
+        prompt: userMessage.content,
+        language: "typescript", // You can make this dynamic based on user input or context
+        method: "GET", // Default method, can be made dynamic
+        endpoint_path: "/api/example", // Default path, can be made dynamic
+        additional_context: "", // Optional additional context
+      })
 
-      const assistantMessage: Message = {
+      // If the service returns a WebSocket URL for streaming
+      if (response.websocket_url) {
+        const ws = new WebSocket(response.websocket_url)
+
+        ws.onopen = () => {
+          console.log("WebSocket connection established")
+        }
+
+        ws.onmessage = (event) => {
+          try {
+            const messageData = JSON.parse(event.data)
+
+            if (messageData.message && messageData.status) {
+              setSuccessMessage(messageData.message)
+            }
+
+            if (messageData.is_chunk) {
+              const chunk = atob(messageData.base64_encoded)
+              // Update your Monaco editor with the chunk
+              window.dispatchEvent(
+                new CustomEvent("code-chunk", {
+                  detail: { code: chunk },
+                }),
+              )
+            } else if (messageData.status === "COMPLETED") {
+              setCodeGenStatus("generated")
+              ws.close()
+            }
+          } catch (error) {
+            console.error("Error processing message:", error)
+            setSuccessMessage("Error processing code generation")
+            setCodeGenStatus("generationFailed")
+          }
+        }
+
+        ws.onerror = (error) => {
+          console.error("WebSocket error:", error)
+          setSuccessMessage("Connection error. Try again.")
+          setCodeGenStatus("generationFailed")
+        }
+      } else {
+        // If not using WebSockets, handle the response directly
+        const assistantMessage: Message = {
+          id: (Date.now() + 1).toString(),
+          role: "assistant",
+          content: "I've generated the code for you. Check the editor.",
+          timestamp: new Date(),
+        }
+
+        setMessages((prev) => [...prev, assistantMessage])
+        setCodeGenStatus("generated")
+
+        // Update your Monaco editor with the generated code if available
+        if (response.code) {
+          window.dispatchEvent(
+            new CustomEvent("code-update", {
+              detail: { code: response.code },
+            }),
+          )
+        }
+      }
+    } catch (error) {
+      console.error("Error getting AI response:", error)
+      setCodeGenStatus("generationFailed")
+      setSuccessMessage("Something went wrong. Try again.")
+
+      const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: "assistant",
-        content:
-          "I've analyzed your code and found a potential optimization in the login endpoint. The current implementation might have an issue with the password validation logic. Would you like me to suggest a fix?",
+        content: "Sorry, I encountered an error while generating code. Please try again.",
         timestamp: new Date(),
       }
 
-      setMessages((prev) => [...prev, assistantMessage])
-    } catch (error) {
-      console.error("Error getting AI response:", error)
+      setMessages((prev) => [...prev, errorMessage])
     } finally {
       setIsLoading(false)
     }
@@ -74,17 +160,26 @@ export function AIChat() {
     }
   }
 
+  const handleRetry = () => {
+    if (lastMessage) {
+      const userMessage: Message = {
+        id: Date.now().toString(),
+        role: "user",
+        content: lastMessage,
+        timestamp: new Date(),
+      }
+
+      setMessages((prev) => [...prev, userMessage])
+      handleSubmit()
+    }
+  }
+
   return (
     <div className="flex flex-col h-full border border-zinc-200 rounded-lg overflow-hidden dark:border-zinc-800">
       <div className="p-3 border-b border-zinc-200 bg-white dark:bg-zinc-900 dark:border-zinc-800 flex items-center justify-between">
         <div>
-          <Image
-          src="/codeBE-logo.png"
-          alt="CodeBEgen Logo"
-          width={30}
-          height={30}
-          />
-        </div>            
+          <Image src="/codeBE-logo.png" alt="CodeBEgen Logo" width={30} height={30} />
+        </div>
         <div className="flex items-center gap-1">
           <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full">
             <Maximize2 className="h-4 w-4 text-zinc-500 dark:text-zinc-400" />
@@ -133,6 +228,27 @@ export function AIChat() {
                 )}
               </div>
             ))}
+            {codeGenStatus === "generating" && (
+              <div className="flex items-center gap-2 text-sm">
+                <div className="animate-spin h-4 w-4 border-2 border-zinc-500 border-t-transparent rounded-full"></div>
+                <span>{successMessage}</span>
+              </div>
+            )}
+            {codeGenStatus === "generated" && (
+              <div className="flex items-center gap-2 text-sm">
+                <div className="h-4 w-4 rounded-full border-2 border-[#7dff00]"></div>
+                <span>{successMessage || "Code generated successfully!"}</span>
+              </div>
+            )}
+            {codeGenStatus === "generationFailed" && (
+              <div className="flex items-center gap-2 text-sm">
+                <TriangleAlert className="h-4 w-4 text-red-500" />
+                <span>{successMessage || "Failed to generate code."}</span>
+                <Button variant="outline" size="sm" className="ml-2 py-1 text-xs" onClick={handleRetry}>
+                  Try again
+                </Button>
+              </div>
+            )}
             <div ref={messagesEndRef} />
           </div>
         )}

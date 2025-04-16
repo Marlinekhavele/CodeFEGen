@@ -19,7 +19,6 @@ import {
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ThemeToggle } from "@/components/theme-toggle"
-import { Footer } from "@/components/footer"
 import { AIChat } from "@/components/ai-chat"
 import { toast } from "@/components/ui/use-toast"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
@@ -159,9 +158,29 @@ type FileType = {
   code: string
 }
 
-export default function BackendEditorClient() {
-  const [projectName, setProjectName] = useState("My Awesome Backend")
-  const [urlFriendlyName, setUrlFriendlyName] = useState("my-awesome-backend")
+// Modify the BackendEditorClient component to accept urlFriendlyName as a prop
+export default function BackendEditorClient({
+  projectName,
+  urlFriendlyName = "",
+}: {
+  projectName: string
+  urlFriendlyName?: string
+}) {
+  // Remove the manual URL generation logic since we'll receive it as a prop
+  // const [urlFriendlyName, setUrlFriendlyName] = useState("")
+
+  // useEffect(() => {
+  //   // Generate a URL-friendly name from the project name
+  //   if (projectName) {
+  //     setUrlFriendlyName(
+  //       projectName
+  //         .toLowerCase()
+  //         .replace(/\s+/g, "-")
+  //         .replace(/[^a-z0-9-]/g, ""),
+  //     )
+  //   }
+  // }, [projectName])
+
   const [files, setFiles] = useState<FileType[]>([])
   const [selectedFile, setSelectedFile] = useState<string | null>(null)
   const [currentCode, setCurrentCode] = useState("")
@@ -172,20 +191,6 @@ export default function BackendEditorClient() {
   const [iframeLoaded, setIframeLoaded] = useState(false)
 
   useEffect(() => {
-    // Get project name and language from localStorage if available
-    const storedProjectName = localStorage.getItem("currentProjectName")
-    const storedLanguage = localStorage.getItem("currentProjectLanguage") || "python"
-
-    if (storedProjectName) {
-      setProjectName(storedProjectName)
-      setUrlFriendlyName(
-        storedProjectName
-          .toLowerCase()
-          .replace(/\s+/g, "-")
-          .replace(/[^a-z0-9-]/g, ""),
-      )
-    }
-
     // Initialize with sample files
     const initialFiles: FileType[] = [
       { id: "login", name: "login", path: "/auth/login", type: "endpoint", code: sampleCode.endpoints.login },
@@ -374,19 +379,19 @@ export default function BackendEditorClient() {
           <div className="flex items-center gap-3">
             <Link href="/" className="flex items-center gap-2">
               <Image
-                src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/codeBE-logo-28i3MSrg38VV5t71KZaV9P29xWpbJf.png"
-                alt="CodeBEGen Logo"
-                width={36}
-                height={36}
+              src="/codeBE-logo.png"
+              alt="CodeBEgen Logo"
+              width={30}
+              height={30}
               />
               <span className="text-xl font-bold text-[#7dff00] dark:text-[#7dff00]">CodeBEGen</span>
             </Link>
           </div>
           <div className="flex items-center gap-4">
             <ThemeToggle />
-            <Button className="rounded-md bg-[#7dff00] text-black hover:bg-[#9aff33] dark:bg-[#7dff00] dark:text-black dark:hover:bg-[#9aff33]">
+            {/* <Button className="rounded-md bg-[#7dff00] text-black hover:bg-[#9aff33] dark:bg-[#7dff00] dark:text-black dark:hover:bg-[#9aff33]">
               Dashboard
-            </Button>
+            </Button> */}
           </div>
         </div>
       </header>
