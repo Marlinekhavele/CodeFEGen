@@ -2,7 +2,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { AIChat } from "@/components/ai-chat"
+import AIChat from "@/components/ai-chat"
 import { toast } from "@/components/ui/use-toast"
 import CodeGenService from "@/app/api/services/code-gen-service"
 import { GeneratedFileType, FileType, GeneratedDataType } from "@/types"

@@ -24,9 +24,10 @@ export function ProjectFiles({
   generatedData,
   onGenerateAdditionalCode,
   onSelectGeneratedFile,
-  isGenerating
+  isGenerating,
 }: ProjectFilesProps) {
-  const [activeSection, setActiveSection] = useState<string>("endpoints")
+  const [activeSection, setActiveSection] = useState<string>("endpoints");
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   return (
     <div className="rounded-lg border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950 overflow-hidden">
@@ -39,12 +40,78 @@ export function ProjectFiles({
           variant="ghost"
           size="sm"
           className="h-7 w-7 text-zinc-600 hover:text-[#7dff00] dark:text-zinc-400 dark:hover:text-[#7dff00]"
-          onClick={onGenerateAdditionalCode}
-          disabled={isGenerating}
+          onClick={() => setIsModalOpen(true)}
         >
           <Plus className="h-4 w-4" />
         </Button>
       </div>
+
+      {/* Modal */}
+      {isModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+          <div className="bg-white dark:bg-zinc-950 rounded-lg p-6 w-[400px]">
+            <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-100 mb-4">
+              Create a New Endpoint
+            </h2>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                // Handle form submission logic here
+                setIsModalOpen(false);
+              }}
+              className="space-y-4"
+            >
+              <div>
+                <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                  Endpoint URL
+                </label>
+                <input
+                  type="text"
+                  placeholder="Your-endpoint"
+                  className="w-full mt-1 p-2 border border-zinc-300 rounded-md dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-200"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                  HTTP Method
+                </label>
+                <select
+                  className="w-full mt-1 p-2 border border-zinc-300 rounded-md dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-200"
+                >
+                  <option value="GET">GET</option>
+                  <option value="POST">POST</option>
+                  <option value="PUT">PUT</option>
+                  <option value="DELETE">DELETE</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                  API Description
+                </label>
+                <textarea
+                  placeholder="Enter description"
+                  className="w-full mt-1 p-2 border border-zinc-300 rounded-md dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-200"
+                />
+              </div>
+              <div className="flex justify-end space-x-2">
+                <Button
+                  variant="ghost"
+                  onClick={() => setIsModalOpen(false)}
+                  className="text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  className="bg-[#7dff00] text-black hover:bg-[#9aff33] dark:bg-[#7dff00] dark:text-black dark:hover:bg-[#9aff33]"
+                >
+                  Continue
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Display Generated Code in Folders */}
       {generatedData ? (
@@ -193,5 +260,5 @@ export function ProjectFiles({
         </div>
       )}
     </div>
-  )
+  );
 }

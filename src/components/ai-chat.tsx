@@ -8,6 +8,11 @@ import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
 import CodeGenService from "@/app/api/services/code-gen-service"
+import type { FileObject, CodeGenApiResponse } from "@/types"
+
+// Add language and framework selection dropdowns
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Label } from "@/components/ui/label"
 
 type Message = {
   id: string
@@ -23,20 +28,71 @@ type AIChartProps = {
   projectId: string
 }
 
-export function AIChat({ projectId }: AIChartProps) {
+export default function AIChat({ projectId }: AIChartProps) {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [codeGenStatus, setCodeGenStatus] = useState<CodeGenStatus>("idle")
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
   const [lastMessage, setLastMessage] = useState<string | null>(null)
+  const [generatedFiles, setGeneratedFiles] = useState<Record<string, FileObject> | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
+
+  // Add these state variables inside the AIChat component
+  const [language, setLanguage] = useState<string>("python")
+  const [framework, setFramework] = useState<string>("flask")
+  const [endpointPath, setEndpointPath] = useState<string>("/api/example")
+  const [method, setMethod] = useState<string>("GET")
 
   useEffect(() => {
     // Scroll to bottom when messages change
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
   }, [messages])
+
+  // Process the response data and update the state
+  const processResponseData = (data: CodeGenApiResponse) => {
+    if (data.success && data.data) {
+      // Create a map of file types to file objects
+      const files: Record<string, FileObject> = {}
+
+      // Add each file type to the map
+      if (data.data.endpoint) files["endpoint"] = data.data.endpoint
+      if (data.data.model) files["model"] = data.data.model
+      if (data.data.schema) files["schema"] = data.data.schema
+      if (data.data.migration) files["migration"] = data.data.migration
+
+      setGeneratedFiles(files)
+
+      // Update the Monaco editor with the files
+      window.dispatchEvent(
+        new CustomEvent("code-update", {
+          detail: { files },
+        }),
+      )
+
+      // Create a summary message for the chat
+      const fileNames = Object.keys(files)
+        .map((key) => {
+          const file = files[key]
+          return file.file_path.split("/").pop() || key
+        })
+        .join(", ")
+
+      const assistantMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        role: "assistant",
+        content: `I've generated the following files: ${fileNames}. You can view them in the editor.`,
+        timestamp: new Date(),
+      }
+
+      setMessages((prev) => [...prev, assistantMessage])
+      setCodeGenStatus("generated")
+      setSuccessMessage("Code generated successfully!")
+    } else {
+      throw new Error(data.message || "Failed to generate code")
+    }
+  }
 
   // Update the handleSubmit function to use the projectId from props
   const handleSubmit = async (e?: React.FormEvent) => {
@@ -56,6 +112,7 @@ export function AIChat({ projectId }: AIChartProps) {
     setIsLoading(true)
     setCodeGenStatus("generating")
     setSuccessMessage("Generating code...")
+    setGeneratedFiles(null)
 
     // Focus the input after sending
     setTimeout(() => {
@@ -65,26 +122,62 @@ export function AIChat({ projectId }: AIChartProps) {
     try {
       // Use the CodeGenService to generate code
       const codeGenService = new CodeGenService()
-      const response = await codeGenService.generateCode({
+
+      // Try to get the structured response directly
+      try {
+        // Update the handleSubmit function to use the selected language, framework, method, and endpoint path
+        // Replace the codeGenData object in both API calls with this:
+        const codeGenData = {
+          project_id: projectId,
+          prompt: userMessage.content,
+          language: language,
+          method: method,
+          endpoint_path: endpointPath,
+          additional_context: `Framework: ${framework}`,
+        }
+
+        const structuredResponse = await codeGenService.getGeneratedCode(codeGenData)
+
+        // If we got a successful structured response, process it
+        if (structuredResponse.success) {
+          processResponseData(structuredResponse)
+          return
+        }
+      } catch (structuredError) {
+        console.error("Error getting structured response:", structuredError)
+        // Fall back to the WebSocket approach if direct API call fails
+      }
+
+      // Fall back to the WebSocket approach
+      const codeGenData = {
         project_id: projectId,
         prompt: userMessage.content,
-        language: "typescript", // You can make this dynamic based on user input or context
-        method: "GET", // Default method, can be made dynamic
-        endpoint_path: "/api/example", // Default path, can be made dynamic
-        additional_context: "", // Optional additional context
-      })
+        language: language,
+        method: method,
+        endpoint_path: endpointPath,
+        additional_context: `Framework: ${framework}`,
+      }
+      const response = await codeGenService.generateCode(codeGenData)
 
       // If the service returns a WebSocket URL for streaming
-      if (response.websocket_url) {
-        const ws = new WebSocket(response.websocket_url)
+      if (response.websocket_url || (response.data && response.data.websocket_url)) {
+        const wsUrl = response.websocket_url || (response.data && response.data.websocket_url) || ""
+        console.log("WebSocket URL:", wsUrl)
+
+        let accumulatedData = ""
+
+        // Create WebSocket connection
+        const ws = new WebSocket(wsUrl.startsWith("ws") ? wsUrl : `ws://${window.location.host}${wsUrl}`)
 
         ws.onopen = () => {
           console.log("WebSocket connection established")
+          setSuccessMessage("Connected to code generation service...")
         }
 
         ws.onmessage = (event) => {
           try {
             const messageData = JSON.parse(event.data)
+            console.log("WebSocket message received:", messageData)
 
             if (messageData.message && messageData.status) {
               setSuccessMessage(messageData.message)
@@ -92,18 +185,62 @@ export function AIChat({ projectId }: AIChartProps) {
 
             if (messageData.is_chunk) {
               const chunk = atob(messageData.base64_encoded)
-              // Update your Monaco editor with the chunk
+              accumulatedData += chunk
+
+              // Update the Monaco editor with the chunk
               window.dispatchEvent(
                 new CustomEvent("code-chunk", {
                   detail: { code: chunk },
                 }),
               )
             } else if (messageData.status === "COMPLETED") {
-              setCodeGenStatus("generated")
+              // Try to parse the accumulated data as a CodeGenApiResponse
+              try {
+                const parsedData = JSON.parse(accumulatedData)
+                if (parsedData.status_code !== undefined && parsedData.data) {
+                  processResponseData(parsedData)
+                } else {
+                  // If parsing fails, just show the raw data
+                  window.dispatchEvent(
+                    new CustomEvent("code-update", {
+                      detail: { code: accumulatedData },
+                    }),
+                  )
+
+                  const assistantMessage: Message = {
+                    id: (Date.now() + 1).toString(),
+                    role: "assistant",
+                    content: "I've generated code for you. Check the editor.",
+                    timestamp: new Date(),
+                  }
+
+                  setMessages((prev) => [...prev, assistantMessage])
+                  setCodeGenStatus("generated")
+                }
+              } catch (parseError) {
+                console.error("Error parsing accumulated data:", parseError)
+                // If JSON parsing fails, just show the raw data
+                window.dispatchEvent(
+                  new CustomEvent("code-update", {
+                    detail: { code: accumulatedData },
+                  }),
+                )
+
+                const assistantMessage: Message = {
+                  id: (Date.now() + 1).toString(),
+                  role: "assistant",
+                  content: "I've generated code for you. Check the editor.",
+                  timestamp: new Date(),
+                }
+
+                setMessages((prev) => [...prev, assistantMessage])
+                setCodeGenStatus("generated")
+              }
+
               ws.close()
             }
           } catch (error) {
-            console.error("Error processing message:", error)
+            console.error("Error processing WebSocket message:", error)
             setSuccessMessage("Error processing code generation")
             setCodeGenStatus("generationFailed")
           }
@@ -113,6 +250,14 @@ export function AIChat({ projectId }: AIChartProps) {
           console.error("WebSocket error:", error)
           setSuccessMessage("Connection error. Try again.")
           setCodeGenStatus("generationFailed")
+        }
+
+        ws.onclose = () => {
+          console.log("WebSocket connection closed")
+          if (codeGenStatus === "generating") {
+            setCodeGenStatus("generationFailed")
+            setSuccessMessage("Connection closed unexpectedly. Try again.")
+          }
         }
       } else {
         // If not using WebSockets, handle the response directly
@@ -174,6 +319,7 @@ export function AIChat({ projectId }: AIChartProps) {
     }
   }
 
+  // Replace the return statement with this improved version
   return (
     <div className="flex flex-col h-full border border-zinc-200 rounded-lg overflow-hidden dark:border-zinc-800">
       <div className="p-3 border-b border-zinc-200 bg-white dark:bg-zinc-900 dark:border-zinc-800 flex items-center justify-between">
@@ -185,6 +331,74 @@ export function AIChat({ projectId }: AIChartProps) {
             <Maximize2 className="h-4 w-4 text-zinc-500 dark:text-zinc-400" />
             <span className="sr-only">Expand</span>
           </Button>
+        </div>
+      </div>
+
+      {/* Add this form above the chat input */}
+      <div className="p-3 border-b border-zinc-200 bg-white dark:bg-zinc-900 dark:border-zinc-800">
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1">
+            <Label htmlFor="language" className="text-xs">
+              Language
+            </Label>
+            <Select value={language} onValueChange={setLanguage}>
+              <SelectTrigger id="language" className="h-8">
+                <SelectValue placeholder="Select language" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="python">Python</SelectItem>
+                <SelectItem value="javascript">JavaScript</SelectItem>
+                <SelectItem value="typescript">TypeScript</SelectItem>
+                <SelectItem value="go">Go</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="framework" className="text-xs">
+              Framework
+            </Label>
+            <Select value={framework} onValueChange={setFramework}>
+              <SelectTrigger id="framework" className="h-8">
+                <SelectValue placeholder="Select framework" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="flask">Flask</SelectItem>
+                <SelectItem value="fastapi">FastAPI</SelectItem>
+                <SelectItem value="django">Django</SelectItem>
+                <SelectItem value="express">Express</SelectItem>
+                <SelectItem value="nextjs">Next.js</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="method" className="text-xs">
+              Method
+            </Label>
+            <Select value={method} onValueChange={setMethod}>
+              <SelectTrigger id="method" className="h-8">
+                <SelectValue placeholder="Select method" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="GET">GET</SelectItem>
+                <SelectItem value="POST">POST</SelectItem>
+                <SelectItem value="PUT">PUT</SelectItem>
+                <SelectItem value="DELETE">DELETE</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="endpoint" className="text-xs">
+              Endpoint Path
+            </Label>
+            <input
+              id="endpoint"
+              type="text"
+              value={endpointPath}
+              onChange={(e) => setEndpointPath(e.target.value)}
+              className="w-full h-8 px-3 rounded-md border border-zinc-200 bg-zinc-50 text-sm dark:bg-zinc-800 dark:border-zinc-700"
+              placeholder="/api/example"
+            />
+          </div>
         </div>
       </div>
 

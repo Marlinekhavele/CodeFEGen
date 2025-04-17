@@ -109,19 +109,21 @@
     }
   }
   
+  // 
   export interface CodeChatActivationResponse {
-    status_code: number
-    success: boolean
-    message: string
-    data: {
+    status_code?: number
+    success?: boolean
+    message?: string
+    data?: {
       project_id: string
       status: string
       websocket_url: string
       code?: string
-      status_code?: number
-      message?: string
-      success?: boolean
     }
+    error?: string
+    status?: string
+    websocket_url?: string
+    code?: string
   }
   
   export interface CodeGenData {
@@ -339,4 +341,16 @@ export interface GeneratedFileType {
   path: string;
   code: string;
   method?: string;
+}
+
+export interface FileObject {
+  file_path: string
+  generated_code: string
+  content_base64: string
+  file_hash: string
+  endpoint_path?: string
+  method?: string
+  entity_name?: string
+  endpoint_id?: string
+  exists?: boolean
 }
