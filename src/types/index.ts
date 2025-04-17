@@ -118,6 +118,9 @@
       status: string
       websocket_url: string
       code?: string
+      status_code?: number
+      message?: string
+      success?: boolean
     }
   }
   
@@ -269,3 +272,71 @@
     }
   }
    
+ // Define method types 
+export type MethodType = "GET" | "POST" | "PUT" | "DELETE";
+
+// File types in the editor
+export type FileType = {
+  id: string
+  name: string
+  path: string
+  type: "endpoint" | "model" | "schema" | "config" | "migration"
+  code: string
+  method?: MethodType
+}
+
+// Generated data structure types
+export interface EndpointType {
+  generated_code?: string;
+  endpoint_path?: string;
+  method?: string;
+  content_base64?: string;
+  file_path?: string;
+  file_hash?: string;
+  endpoint_id?: string;
+}
+
+export interface ModelType {
+  generated_code?: string;
+  entity_name?: string;
+  file_path?: string;
+  file_hash?: string;
+  exists?: boolean;
+  content_base64?: string;
+}
+
+export interface SchemaType {
+  generated_code?: string;
+  entity_name?: string;
+  file_path?: string;
+  file_hash?: string;
+  exists?: boolean;
+  content_base64?: string;
+}
+
+export interface MigrationType {
+  generated_code?: string;
+  entity_name?: string;
+  file_path?: string;
+  file_hash?: string;
+  exists?: boolean;
+  content_base64?: string;
+}
+
+export interface GeneratedDataType {
+  project_id?: string;
+  endpoint?: EndpointType;
+  model?: ModelType;
+  schema?: SchemaType;
+  migration?: MigrationType;
+  git_results?: Record<string, string>;
+}
+
+export interface GeneratedFileType {
+  id: string;
+  type: "endpoint" | "model" | "schema" | "migration";
+  name: string;
+  path: string;
+  code: string;
+  method?: string;
+}

@@ -1,193 +1,48 @@
+// app/create-backend/backend-editor/BackendEditorClient.tsx
 "use client"
 
-import { useState, useEffect, useRef } from "react"
-import Image from "next/image"
-import Link from "next/link"
-import {
-  ArrowLeft,
-  Database,
-  Server,
-  Play,
-  Save,
-  Trash2,
-  Copy,
-  FolderTree,
-  Code,
-  FileCode,
-  FileJson,
-} from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { ThemeToggle } from "@/components/theme-toggle"
+import { useState, useEffect } from "react"
 import { AIChat } from "@/components/ai-chat"
 import { toast } from "@/components/ui/use-toast"
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import CodeGenService from "@/app/api/services/code-gen-service"
+import { GeneratedFileType, FileType, GeneratedDataType } from "@/types"
+import { sampleCode } from "@/schemas/modal"
+import { ProjectHeader } from "@/components/project-header"
+import { ProjectFiles } from "@/components/project-files"
+import { FileContent } from "@/components/file-content"
 import { useTheme } from "@/components/theme-provider"
+import { CodeGenData } from "@/types"
 
-// Sample generated code for different sections
-const sampleCode = {
-  endpoints: {
-    login: `@app.route("/api/auth/login", methods=["POST"])
-def login():
-    # Validate required fields
-    data = request.json
-    if not "email" or "password" not in data:
-        return jsonify({"error": "Email and password are required"}), 400
-        
-    # Check database for user
-    user = User.query.filter_by(email=data["email"]).first()
-    if not user or not check_password(user.password, data["password"]):
-        return jsonify({"error": "Invalid credentials"}), 401
-    
-    # Generate token
-    token = generate_token(user.id)
-    
-    return jsonify({
-        "message": "Login successful",
-        "token": token,
-        "user": user.to_dict()
-    }), 200`,
-    users: `@app.route("/api/users", methods=["GET"])
-def get_users():
-    # Get query parameters
-    page = request.args.get("page", 1, type=int)
-    per_page = request.args.get("per_page", 10, type=int)
-    
-    # Fetch users with pagination
-    users = User.query.paginate(page=page, per_page=per_page)
-    
-    return jsonify({
-        "users": [user.to_dict() for user in users.items],
-        "total": users.total,
-        "pages": users.pages,
-        "current_page": users.page
-    }), 200`,
-    user_detail: `@app.route("/api/users/<int:user_id>", methods=["PUT"])
-def update_user(user_id):
-    # Validate user exists
-    user = User.query.get(user_id)
-    if not user:
-        return jsonify({"error": "User not found"}), 404
-        
-    # Update user data
-    data = request.json
-    if "name" in data:
-        user.name = data["name"]
-    if "email" in data:
-        user.email = data["email"]
-        
-    db.session.commit()
-    
-    return jsonify({
-        "message": "User updated successfully",
-        "user": user.to_dict()
-    }), 200`,
-  },
-  models: {
-    user: `class User(db.Model):
-    __tablename__ = "users"
-    
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(100), nullable=False)
-    email = db.Column(db.String(100), unique=True, nullable=False)
-    password = db.Column(db.String(200), nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    
-    def to_dict(self):
-        return {
-            "id": self.id,
-            "name": self.name,
-            "email": self.email,
-            "created_at": self.created_at.isoformat()
-        }`,
-  },
-  schemas: {
-    user: `{
-  "type": "object",
-  "properties": {
-    "id": {
-      "type": "integer",
-      "description": "The user's unique identifier"
-    },
-    "name": {
-      "type": "string",
-      "description": "The user's full name"
-    },
-    "email": {
-      "type": "string",
-      "format": "email",
-      "description": "The user's email address"
-    },
-    "created_at": {
-      "type": "string",
-      "format": "date-time",
-      "description": "The timestamp when the user was created"
-    }
-  },
-  "required": ["id", "name", "email", "created_at"]
-}`,
-  },
-  config: {
-    database: `# Database configuration
-DB_CONFIG = {
-    "development": {
-        "SQLALCHEMY_DATABASE_URI": "sqlite:///dev.db",
-        "SQLALCHEMY_TRACK_MODIFICATIONS": False
-    },
-    "testing": {
-        "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:",
-        "SQLALCHEMY_TRACK_MODIFICATIONS": False
-    },
-    "production": {
-        "SQLALCHEMY_DATABASE_URI": os.environ.get("DATABASE_URL"),
-        "SQLALCHEMY_TRACK_MODIFICATIONS": False
-    }
+interface BackendEditorClientProps {
+  projectName: string
+  urlFriendlyName?: string
+  templateId?: string
 }
 
-# Initialize database
-db = SQLAlchemy(app)
-`,
-  },
-}
-
-type FileType = {
-  id: string
-  name: string
-  path: string
-  type: "endpoint" | "model" | "schema" | "config"
-  code: string
-}
-
-// Update component to accept templateId prop
 export default function BackendEditorClient({
   projectName,
   urlFriendlyName = "",
-  templateId = "", // Add templateId prop with default empty string
-}: {
-  projectName: string
-  urlFriendlyName?: string
-  templateId?: string // Add type for templateId
-}) {
+  templateId = "",
+}: BackendEditorClientProps) {
   const [files, setFiles] = useState<FileType[]>([])
   const [selectedFile, setSelectedFile] = useState<string | null>(null)
   const [currentCode, setCurrentCode] = useState("")
   const [isGenerating, setIsGenerating] = useState(false)
-  const [activeSection, setActiveSection] = useState<string>("endpoints")
-  const { theme, setTheme } = useTheme()
-  const iframeRef = useRef<HTMLIFrameElement>(null)
-  const [iframeLoaded, setIframeLoaded] = useState(false)
+  const [generatedData, setGeneratedData] = useState<GeneratedDataType | null>(null)
+  const { theme } = useTheme()
 
   useEffect(() => {
     // Initialize with sample files
     const initialFiles: FileType[] = [
-      { id: "login", name: "login", path: "/auth/login", type: "endpoint", code: sampleCode.endpoints.login },
-      { id: "users", name: "users", path: "/users", type: "endpoint", code: sampleCode.endpoints.users },
+      { id: "login", name: "login", path: "/auth/login", type: "endpoint", code: sampleCode.endpoints.login, method: "POST" },
+      { id: "users", name: "users", path: "/users", type: "endpoint", code: sampleCode.endpoints.users, method: "GET" },
       {
         id: "user_detail",
         name: "user_detail",
         path: "/users/:id",
         type: "endpoint",
         code: sampleCode.endpoints.user_detail,
+        method: "PUT"
       },
       { id: "user_model", name: "User", path: "/models/user.py", type: "model", code: sampleCode.models.user },
       {
@@ -215,85 +70,203 @@ export default function BackendEditorClient({
     }
 
     // Simulate code generation with template information
-    simulateCodeGeneration(templateId)
-
-    // Listen for messages from the iframe
-    const handleMessage = (event: MessageEvent) => {
-      if (event.data && event.data.type === "CODE_CHANGED") {
-        setCurrentCode(event.data.code)
-      }
-      if (event.data && event.data.type === "REQUEST_THEME") {
-        // Send current theme to iframe
-        if (iframeRef.current && iframeRef.current.contentWindow) {
-          iframeRef.current.contentWindow.postMessage({ type: "THEME_CHANGED", theme }, "*")
-        }
-      }
+    if (templateId) {
+      simulateCodeGeneration(templateId)
     }
+  }, [templateId])
 
-    window.addEventListener("message", handleMessage)
-    return () => window.removeEventListener("message", handleMessage)
-  }, [templateId]) // Add templateId to dependency array
-
-  // Update current code when selected file changes
-  useEffect(() => {
-    if (selectedFile && iframeLoaded) {
-      const file = files.find((f) => f.id === selectedFile)
-      if (file) {
-        setCurrentCode(file.code)
-
-        // Send code to iframe
-        if (iframeRef.current && iframeRef.current.contentWindow) {
-          iframeRef.current.contentWindow.postMessage({ type: "UPDATE_CODE", code: file.code }, "*")
-        }
-      }
-    }
-  }, [selectedFile, files, iframeLoaded])
-
-  // Update iframe when theme changes
-  useEffect(() => {
-    if (iframeRef.current && iframeRef.current.contentWindow && iframeLoaded) {
-      iframeRef.current.contentWindow.postMessage({ type: "THEME_CHANGED", theme }, "*")
-    }
-  }, [theme, iframeLoaded])
-
-  const handleIframeLoad = () => {
-    setIframeLoaded(true)
-
-    // Send initial theme and code to iframe
-    if (iframeRef.current && iframeRef.current.contentWindow) {
-      iframeRef.current.contentWindow.postMessage({ type: "THEME_CHANGED", theme }, "*")
-
-      if (selectedFile) {
-        const file = files.find((f) => f.id === selectedFile)
-        if (file) {
-          iframeRef.current.contentWindow.postMessage({ type: "UPDATE_CODE", code: file.code }, "*")
-        }
-      }
-    }
-  }
-
-  // Updated to use templateId in the toast message
-  const simulateCodeGeneration = (template: string) => {
+  // Simulate code generation for a template using your CodeGenService
+  const simulateCodeGeneration = async (template: string) => {
     setIsGenerating(true)
+    
+    try {
+      const codeGenService = new CodeGenService()
+      const codeGenData: CodeGenData = {
+        project_id: urlFriendlyName || "project-123",
+        prompt: `Generate code for ${template} template`,
+        language: "python",
+        method: "POST",
+        endpoint_path: `/api/${template}`,
+        additional_context: `Template: ${template}`
+      }
+      
+      const response = await codeGenService.generateCode(codeGenData)
+      
+      // Check if the response indicates an error based on your API structure
+      if (!response.success) {
+        throw new Error(response.message)
+      }
+      
+      // Process the response - you'll need to adapt this to match your actual API response structure
+      // This is a mock structure - adjust according to your actual data format
+      const processedData: GeneratedDataType = {
+        project_id: urlFriendlyName || "project-123",
+        endpoint: {
+          generated_code: `@app.route("/api/${template}/auth", methods=["POST"])
+def auth_endpoint():
+    # Implementation for ${template} authentication
+    data = request.json
+    
+    # Process request...
+    
+    return jsonify({
+        "message": "Authentication successful",
+        "data": {}
+    }), 200`,
+          endpoint_path: `/api/${template}/auth`,
+          method: "POST",
+          content_base64: "",
+          file_path: `routes/api/${template}/auth.py`,
+          file_hash: "",
+          endpoint_id: `post-${template}-auth`,
+        },
+        model: {
+          generated_code: `class ${template.charAt(0).toUpperCase() + template.slice(1)}User(db.Model):
+    __tablename__ = "${template}_users"
+    
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(100), unique=True, nullable=False)
+    email = db.Column(db.String(100), unique=True, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)`,
+          content_base64: "",
+          entity_name: `${template.charAt(0).toUpperCase() + template.slice(1)}User`,
+          file_path: `models/${template}_user.py`,
+          file_hash: "",
+          exists: true,
+        },
+        schema: {
+          generated_code: `{
+  "type": "object",
+  "properties": {
+    "username": { "type": "string", "minLength": 3 },
+    "email": { "type": "string", "format": "email" },
+    "password": { "type": "string", "minLength": 8 }
+  },
+  "required": ["username", "email", "password"]
+}`,
+          content_base64: "",
+          entity_name: `${template.charAt(0).toUpperCase() + template.slice(1)}UserSchema`,
+          file_path: `schemas/${template}_user_schema.json`,
+          file_hash: "",
+          exists: true,
+        },
+        migration: {
+          generated_code: `"""create ${template}_users table
+Revision ID: ${Math.random().toString(36).substring(2, 10)}
+Creates Date: ${new Date().toISOString()}
+"""
+from alembic import op
+import sqlalchemy as sa
 
-    // Simulate code generation with a delay
-    const timer = setTimeout(() => {
-      setIsGenerating(false)
+def upgrade():
+    op.create_table('${template}_users',
+        sa.Column('id', sa.Integer(), nullable=False),
+        sa.Column('username', sa.String(length=100), nullable=False),
+        sa.Column('email', sa.String(length=100), nullable=False),
+        sa.Column('created_at', sa.DateTime(), nullable=False),
+        sa.PrimaryKeyConstraint('id'),
+        sa.UniqueConstraint('username'),
+        sa.UniqueConstraint('email')
+    )
+
+def downgrade():
+    op.drop_table('${template}_users')`,
+          content_base64: "",
+          entity_name: `create_${template}_users_table`,
+          file_path: `migrations/versions/${Math.random().toString(36).substring(2, 10)}_create_${template}_users_table.py`,
+          file_hash: "",
+          exists: true,
+        },
+        git_results: {},
+      }
+
+      setGeneratedData(processedData)
+
+      // Add the generated endpoint to the files list
+      if (processedData.endpoint && processedData.endpoint.generated_code) {
+        const newEndpoint: FileType = {
+          id: processedData.endpoint.endpoint_id || `endpoint-${Date.now()}`,
+          name: processedData.endpoint.endpoint_path?.split('/').pop() || 'endpoint',
+          path: processedData.endpoint.endpoint_path || '',
+          type: "endpoint",
+          method: processedData.endpoint.method as "GET" | "POST" | "PUT" | "DELETE" || "POST",
+          code: processedData.endpoint.generated_code,
+        }
+        
+        // Add the model
+        const newModel: FileType = {
+          id: `model-${processedData.model?.entity_name || Date.now()}`,
+          name: processedData.model?.entity_name || 'Model',
+          path: processedData.model?.file_path || '',
+          type: "model",
+          code: processedData.model?.generated_code || '',
+        }
+        
+        // Add the schema
+        const newSchema: FileType = {
+          id: `schema-${processedData.schema?.entity_name || Date.now()}`,
+          name: processedData.schema?.entity_name || 'Schema',
+          path: processedData.schema?.file_path || '',
+          type: "schema",
+          code: processedData.schema?.generated_code || '',
+        }
+        
+        // Add the migration
+        const newMigration: FileType = {
+          id: `migration-${processedData.migration?.entity_name || Date.now()}`,
+          name: processedData.migration?.entity_name || 'Migration',
+          path: processedData.migration?.file_path || '',
+          type: "migration",
+          code: processedData.migration?.generated_code || '',
+        }
+        
+        setFiles(prev => [...prev, newEndpoint, newModel, newSchema, newMigration])
+        setSelectedFile(newEndpoint.id)
+      }
+
       toast({
         title: "Code generation complete",
         description: template 
           ? `Your backend code for ${template} template has been successfully generated.`
           : "Your backend code has been successfully generated.",
       })
-    }, 3000)
-
-    return () => clearTimeout(timer)
+      
+    } catch (error) {
+      console.error("Error generating code:", error)
+      toast({
+        title: "Error generating code",
+        description: error instanceof Error ? error.message : "Failed to generate code",
+        variant: "destructive"
+      })
+    } finally {
+      setIsGenerating(false)
+    }
   }
 
   const handleSaveFile = () => {
     if (!selectedFile) return
 
     setFiles(files.map((file) => (file.id === selectedFile ? { ...file, code: currentCode } : file)))
+
+    // If this file is part of the generated data, update that too
+    if (generatedData) {
+      const currentFile = files.find(f => f.id === selectedFile)
+      if (currentFile) {
+        const updatedGeneratedData = { ...generatedData }
+        
+        if (currentFile.type === "endpoint" && updatedGeneratedData.endpoint) {
+          updatedGeneratedData.endpoint.generated_code = currentCode
+        } else if (currentFile.type === "model" && updatedGeneratedData.model) {
+          updatedGeneratedData.model.generated_code = currentCode
+        } else if (currentFile.type === "schema" && updatedGeneratedData.schema) {
+          updatedGeneratedData.schema.generated_code = currentCode
+        } else if (currentFile.type === "migration" && updatedGeneratedData.migration) {
+          updatedGeneratedData.migration.generated_code = currentCode
+        }
+        
+        setGeneratedData(updatedGeneratedData)
+      }
+    }
 
     toast({
       title: "File saved",
@@ -336,478 +309,158 @@ export default function BackendEditorClient({
     })
   }
 
-  const getFileIcon = (type: string) => {
-    switch (type) {
-      case "endpoint":
-        return <Code className="h-4 w-4 text-blue-400" />
-      case "model":
-        return <Database className="h-4 w-4 text-green-400" />
-      case "schema":
-        return <FileJson className="h-4 w-4 text-yellow-400" />
-      case "config":
-        return <FileCode className="h-4 w-4 text-purple-400" />
-      default:
-        return <FileCode className="h-4 w-4 text-zinc-400" />
-    }
-  }
-
-  const getMethodBadge = (path: string) => {
-    if (path.includes("login")) {
-      return <div className="text-xs px-1.5 py-0.5 rounded font-medium bg-blue-500/20 text-blue-400">POST</div>
-    } else if (path === "/users") {
-      return <div className="text-xs px-1.5 py-0.5 rounded font-medium bg-green-500/20 text-green-400">GET</div>
-    } else if (path.includes(":id")) {
-      return <div className="text-xs px-1.5 py-0.5 rounded font-medium bg-yellow-500/20 text-yellow-400">PUT</div>
-    }
-    return null
-  }
-
-  // Display template info if available
-  const getTemplateInfo = () => {
-    if (!templateId) return null;
+  // Handler for selecting a file from the Generated Code Display
+  const handleSelectGeneratedFile = (file: GeneratedFileType) => {
+    const existingFile = files.find(f => 
+      (f.type === file.type && f.id === file.id) || 
+      (f.type === file.type && f.path === file.path)
+    )
     
-    return (
-      <div className="mb-2 flex items-center">
-        <span className="text-xs px-2 py-1 rounded font-medium bg-[#7dff00]/20 text-[#7dff00]">
-          Template: {templateId}
-        </span>
-      </div>
-    );
-  };
+    if (existingFile) {
+      setSelectedFile(existingFile.id)
+    } else {
+      // Add file to files list
+      const newFile: FileType = {
+        id: file.id,
+        name: file.name,
+        path: file.path,
+        type: file.type,
+        code: file.code,
+        method: file.method as "GET" | "POST" | "PUT" | "DELETE"
+      }
+      
+      setFiles(prev => [...prev, newFile])
+      setSelectedFile(newFile.id)
+    }
+  }
+
+  // Function to generate additional code using your CodeGenService
+  const handleGenerateAdditionalCode = async () => {
+    setIsGenerating(true)
+    toast({
+      title: "Generating additional code",
+      description: "Please wait while we generate more code for your project.",
+    })
+    
+    try {
+      const endpoint = `/api/users/${Math.floor(Math.random() * 1000)}`
+      const method = ["GET", "POST", "PUT", "DELETE"][Math.floor(Math.random() * 4)] as "GET" | "POST" | "PUT" | "DELETE"
+      
+      const codeGenService = new CodeGenService()
+      const codeGenData: CodeGenData = {
+        project_id: urlFriendlyName || "project-123",
+        prompt: `Generate a ${method} endpoint for ${endpoint}`,
+        language: "python",
+        method: method,
+        endpoint_path: endpoint,
+        additional_context: ""
+      }
+      
+      const response = await codeGenService.generateCode(codeGenData)
+      
+      // Check response status based on your API structure
+      if (!response.success) {
+        throw new Error(response.message)
+      }
+      
+      // Process the response - you'll need to adapt this to match your actual API structure
+      // This is a mock response - adjust based on your API
+      const additionalResponse: GeneratedDataType = {
+        project_id: urlFriendlyName || "project-123",
+        endpoint: {
+          generated_code: `@app.route("${endpoint}", methods=["${method}"])
+def new_endpoint():
+    # Auto-generated endpoint
+    data = request.json
+    
+    # Process request...
+    
+    return jsonify({
+        "message": "Operation successful",
+        "data": {}
+    }), 200`,
+          endpoint_path: endpoint,
+          method: method,
+          content_base64: "",
+          file_path: `routes${endpoint}.py`,
+          file_hash: "",
+          endpoint_id: `${method.toLowerCase()}-${endpoint.replace(/\//g, '-')}`,
+        }
+      }
+      
+      // Update generated data with the new endpoint
+      if (generatedData) {
+        setGeneratedData({
+          ...generatedData,
+          endpoint: additionalResponse.endpoint
+        })
+      } else {
+        setGeneratedData(additionalResponse)
+      }
+      
+      // Add new endpoint to files
+      const newEndpoint: FileType = {
+        id: additionalResponse.endpoint?.endpoint_id || `endpoint-${Date.now()}`,
+        name: additionalResponse.endpoint?.endpoint_path?.split('/').pop() || 'endpoint',
+        path: additionalResponse.endpoint?.endpoint_path || '',
+        type: "endpoint",
+        method: additionalResponse.endpoint?.method as "GET" | "POST" | "PUT" | "DELETE" || "GET",
+        code: additionalResponse.endpoint?.generated_code || '',
+      }
+      
+      setFiles(prev => [...prev, newEndpoint])
+      setSelectedFile(newEndpoint.id)
+      
+      toast({
+        title: "Code generated",
+        description: `Generated new ${method} endpoint at ${endpoint}`,
+      })
+    } catch (error) {
+      console.error("Error generating code:", error)
+      toast({
+        title: "Error generating code",
+        description: error instanceof Error ? error.message : "Failed to generate code",
+        variant: "destructive"
+      })
+    } finally {
+      setIsGenerating(false)
+    }
+  }
 
   return (
     <div className="flex min-h-screen flex-col bg-zinc-100 text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100">
-      <header className="sticky top-0 z-50 w-full border-b border-zinc-200 bg-zinc-100/80 backdrop-blur-sm dark:border-zinc-800 dark:bg-zinc-950/80">
-        <div className="container flex h-16 items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Link href="/" className="flex items-center gap-2">
-              <Image
-              src="/codeBE-logo.png"
-              alt="CodeBEgen Logo"
-              width={30}
-              height={30}
-              />
-              <span className="text-xl font-bold text-[#7dff00] dark:text-[#7dff00]">CodeBEGen</span>
-            </Link>
-          </div>
-          <div className="flex items-center gap-4">
-            <ThemeToggle />
-          </div>
-        </div>
-      </header>
+      <ProjectHeader 
+        projectName={projectName}
+        urlFriendlyName={urlFriendlyName}
+        templateId={templateId}
+        isGenerating={isGenerating}
+        onCopyCode={handleCopyCode}
+        onDeleteFile={handleDeleteFile}
+        onSaveFile={handleSaveFile}
+      />
 
       <main className="flex-1">
         <div className="container py-6">
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-4">
-              <Link
-                href="/create-backend"
-                className="inline-flex items-center gap-2 text-zinc-600 hover:text-[#7dff00] dark:text-zinc-400 dark:hover:text-[#7dff00]"
-              >
-                <ArrowLeft className="h-4 w-4" />
-                Back
-              </Link>
-              <h1 className="text-2xl font-medium text-zinc-900 dark:text-white">{projectName}</h1>
-              {isGenerating && (
-                <span className="text-xs bg-[#7dff00]/20 text-[#7dff00] px-2 py-1 rounded-full animate-pulse">
-                  Generating code...
-                </span>
-              )}
-            </div>
-            <div className="flex items-center gap-2">
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
-                      onClick={handleCopyCode}
-                    >
-                      <Copy className="h-4 w-4 mr-2" />
-                      Copy
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>Copy code to clipboard</p>
-                  </TooltipContent>
-                </Tooltip>
-
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
-                      onClick={handleDeleteFile}
-                    >
-                      <Trash2 className="h-4 w-4 mr-2" />
-                      Delete
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>Delete current file</p>
-                  </TooltipContent>
-                </Tooltip>
-
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
-                    >
-                      <Play className="h-4 w-4 mr-2" />
-                      Deploy
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>Deploy your backend</p>
-                  </TooltipContent>
-                </Tooltip>
-
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      size="sm"
-                      className="bg-[#7dff00] text-black hover:bg-[#9aff33] dark:bg-[#7dff00] dark:text-black dark:hover:bg-[#9aff33]"
-                      onClick={handleSaveFile}
-                    >
-                      <Save className="h-4 w-4 mr-2" />
-                      Save
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>Save changes</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            </div>
-          </div>
-
-          {/* Project URL Display */}
-          <div className="mb-4 p-3 bg-white border border-zinc-200 rounded-md flex items-center justify-between dark:bg-zinc-900 dark:border-zinc-800">
-            <div className="flex items-center">
-              <span className="text-sm font-medium text-zinc-500 dark:text-zinc-400 mr-2">Project URL:</span>
-              <code className="text-sm bg-zinc-100 px-2 py-1 rounded text-zinc-800 dark:bg-zinc-800 dark:text-zinc-300">
-                https://api.codebegen.com/{urlFriendlyName}
-              </code>
-            </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-300"
-              onClick={() => {
-                navigator.clipboard.writeText(`https://api.codebegen.com/${urlFriendlyName}`)
-                toast({
-                  title: "URL copied",
-                  description: "The project URL has been copied to your clipboard.",
-                })
-              }}
-            >
-              Copy
-            </Button>
-          </div>
-
-          {/* Display template info if available */}
-          {getTemplateInfo()}
-
           <div className="grid grid-cols-[280px_1fr_300px] gap-6" style={{ height: "calc(100vh - 200px)" }}>
-            {/* Sidebar */}
-            <div className="rounded-lg border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950 overflow-hidden">
-              <div className="p-4 border-b border-zinc-200 dark:border-zinc-800">
-                <div className="flex items-center gap-2">
-                  <FolderTree className="h-5 w-5 text-[#7dff00]" />
-                  <span className="font-medium text-zinc-900 dark:text-zinc-100">Project Files</span>
-                </div>
-              </div>
+            {/* Project Files */}
+            <ProjectFiles 
+              files={files}
+              selectedFile={selectedFile}
+              setSelectedFile={setSelectedFile}
+              generatedData={generatedData}
+              onGenerateAdditionalCode={handleGenerateAdditionalCode}
+              onSelectGeneratedFile={handleSelectGeneratedFile}
+              isGenerating={isGenerating}
+            />
 
-              <div className="p-2 overflow-auto" style={{ height: "calc(100vh - 300px)" }}>
-                {/* Endpoints Section */}
-                <div
-                  className={`p-2 ${activeSection === "endpoints" ? "bg-zinc-100/50 dark:bg-zinc-800/50" : ""} rounded-md mb-2 cursor-pointer`}
-                  onClick={() => setActiveSection("endpoints")}
-                >
-                  <div className="flex items-center gap-2 text-[#7dff00] font-medium text-sm mb-2">
-                    <Server className="h-4 w-4" />
-                    <span>Endpoints</span>
-                  </div>
-
-                  {activeSection === "endpoints" && (
-                    <div className="space-y-1 ml-6">
-                      {files
-                        .filter((file) => file.type === "endpoint")
-                        .map((file) => (
-                          <div
-                            key={file.id}
-                            className={`flex items-center justify-between rounded-md px-2 py-1.5 text-sm ${
-                              selectedFile === file.id
-                                ? "bg-[#7dff00]/20 text-[#7dff00]"
-                                : "text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800"
-                            } cursor-pointer`}
-                            onClick={() => setSelectedFile(file.id)}
-                          >
-                            <div className="flex items-center gap-2">
-                              {getMethodBadge(file.path)}
-                              <span>{file.path}</span>
-                            </div>
-                          </div>
-                        ))}
-                    </div>
-                  )}
-                </div>
-
-                {/* Models Section */}
-                <div
-                  className={`p-2 ${activeSection === "models" ? "bg-zinc-100/50 dark:bg-zinc-800/50" : ""} rounded-md mb-2 cursor-pointer`}
-                  onClick={() => setActiveSection("models")}
-                >
-                  <div className="flex items-center gap-2 text-zinc-700 dark:text-zinc-300 font-medium text-sm">
-                    <Database className="h-4 w-4 text-[#7dff00]" />
-                    <span>Models</span>
-                  </div>
-
-                  {activeSection === "models" && (
-                    <div className="space-y-1 ml-6 mt-2">
-                      {files
-                        .filter((file) => file.type === "model")
-                        .map((file) => (
-                          <div
-                            key={file.id}
-                            className={`flex items-center justify-between rounded-md px-2 py-1.5 text-sm ${
-                              selectedFile === file.id
-                                ? "bg-[#7dff00]/20 text-[#7dff00]"
-                                : "text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800"
-                            } cursor-pointer`}
-                            onClick={() => setSelectedFile(file.id)}
-                          >
-                            <div className="flex items-center gap-2">
-                              {getFileIcon("model")}
-                              <span>{file.name}</span>
-                            </div>
-                          </div>
-                        ))}
-                    </div>
-                  )}
-                </div>
-
-                {/* Schemas Section */}
-                <div
-                  className={`p-2 ${activeSection === "schemas" ? "bg-zinc-100/50 dark:bg-zinc-800/50" : ""} rounded-md mb-2 cursor-pointer`}
-                  onClick={() => setActiveSection("schemas")}
-                >
-                  <div className="flex items-center gap-2 text-zinc-700 dark:text-zinc-300 font-medium text-sm">
-                    <FileJson className="h-4 w-4 text-[#7dff00]" />
-                    <span>Schemas</span>
-                  </div>
-
-                  {activeSection === "schemas" && (
-                    <div className="space-y-1 ml-6 mt-2">
-                      {files
-                        .filter((file) => file.type === "schema")
-                        .map((file) => (
-                          <div
-                            key={file.id}
-                            className={`flex items-center justify-between rounded-md px-2 py-1.5 text-sm ${
-                              selectedFile === file.id
-                                ? "bg-[#7dff00]/20 text-[#7dff00]"
-                                : "text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800"
-                            } cursor-pointer`}
-                            onClick={() => setSelectedFile(file.id)}
-                          >
-                            <div className="flex items-center gap-2">
-                              {getFileIcon("schema")}
-                              <span>{file.name}</span>
-                            </div>
-                          </div>
-                        ))}
-                    </div>
-                  )}
-                </div>
-
-                {/* Configuration Section */}
-                <div
-                  className={`p-2 ${activeSection === "config" ? "bg-zinc-100/50 dark:bg-zinc-800/50" : ""} rounded-md mb-2 cursor-pointer`}
-                  onClick={() => setActiveSection("config")}
-                >
-                  <div className="flex items-center gap-2 text-zinc-700 dark:text-zinc-300 font-medium text-sm">
-                    <FileCode className="h-4 w-4 text-[#7dff00]" />
-                    <span>Configuration</span>
-                  </div>
-
-                  {activeSection === "config" && (
-                    <div className="space-y-1 ml-6 mt-2">
-                      {files
-                        .filter((file) => file.type === "config")
-                        .map((file) => (
-                          <div
-                            key={file.id}
-                            className={`flex items-center justify-between rounded-md px-2 py-1.5 text-sm ${
-                              selectedFile === file.id
-                                ? "bg-[#7dff00]/20 text-[#7dff00]"
-                                : "text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800"
-                            } cursor-pointer`}
-                            onClick={() => setSelectedFile(file.id)}
-                          >
-                            <div className="flex items-center gap-2">
-                              {getFileIcon("config")}
-                              <span>{file.name}</span>
-                            </div>
-                          </div>
-                        ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Main Content */}
-            <div className="flex flex-col rounded-lg border border-zinc-200 dark:border-zinc-800 overflow-hidden h-full">
-              <Tabs defaultValue="code" className="flex-1 h-full">
-                <div className="flex items-center justify-between border-b border-zinc-200 px-4 py-2 bg-white dark:border-zinc-800 dark:bg-zinc-950">
-                  <div className="flex items-center gap-2">
-                    {selectedFile && (
-                      <>
-                        {files.find((f) => f.id === selectedFile)?.type === "endpoint" &&
-                          getMethodBadge(files.find((f) => f.id === selectedFile)?.path || "")}
-                        <span className="text-sm font-medium text-zinc-800 dark:text-zinc-200">
-                          {files.find((f) => f.id === selectedFile)?.path ||
-                            files.find((f) => f.id === selectedFile)?.name}
-                        </span>
-                      </>
-                    )}
-                  </div>
-
-                  <TabsList className="h-9 bg-zinc-100 dark:bg-zinc-800">
-                    <TabsTrigger
-                      value="code"
-                      className="text-xs data-[state=active]:bg-[#7dff00] data-[state=active]:text-black"
-                    >
-                      Code
-                    </TabsTrigger>
-                    <TabsTrigger
-                      value="test"
-                      className="text-xs data-[state=active]:bg-[#7dff00] data-[state=active]:text-black"
-                    >
-                      Test
-                    </TabsTrigger>
-                    <TabsTrigger
-                      value="docs"
-                      className="text-xs data-[state=active]:bg-[#7dff00] data-[state=active]:text-black"
-                    >
-                      Docs
-                    </TabsTrigger>
-                  </TabsList>
-                </div>
-
-                <TabsContent value="code" className="flex-1 p-0 data-[state=active]:flex bg-transparent h-full">
-                  <div className="w-full h-full" id="monaco-editor-container">
-                    {/* Monaco Editor will be mounted here via client component */}
-                    <iframe
-                      ref={iframeRef}
-                      src="/create-backend/backend-editor/editor"
-                      className="w-full h-full border-0 bg-transparent"
-                      title="Code Editor"
-                      style={{ height: "calc(100vh - 300px)" }}
-                      onLoad={handleIframeLoad}
-                    />
-                  </div>
-                </TabsContent>
-
-                <TabsContent value="test" className="bg-white dark:bg-zinc-950 p-4">
-                  <div className="space-y-4">
-                    <h3 className="text-lg font-medium text-zinc-900 dark:text-zinc-100">Test Endpoint</h3>
-                    <p className="text-sm text-zinc-600 dark:text-zinc-400">
-                      Test your endpoint with different parameters and see the response.
-                    </p>
-
-                    <div className="rounded-md border border-zinc-200 bg-zinc-50 p-4 dark:border-zinc-800 dark:bg-zinc-900">
-                      <h4 className="text-sm font-medium text-zinc-800 dark:text-zinc-200 mb-2">Request Body</h4>
-                      <div className="bg-white rounded-md p-4 font-mono text-sm text-zinc-700 dark:bg-zinc-950 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-800">
-                        {`{
-  "email": "user@example.com",
-  "password": "securepassword123"
-}`}
-                      </div>
-
-                      <div className="mt-4 flex justify-end">
-                        <Button size="sm" className="bg-[#7dff00] text-black hover:bg-[#9aff33]">
-                          Send Request
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                </TabsContent>
-
-                <TabsContent value="docs" className="bg-white dark:bg-zinc-950 p-4">
-                  <div className="space-y-4">
-                    <h3 className="text-lg font-medium text-zinc-900 dark:text-zinc-100">API Documentation</h3>
-                    <p className="text-sm text-zinc-600 dark:text-zinc-400">
-                      Automatically generated documentation for this endpoint.
-                    </p>
-
-                    <div className="space-y-4">
-                      <div>
-                        <h4 className="text-sm font-medium text-zinc-800 dark:text-zinc-200 mb-1">Endpoint</h4>
-                        <p className="text-sm text-zinc-600 dark:text-zinc-400">
-                          <span className="text-blue-400 font-medium">POST</span> /auth/login
-                        </p>
-                      </div>
-
-                      <div>
-                        <h4 className="text-sm font-medium text-zinc-800 dark:text-zinc-200 mb-1">Description</h4>
-                        <p className="text-sm text-zinc-600 dark:text-zinc-400">
-                          Authenticates a user and returns a JWT token if credentials are valid.
-                        </p>
-                      </div>
-
-                      <div>
-                        <h4 className="text-sm font-medium text-zinc-800 dark:text-zinc-200 mb-1">Request Body</h4>
-                        <div className="bg-zinc-50 rounded-md p-3 font-mono text-xs text-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-800">
-                          {`{
-  "email": "string", // Required. User's email address
-  "password": "string" // Required. User's password
-}`}
-                        </div>
-                      </div>
-
-                      <div>
-                        <h4 className="text-sm font-medium text-zinc-800 dark:text-zinc-200 mb-1">Responses</h4>
-                        <div className="space-y-2">
-                          <div className="bg-green-500/10 border border-green-500/20 rounded-md p-3">
-                            <div className="flex items-center gap-2 mb-1">
-                              <span className="text-xs font-medium text-green-400">200 OK</span>
-                            </div>
-                            <div className="font-mono text-xs text-zinc-700 dark:text-zinc-300">
-                              {`{
-  "message": "Login successful",
-  "token": "string",
-  "user": {
-    "id": "string",
-    "email": "string",
-    "name": "string"
-  }
-}`}
-                            </div>
-                          </div>
-
-                          <div className="bg-red-500/10 border border-red-500/20 rounded-md p-3">
-                            <div className="flex items-center gap-2 mb-1">
-                              <span className="text-xs font-medium text-red-400">400 Bad Request</span>
-                            </div>
-                            <div className="font-mono text-xs text-zinc-700 dark:text-zinc-300">
-                              {`{
-  "error": "Email and password are required"
-}`}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </TabsContent>
-              </Tabs>
-            </div>
+            {/* File Content */}
+            <FileContent 
+              selectedFile={selectedFile}
+              currentCode={currentCode}
+              files={files}
+              onCodeChange={setCurrentCode}
+              theme={theme}
+            />
 
             {/* AI Chat Panel */}
             <div className="h-full">
