@@ -158,29 +158,16 @@ type FileType = {
   code: string
 }
 
-// Modify the BackendEditorClient component to accept urlFriendlyName as a prop
+// Update component to accept templateId prop
 export default function BackendEditorClient({
   projectName,
   urlFriendlyName = "",
+  templateId = "", // Add templateId prop with default empty string
 }: {
   projectName: string
   urlFriendlyName?: string
+  templateId?: string // Add type for templateId
 }) {
-  // Remove the manual URL generation logic since we'll receive it as a prop
-  // const [urlFriendlyName, setUrlFriendlyName] = useState("")
-
-  // useEffect(() => {
-  //   // Generate a URL-friendly name from the project name
-  //   if (projectName) {
-  //     setUrlFriendlyName(
-  //       projectName
-  //         .toLowerCase()
-  //         .replace(/\s+/g, "-")
-  //         .replace(/[^a-z0-9-]/g, ""),
-  //     )
-  //   }
-  // }, [projectName])
-
   const [files, setFiles] = useState<FileType[]>([])
   const [selectedFile, setSelectedFile] = useState<string | null>(null)
   const [currentCode, setCurrentCode] = useState("")
@@ -227,8 +214,8 @@ export default function BackendEditorClient({
       setCurrentCode(initialFiles[0].code)
     }
 
-    // Simulate code generation
-    simulateCodeGeneration()
+    // Simulate code generation with template information
+    simulateCodeGeneration(templateId)
 
     // Listen for messages from the iframe
     const handleMessage = (event: MessageEvent) => {
@@ -245,7 +232,7 @@ export default function BackendEditorClient({
 
     window.addEventListener("message", handleMessage)
     return () => window.removeEventListener("message", handleMessage)
-  }, [])
+  }, [templateId]) // Add templateId to dependency array
 
   // Update current code when selected file changes
   useEffect(() => {
@@ -285,7 +272,8 @@ export default function BackendEditorClient({
     }
   }
 
-  const simulateCodeGeneration = () => {
+  // Updated to use templateId in the toast message
+  const simulateCodeGeneration = (template: string) => {
     setIsGenerating(true)
 
     // Simulate code generation with a delay
@@ -293,7 +281,9 @@ export default function BackendEditorClient({
       setIsGenerating(false)
       toast({
         title: "Code generation complete",
-        description: "Your backend code has been successfully generated.",
+        description: template 
+          ? `Your backend code for ${template} template has been successfully generated.`
+          : "Your backend code has been successfully generated.",
       })
     }, 3000)
 
@@ -372,6 +362,19 @@ export default function BackendEditorClient({
     return null
   }
 
+  // Display template info if available
+  const getTemplateInfo = () => {
+    if (!templateId) return null;
+    
+    return (
+      <div className="mb-2 flex items-center">
+        <span className="text-xs px-2 py-1 rounded font-medium bg-[#7dff00]/20 text-[#7dff00]">
+          Template: {templateId}
+        </span>
+      </div>
+    );
+  };
+
   return (
     <div className="flex min-h-screen flex-col bg-zinc-100 text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100">
       <header className="sticky top-0 z-50 w-full border-b border-zinc-200 bg-zinc-100/80 backdrop-blur-sm dark:border-zinc-800 dark:bg-zinc-950/80">
@@ -389,9 +392,6 @@ export default function BackendEditorClient({
           </div>
           <div className="flex items-center gap-4">
             <ThemeToggle />
-            {/* <Button className="rounded-md bg-[#7dff00] text-black hover:bg-[#9aff33] dark:bg-[#7dff00] dark:text-black dark:hover:bg-[#9aff33]">
-              Dashboard
-            </Button> */}
           </div>
         </div>
       </header>
@@ -508,6 +508,9 @@ export default function BackendEditorClient({
               Copy
             </Button>
           </div>
+
+          {/* Display template info if available */}
+          {getTemplateInfo()}
 
           <div className="grid grid-cols-[280px_1fr_300px] gap-6" style={{ height: "calc(100vh - 200px)" }}>
             {/* Sidebar */}
@@ -808,7 +811,7 @@ export default function BackendEditorClient({
 
             {/* AI Chat Panel */}
             <div className="h-full">
-              <AIChat />
+              <AIChat projectId={urlFriendlyName || projectName} />
             </div>
           </div>
         </div>
