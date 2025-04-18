@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import BackendEditorClient from "./backend-editor-client"
-import { ProjectInitForm } from "@/components/project-init-form"
+import { ProjectInitForm } from "@/components/create-backend/project-init-form"
 import { Loader2 } from "lucide-react"
 
 export default function CreateBackendPage() {

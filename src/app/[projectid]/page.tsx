@@ -1,4 +1,4 @@
-import { AIChat } from "@/components/ai-chat"
+import AIChat from "@/components/ai-chat"
 import { MonacoEditor } from "@/components/monaco-editor"
 
 export default function ProjectPage({ params }: { params: { projectId: string } }) {

@@ -3,7 +3,7 @@ import { BaseService } from './base-service'
 
 class EndPointService extends BaseService {
   constructor() {
-    super('/projects')
+    super('/endpoint')
   }
 
   public async newEndpointCreation(

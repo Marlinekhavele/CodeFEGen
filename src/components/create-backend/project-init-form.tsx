@@ -11,6 +11,14 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Loader2 } from "lucide-react"
 import { useRouter } from "next/navigation"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import { languages, frameworks } from "./options"
 
 interface ProjectInitFormProps {
   onProjectInitialized?: (projectName: string, urlFriendlyName: string) => void
@@ -25,11 +33,12 @@ export function ProjectInitForm({ onProjectInitialized }: ProjectInitFormProps) 
     resolver: zodResolver(CreateBackendFormSchema),
     defaultValues: {
       project_name: "",
-      language: "python", // Default language
-      framework: "flask", // Default framework
+      language: "python",
+      framework: "flask",
     },
   })
 
+  const selectedLanguage = form.watch("language")
   const { isDirty, isSubmitting } = form.formState
 
   const handleSubmit = async (values: z.infer<typeof CreateBackendFormSchema>) => {
@@ -45,20 +54,16 @@ export function ProjectInitForm({ onProjectInitialized }: ProjectInitFormProps) 
       )
 
       if (response) {
-        // Assuming the response contains a url_friendly_name field
-        // If not, you might need to generate it here or adjust based on your API response
         const urlFriendlyName = values.project_name
           .toLowerCase()
           .replace(/\s+/g, "-")
           .replace(/[^a-z0-9-]/g, "")
 
         if (onProjectInitialized) {
-          // If callback is provided, use it
           onProjectInitialized(values.project_name, urlFriendlyName)
         } else {
-          // Otherwise, redirect to the editor with project details in URL parameters
           router.push(
-            `/create-backend?name=${encodeURIComponent(values.project_name)}&url=${encodeURIComponent(urlFriendlyName)}`,
+            `/create-backend?name=${encodeURIComponent(values.project_name)}&url=${encodeURIComponent(urlFriendlyName)}&language=${values.language}&framework=${values.framework}`,
           )
         }
       }
@@ -104,14 +109,24 @@ export function ProjectInitForm({ onProjectInitialized }: ProjectInitFormProps) 
             render={({ field }) => (
               <FormItem className="space-y-2">
                 <FormLabel className="text-zinc-200">Language</FormLabel>
-                <FormControl>
-                  <Input
-                    {...field}
-                    type="text"
-                    placeholder="Enter Language (e.g., Python)"
-                    className="bg-zinc-800 border-zinc-700 text-zinc-200 focus:border-[#7dff00] focus:ring-[#7dff00]/20"
-                  />
-                </FormControl>
+                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <FormControl>
+                    <SelectTrigger className="bg-zinc-800 border-zinc-700 text-zinc-200 focus:border-[#7dff00] focus:ring-[#7dff00]/20">
+                      <SelectValue placeholder="Select a language" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent className="bg-zinc-800 border-zinc-700 text-zinc-200">
+                    {languages.map((lang) => (
+                      <SelectItem 
+                        key={lang.value} 
+                        value={lang.value}
+                        className="hover:bg-zinc-700 focus:bg-zinc-700"
+                      >
+                        {lang.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
                 <FormMessage />
               </FormItem>
             )}
@@ -123,14 +138,28 @@ export function ProjectInitForm({ onProjectInitialized }: ProjectInitFormProps) 
             render={({ field }) => (
               <FormItem className="space-y-2">
                 <FormLabel className="text-zinc-200">Framework</FormLabel>
-                <FormControl>
-                  <Input
-                    {...field}
-                    type="text"
-                    placeholder="Enter Framework (e.g., Flask)"
-                    className="bg-zinc-800 border-zinc-700 text-zinc-200 focus:border-[#7dff00] focus:ring-[#7dff00]/20"
-                  />
-                </FormControl>
+                <Select 
+                  onValueChange={field.onChange} 
+                  value={field.value}
+                  disabled={!selectedLanguage}
+                >
+                  <FormControl>
+                    <SelectTrigger className="bg-zinc-800 border-zinc-700 text-zinc-200 focus:border-[#7dff00] focus:ring-[#7dff00]/20">
+                      <SelectValue placeholder="Select a framework" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent className="bg-zinc-800 border-zinc-700 text-zinc-200">
+                    {selectedLanguage && frameworks[selectedLanguage]?.map((fw) => (
+                      <SelectItem 
+                        key={fw.value} 
+                        value={fw.value}
+                        className="hover:bg-zinc-700 focus:bg-zinc-700"
+                      >
+                        {fw.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
                 <FormMessage />
               </FormItem>
             )}
