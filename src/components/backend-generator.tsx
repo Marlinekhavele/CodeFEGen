@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useRef, useEffect } from "react"
 import { ChevronDown, ChevronRight, Code, Database, Play, Plus, Server } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -11,7 +11,10 @@ import { EndpointEditor } from "@/components/endpoint-editor"
 import { GeneratedCodeDisplay } from "@/components/gen-code-display"
 import { toast } from "@/components/ui/use-toast"
 import CodeGenService from "@/app/api/services/code-gen-service"
+import WebSocketHandler, { CodeStreamEventType } from "@/app/api/services/websocket-handler"
 import { CodeGenData } from "@/types"
+import { MonacoEditor } from "@/components/monaco-editor"
+import { detectLanguage } from "@/utils/detect-language"
 
 type MethodType = "GET" | "POST" | "PUT" | "DELETE";
 
@@ -110,14 +113,108 @@ export function BackendGenerator() {
   const [endpointUrl, setEndpointUrl] = useState("https://mybackend.com/login")
   const [generatedData, setGeneratedData] = useState<GeneratedDataType | null>(null)
   const [isGenerating, setIsGenerating] = useState(false)
+  const [streamedCode, setStreamedCode] = useState("")
+  const [statusMessage, setStatusMessage] = useState("Ready to generate code")
+  
+  // Add WebSocket handler reference
+  const wsHandlerRef = useRef<WebSocketHandler | null>(null)
+  
+  // Cleanup WebSocket connection when component unmounts
+  useEffect(() => {
+    return () => {
+      if (wsHandlerRef.current) {
+        wsHandlerRef.current.close()
+      }
+    }
+  }, [])
+
+  // --- WebSocket Streaming Integration ---
+  useEffect(() => {
+    if (!wsHandlerRef.current) return;
+
+    // Reset streaming state on new generation
+    if (isGenerating) {
+      setStreamedCode("");
+      wsHandlerRef.current.resetAccumulatedTokens();
+    }
+
+    // TOKEN: append streamed code
+    wsHandlerRef.current.on(CodeStreamEventType.TOKEN, (token: string) => {
+      setStreamedCode((prev) => prev + token);
+    });
+
+    // INFO/PROGRESS: update status
+    wsHandlerRef.current.on(CodeStreamEventType.INFO, (data) => {
+      if (data?.message) setStatusMessage(data.message);
+    });
+    wsHandlerRef.current.on(CodeStreamEventType.PROGRESS, (data) => {
+      if (data?.message) setStatusMessage(data.message);
+    });
+
+    // COMPLETED/COMPLETE: set final code, stop streaming
+    wsHandlerRef.current.on(CodeStreamEventType.COMPLETED, (data) => {
+      if (data?.result?.generated_code) {
+        setStreamedCode(data.result.generated_code);
+        // Optionally update endpoints/generatedData here if needed
+      }
+      setIsGenerating(false);
+      setStatusMessage("Code generation completed");
+    });
+    wsHandlerRef.current.on(CodeStreamEventType.COMPLETE, (data) => {
+      setIsGenerating(false);
+      setStatusMessage(data?.message || "Code generation completed");
+      console.log("COMPLETE event data:", data);
+
+      // Defensive: check if result and endpoint exist
+      if (data?.result && data.result.endpoint && data.result.endpoint.generated_code) {
+        const endpointData = data.result.endpoint;
+        const newEndpoint = {
+          id: endpointData.endpoint_id || `endpoint-${Date.now()}`,
+          name: endpointData.entity_name || endpointData.file_path?.split('/').pop() || 'endpoint',
+          method: endpointData.method || "GET",
+          path: endpointData.file_path || "",
+          code: endpointData.generated_code,
+        };
+        setEndpoints((prev) => [...prev, newEndpoint]);
+        setSelectedEndpoint(newEndpoint.id);
+      }
+
+      // Always set generatedData, even if some fields are null
+      if (data?.result) {
+        setGeneratedData(data.result);
+      }
+
+      toast({
+        title: "Code generated successfully",
+        description: data?.message || "Code generation completed",
+      });
+    });
+
+    // ERROR: show error
+    wsHandlerRef.current.on(CodeStreamEventType.ERROR, (err) => {
+      setIsGenerating(false);
+      setStatusMessage(err?.message || "Error during code generation");
+    });
+
+    return () => {
+      wsHandlerRef.current?.removeAllListeners();
+    };
+  }, [isGenerating]);
 
   // Function to handle code generation
   const handleGenerateCode = async (method: MethodType, path: string) => {
     setIsGenerating(true)
+    setStatusMessage("Starting code generation...")
+    setStreamedCode("")
+    
+    // Close any existing WebSocket connection
+    if (wsHandlerRef.current) {
+      wsHandlerRef.current.close()
+      wsHandlerRef.current = null
+    }
     
     try {
-      // Use your CodeGenService
-      const codeGenService = new CodeGenService()
+      // Use your CodeGenService to get a WebSocket URL
       const codeGenData: CodeGenData = {
         project_id: "project-123", // Replace with actual project ID
         prompt: `Generate a ${method} endpoint for ${path}`,
@@ -127,19 +224,130 @@ export function BackendGenerator() {
         additional_context: ""
       }
       
-      const response = await codeGenService.generateCode(codeGenData)
+      const response = await CodeGenService.generateCode(codeGenData)
       
       // Check if the response indicates an error based on your API structure
       if (!response.success) {
         throw new Error(response.message)
       }
       
-      // Process the successful response
-      // The structure here should match your actual API response format
-      const processedData: GeneratedDataType = {
-        project_id: "project-123", // Use response data if available
-        endpoint: {
-          generated_code: `@app.route("${path}", methods=["${method}"])
+      // If WebSocket URL is provided, use it for streaming
+      if (response.websocket_url) {
+        setStatusMessage("WebSocket connection established. Generating code...")
+        
+        // Always use the provided WebSocket URL
+        wsHandlerRef.current = new WebSocketHandler("wss://codebegen.canadacentral.cloudapp.azure.com/api/v1/generate/stream")
+        
+        // Create and setup WebSocket handler
+        wsHandlerRef.current = new WebSocketHandler(response.websocket_url)
+        
+        // Handle connection established
+        wsHandlerRef.current.on(CodeStreamEventType.CONNECTED, () => {
+          setStatusMessage("Connected to server. Sending code generation request...")
+          // Send the generation parameters
+          wsHandlerRef.current?.send(codeGenData)
+        })
+        
+        // Handle info messages
+        wsHandlerRef.current.on(CodeStreamEventType.INFO, (data) => {
+          setStatusMessage(data.message)
+        })
+        
+        // Handle progress updates
+        wsHandlerRef.current.on(CodeStreamEventType.PROGRESS, (data) => {
+          setStatusMessage(`${data.stage || 'Progress'}: ${data.message}`)
+        })
+        
+        // Handle token streaming
+        wsHandlerRef.current.on(CodeStreamEventType.TOKEN, (token) => {
+          setStreamedCode(prev => prev + token)
+        })
+        
+        // Handle component completion
+        wsHandlerRef.current.on(CodeStreamEventType.COMPLETED, (data) => {
+          setStatusMessage(`Generated ${data.stage || 'component'} completed`)
+          
+          // If we're getting the endpoint component, update UI with it
+          if (data.stage === "endpoint" && data.result) {
+            const endpointData = data.result
+            const newEndpoint: Endpoint = {
+              id: endpointData.endpoint_id || `endpoint-${Date.now()}`,
+              name: path.split('/').pop() || 'endpoint',
+              method: method,
+              path: path,
+              code: endpointData.generated_code,
+            }
+            
+            setEndpoints(prev => [...prev, newEndpoint])
+            setSelectedEndpoint(newEndpoint.id)
+          }
+        })
+        
+        // Handle complete generation
+        wsHandlerRef.current.on(CodeStreamEventType.COMPLETE, (data) => {
+          setIsGenerating(false)
+          setStatusMessage("Code generation completed")
+          
+          // Save the generated data and update UI
+          if (data.result) {
+            setGeneratedData(data.result)
+            
+            // Add the endpoint to the list if it exists
+            if (data.result.endpoint && data.result.endpoint.generated_code) {
+              const newEndpoint: Endpoint = {
+                id: data.result.endpoint.endpoint_id || `endpoint-${Date.now()}`,
+                name: path.split('/').pop() || 'endpoint',
+                method: method,
+                path: path,
+                code: data.result.endpoint.generated_code,
+              }
+              
+              // Don't add duplicates
+              if (!endpoints.some(e => e.id === newEndpoint.id)) {
+                setEndpoints(prev => [...prev, newEndpoint])
+                setSelectedEndpoint(newEndpoint.id)
+              }
+            }
+          }
+          
+          toast({
+            title: "Code generated successfully",
+            description: `Generated code for ${method} ${path}`,
+          })
+        })
+        
+        // Handle errors
+        wsHandlerRef.current.on(CodeStreamEventType.ERROR, (error) => {
+          setIsGenerating(false)
+          setStatusMessage(`Error: ${error.message}`)
+          
+          toast({
+            title: "Error generating code",
+            description: error.message,
+            variant: "destructive"
+          })
+        })
+        
+        // Handle connection close
+        wsHandlerRef.current.on(CodeStreamEventType.CLOSE, (event) => {
+          if (event.code !== 1000) {
+            setIsGenerating(false)
+            setStatusMessage(`Connection closed unexpectedly. Code: ${event.code}`)
+          }
+        })
+        
+        // Connect to WebSocket
+        wsHandlerRef.current.connect()
+      } else {
+        // Fallback to non-streaming implementation
+        setStatusMessage("Non-streaming implementation fallback")
+        
+        // Process the successful response
+        // The structure here should match your actual API response format
+        const processedData: GeneratedDataType = {
+          project_id: "project-123", // Use response data if available
+          endpoint: {
+            generated_code: `@app.route("${path}", methods=["${method}"])
 def endpoint_handler():
     # Implementation for ${method} ${path}
     data = request.json
@@ -150,25 +358,25 @@ def endpoint_handler():
         "message": "Success",
         "data": {}
     }), 200`,
-          endpoint_path: path,
-          method: method,
-          file_path: `routes${path}.py`,
-          endpoint_id: `${method.toLowerCase()}-${path.replace(/\//g, '-')}`,
-        },
-        model: {
-          generated_code: `class User(db.Model):
+            endpoint_path: path,
+            method: method,
+            file_path: `routes${path}.py`,
+            endpoint_id: `${method.toLowerCase()}-${path.replace(/\//g, '-')}`,
+          },
+          model: {
+            generated_code: `class User(db.Model):
     __tablename__ = "users"
     
     id = db.Column(db.Integer, primary_key=True)
     email = db.Column(db.String(100), unique=True, nullable=False)
     password = db.Column(db.String(200), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)`,
-          entity_name: "User",
-          file_path: "models/user.py",
-          exists: true
-        },
-        schema: {
-          generated_code: `{
+            entity_name: "User",
+            file_path: "models/user.py",
+            exists: true
+          },
+          schema: {
+            generated_code: `{
   "type": "object",
   "properties": {
     "email": { "type": "string", "format": "email" },
@@ -176,12 +384,12 @@ def endpoint_handler():
   },
   "required": ["email", "password"]
 }`,
-          entity_name: "UserSchema",
-          file_path: "schemas/user_schema.json",
-          exists: true
-        },
-        migration: {
-          generated_code: `"""create users table
+            entity_name: "UserSchema",
+            file_path: "schemas/user_schema.json",
+            exists: true
+          },
+          migration: {
+            generated_code: `"""create users table
 Revision ID: 12345abcdef
 Creates Date: 2023-01-01 12:00:00.000000
 """
@@ -200,42 +408,44 @@ def upgrade():
 
 def downgrade():
     op.drop_table('users')`,
-          entity_name: "create_users_table",
-          file_path: "migrations/versions/12345abcdef_create_users_table.py",
-          exists: true
-        },
-        git_results: {}
-      }
-      
-      setGeneratedData(processedData)
-      
-      // Add the generated endpoint to the endpoints list
-      if (processedData.endpoint && processedData.endpoint.generated_code) {
-        const newEndpoint: Endpoint = {
-          id: processedData.endpoint.endpoint_id || `endpoint-${Date.now()}`,
-          name: path.split('/').pop() || 'endpoint',
-          method: method,
-          path: path,
-          code: processedData.endpoint.generated_code,
+            entity_name: "create_users_table",
+            file_path: "migrations/versions/12345abcdef_create_users_table.py",
+            exists: true
+          },
+          git_results: {}
         }
         
-        setEndpoints(prev => [...prev, newEndpoint])
-        setSelectedEndpoint(newEndpoint.id)
+        setGeneratedData(processedData)
+        
+        // Add the generated endpoint to the endpoints list
+        if (processedData.endpoint && processedData.endpoint.generated_code) {
+          const newEndpoint: Endpoint = {
+            id: processedData.endpoint.endpoint_id || `endpoint-${Date.now()}`,
+            name: path.split('/').pop() || 'endpoint',
+            method: method,
+            path: path,
+            code: processedData.endpoint.generated_code,
+          }
+          
+          setEndpoints(prev => [...prev, newEndpoint])
+          setSelectedEndpoint(newEndpoint.id)
+        }
+        
+        toast({
+          title: "Code generated successfully",
+          description: `Generated code for ${method} ${path}`,
+        })
       }
-      
-      toast({
-        title: "Code generated successfully",
-        description: `Generated code for ${method} ${path}`,
-      })
     } catch (error) {
       console.error("Error generating code:", error)
+      setIsGenerating(false)
+      setStatusMessage(`Error: ${error instanceof Error ? error.message : "Unknown error"}`)
+      
       toast({
         title: "Error generating code",
         description: error instanceof Error ? error.message : "Failed to generate code",
         variant: "destructive"
       })
-    } finally {
-      setIsGenerating(false)
     }
   }
   
@@ -318,6 +528,18 @@ def downgrade():
                 {isGenerating ? "Generating..." : "Generate"}
               </Button>
             </div>
+            
+            {/* Status Message */}
+            {statusMessage && (
+              <div className="mb-4 text-xs p-2 rounded bg-zinc-800 text-zinc-300">
+                {isGenerating && (
+                  <div className="animate-spin inline-block mr-2 h-3 w-3 border-[1.5px] border-current border-t-transparent rounded-full" 
+                    aria-hidden="true">
+                  </div>
+                )}
+                {statusMessage}
+              </div>
+            )}
           </div>
 
           {/* Display Generated Code in Folders */}
@@ -445,12 +667,27 @@ def downgrade():
               </TabsList>
             </div>
             <TabsContent value="code" className="flex-1 p-0 data-[state=active]:flex bg-zinc-950">
-              <EndpointEditor
-                code={endpoints.find((e) => e.id === selectedEndpoint)?.code || ""}
-                onChange={(code) => {
-                  setEndpoints(endpoints.map((e) => (e.id === selectedEndpoint ? { ...e, code } : e)))
-                }}
-              />
+              {isGenerating ? (
+                // Show streaming code during generation with Monaco editor
+                <MonacoEditor
+                  code=""
+                  language="python"
+                  streaming={true}
+                  streamingCode={streamedCode}
+                  readOnly={true}
+                />
+              ) : (
+                // Show selected endpoint code after generation
+                <MonacoEditor
+                  code={endpoints.find((e) => e.id === selectedEndpoint)?.code || ""}
+                  language={detectLanguage(endpoints.find((e) => e.id === selectedEndpoint)?.path || "", endpoints.find((e) => e.id === selectedEndpoint)?.code || "")}
+                  onChange={(code) => {
+                    setEndpoints(endpoints.map((e) => 
+                      (e.id === selectedEndpoint ? { ...e, code } : e))
+                    )
+                  }}
+                />
+              )}
             </TabsContent>
             <TabsContent value="test" className="bg-zinc-950">
               <div className="p-4">

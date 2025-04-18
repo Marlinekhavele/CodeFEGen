@@ -80,7 +80,6 @@ export default function BackendEditorClient({
     setIsGenerating(true)
     
     try {
-      const codeGenService = new CodeGenService()
       const codeGenData: CodeGenData = {
         project_id: urlFriendlyName || "project-123",
         prompt: `Generate code for ${template} template`,
@@ -90,7 +89,7 @@ export default function BackendEditorClient({
         additional_context: `Template: ${template}`
       }
       
-      const response = await codeGenService.generateCode(codeGenData)
+      const response = await CodeGenService.generateCode(codeGenData)
       
       // Check if the response indicates an error based on your API structure
       if (!response.success) {
@@ -346,7 +345,7 @@ def downgrade():
       const endpoint = `/api/users/${Math.floor(Math.random() * 1000)}`
       const method = ["GET", "POST", "PUT", "DELETE"][Math.floor(Math.random() * 4)] as "GET" | "POST" | "PUT" | "DELETE"
       
-      const codeGenService = new CodeGenService()
+
       const codeGenData: CodeGenData = {
         project_id: urlFriendlyName || "project-123",
         prompt: `Generate a ${method} endpoint for ${endpoint}`,
@@ -356,7 +355,7 @@ def downgrade():
         additional_context: ""
       }
       
-      const response = await codeGenService.generateCode(codeGenData)
+      const response = await CodeGenService.generateCode(codeGenData)
       
       // Check response status based on your API structure
       if (!response.success) {

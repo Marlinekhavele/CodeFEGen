@@ -8,7 +8,8 @@ import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
 import CodeGenService from "@/app/api/services/code-gen-service"
-import type { FileObject, CodeGenApiResponse } from "@/types"
+import type { FileObject, CodeGenApiResponse, CodeChatActivationResponse } from "@/types"
+import WebSocketHandler, { CodeStreamEventType } from "@/app/api/services/websocket-handler"
 
 // Add language and framework selection dropdowns
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -45,37 +46,90 @@ export default function AIChat({ projectId }: AIChartProps) {
   const [endpointPath, setEndpointPath] = useState<string>("/api/example")
   const [method, setMethod] = useState<string>("GET")
 
+  // Add a ref for the WebSocket handler
+  const wsHandlerRef = useRef<WebSocketHandler | null>(null)
+
   useEffect(() => {
     // Scroll to bottom when messages change
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
   }, [messages])
 
+  // Clean up WebSocket connection on unmount
+  useEffect(() => {
+    return () => {
+      if (wsHandlerRef.current) {
+        wsHandlerRef.current.close()
+      }
+    }
+  }, [])
+
   // Process the response data and update the state
-  const processResponseData = (data: CodeGenApiResponse) => {
+  const processResponseData = (data: CodeGenApiResponse | CodeChatActivationResponse) => {
     if (data.success && data.data) {
-      // Create a map of file types to file objects
       const files: Record<string, FileObject> = {}
 
-      // Add each file type to the map
-      if (data.data.endpoint) files["endpoint"] = data.data.endpoint
-      if (data.data.model) files["model"] = data.data.model
-      if (data.data.schema) files["schema"] = data.data.schema
-      if (data.data.migration) files["migration"] = data.data.migration
+      if (
+        data.data.endpoint &&
+        data.data.endpoint.file_path &&
+        data.data.endpoint.generated_code &&
+        data.data.endpoint.content_base64 &&
+        data.data.endpoint.file_hash
+      ) {
+        files["endpoint"] = {
+          file_path: data.data.endpoint.file_path,
+          generated_code: data.data.endpoint.generated_code,
+          content_base64: data.data.endpoint.content_base64,
+          file_hash: data.data.endpoint.file_hash,
+          endpoint_path: data.data.endpoint.endpoint_path ?? "",
+          method: data.data.endpoint.method ?? "",
+          endpoint_id: data.data.endpoint.endpoint_id,
+          exists: "exists" in data.data.endpoint && typeof (data.data.endpoint as any).exists === "boolean" ? (data.data.endpoint as any).exists : false,
+        }
+      }
+      if (data.data.model && data.data.model.file_path && data.data.model.generated_code && data.data.model.content_base64 && data.data.model.file_hash) {
+        files["model"] = {
+          file_path: data.data.model.file_path,
+          generated_code: data.data.model.generated_code,
+          content_base64: data.data.model.content_base64,
+          file_hash: data.data.model.file_hash,
+          entity_name: data.data.model.entity_name,
+          exists: data.data.model.exists,
+        }
+      }
+      if (data.data.schema && data.data.schema.file_path && data.data.schema.generated_code && data.data.schema.content_base64 && data.data.schema.file_hash) {
+        files["schema"] = {
+          file_path: data.data.schema.file_path,
+          generated_code: data.data.schema.generated_code,
+          
+          content_base64: data.data.schema.content_base64,
+          file_hash: data.data.schema.file_hash,
+          entity_name: data.data.schema.entity_name,
+          exists: data.data.schema.exists,
+        }
+      }
+      if (data.data.migration && data.data.migration.file_path && data.data.migration.generated_code && data.data.migration.content_base64 && data.data.migration.file_hash) {
+        files["migration"] = {
+          file_path: data.data.migration.file_path,
+          generated_code: data.data.migration.generated_code,
+          content_base64: data.data.migration.content_base64,
+          file_hash: data.data.migration.file_hash,
+          entity_name: data.data.migration.entity_name,
+          exists: data.data.migration.exists,
+        }
+      }
 
       setGeneratedFiles(files)
 
-      // Update the Monaco editor with the files
       window.dispatchEvent(
         new CustomEvent("code-update", {
           detail: { files },
         }),
       )
 
-      // Create a summary message for the chat
       const fileNames = Object.keys(files)
         .map((key) => {
           const file = files[key]
-          return file.file_path.split("/").pop() || key
+          return file.file_path?.split("/").pop() || key
         })
         .join(", ")
 
@@ -121,7 +175,7 @@ export default function AIChat({ projectId }: AIChartProps) {
 
     try {
       // Use the CodeGenService to generate code
-      const codeGenService = new CodeGenService()
+      const codeGenService =  CodeGenService
 
       // Try to get the structured response directly
       try {
@@ -137,10 +191,9 @@ export default function AIChat({ projectId }: AIChartProps) {
         }
 
         const structuredResponse = await codeGenService.getGeneratedCode(codeGenData)
-
-        // If we got a successful structured response, process it
-        if (structuredResponse.success) {
+        if (structuredResponse.success && structuredResponse.data) {
           processResponseData(structuredResponse)
+          setIsLoading(false)
           return
         }
       } catch (structuredError) {
@@ -160,126 +213,77 @@ export default function AIChat({ projectId }: AIChartProps) {
       const response = await codeGenService.generateCode(codeGenData)
 
       // If the service returns a WebSocket URL for streaming
-      if (response.websocket_url || (response.data && response.data.websocket_url)) {
-        const wsUrl = response.websocket_url || (response.data && response.data.websocket_url) || ""
-        console.log("WebSocket URL:", wsUrl)
+      const wsUrl = response.websocket_url || (response.data && response.data.websocket_url) || ""
+      console.log("WebSocket URL:", wsUrl)
 
-        let accumulatedData = ""
+      let accumulatedData = ""
 
-        // Create WebSocket connection
-        const ws = new WebSocket(wsUrl.startsWith("ws") ? wsUrl : `ws://${window.location.host}${wsUrl}`)
-
-        ws.onopen = () => {
-          console.log("WebSocket connection established")
-          setSuccessMessage("Connected to code generation service...")
-        }
-
-        ws.onmessage = (event) => {
-          try {
-            const messageData = JSON.parse(event.data)
-            console.log("WebSocket message received:", messageData)
-
-            if (messageData.message && messageData.status) {
-              setSuccessMessage(messageData.message)
-            }
-
-            if (messageData.is_chunk) {
-              const chunk = atob(messageData.base64_encoded)
-              accumulatedData += chunk
-
-              // Update the Monaco editor with the chunk
-              window.dispatchEvent(
-                new CustomEvent("code-chunk", {
-                  detail: { code: chunk },
-                }),
-              )
-            } else if (messageData.status === "COMPLETED") {
-              // Try to parse the accumulated data as a CodeGenApiResponse
-              try {
-                const parsedData = JSON.parse(accumulatedData)
-                if (parsedData.status_code !== undefined && parsedData.data) {
-                  processResponseData(parsedData)
-                } else {
-                  // If parsing fails, just show the raw data
-                  window.dispatchEvent(
-                    new CustomEvent("code-update", {
-                      detail: { code: accumulatedData },
-                    }),
-                  )
-
-                  const assistantMessage: Message = {
-                    id: (Date.now() + 1).toString(),
-                    role: "assistant",
-                    content: "I've generated code for you. Check the editor.",
-                    timestamp: new Date(),
-                  }
-
-                  setMessages((prev) => [...prev, assistantMessage])
-                  setCodeGenStatus("generated")
-                }
-              } catch (parseError) {
-                console.error("Error parsing accumulated data:", parseError)
-                // If JSON parsing fails, just show the raw data
-                window.dispatchEvent(
-                  new CustomEvent("code-update", {
-                    detail: { code: accumulatedData },
-                  }),
-                )
-
-                const assistantMessage: Message = {
-                  id: (Date.now() + 1).toString(),
-                  role: "assistant",
-                  content: "I've generated code for you. Check the editor.",
-                  timestamp: new Date(),
-                }
-
-                setMessages((prev) => [...prev, assistantMessage])
-                setCodeGenStatus("generated")
-              }
-
-              ws.close()
-            }
-          } catch (error) {
-            console.error("Error processing WebSocket message:", error)
-            setSuccessMessage("Error processing code generation")
-            setCodeGenStatus("generationFailed")
-          }
-        }
-
-        ws.onerror = (error) => {
-          console.error("WebSocket error:", error)
-          setSuccessMessage("Connection error. Try again.")
-          setCodeGenStatus("generationFailed")
-        }
-
-        ws.onclose = () => {
-          console.log("WebSocket connection closed")
-          if (codeGenStatus === "generating") {
-            setCodeGenStatus("generationFailed")
-            setSuccessMessage("Connection closed unexpectedly. Try again.")
-          }
-        }
-      } else {
-        // If not using WebSockets, handle the response directly
-        const assistantMessage: Message = {
-          id: (Date.now() + 1).toString(),
-          role: "assistant",
-          content: "I've generated the code for you. Check the editor.",
-          timestamp: new Date(),
-        }
-
-        setMessages((prev) => [...prev, assistantMessage])
-        setCodeGenStatus("generated")
-
-        // Update your Monaco editor with the generated code if available
-        if (response.code) {
-          window.dispatchEvent(
-            new CustomEvent("code-update", {
-              detail: { code: response.code },
-            }),
-          )
-        }
+      // Close any existing WebSocket connection
+      if (wsHandlerRef.current) {
+        wsHandlerRef.current.close()
+        wsHandlerRef.current = null
       }
+
+      // Always use the provided WebSocket URL
+      wsHandlerRef.current = new WebSocketHandler("wss://codebegen.canadacentral.cloudapp.azure.com/api/v1/generate/stream")
+
+      wsHandlerRef.current.on(CodeStreamEventType.CONNECTED, () => {
+        setSuccessMessage("Connected to code generation service...")
+        wsHandlerRef.current?.send(codeGenData)
+      })
+
+      wsHandlerRef.current.on(CodeStreamEventType.TOKEN, (token) => {
+        accumulatedData += token
+        window.dispatchEvent(
+          new CustomEvent("code-chunk", {
+            detail: { code: token },
+          }),
+        )
+      })
+
+      wsHandlerRef.current.on(CodeStreamEventType.COMPLETE, (data) => {
+        try {
+          if (data.result) {
+            processResponseData(data.result)
+          } else {
+            window.dispatchEvent(
+              new CustomEvent("code-update", {
+                detail: { code: accumulatedData },
+              }),
+            )
+            setMessages((prev) => [
+              ...prev,
+              {
+                id: (Date.now() + 1).toString(),
+                role: "assistant",
+                content: "I've generated code for you. Check the editor.",
+                timestamp: new Date(),
+              },
+            ])
+            setCodeGenStatus("generated")
+          }
+        } catch (err) {
+          setCodeGenStatus("generationFailed")
+          setSuccessMessage("Error processing code generation")
+        }
+        setIsLoading(false)
+      })
+
+      wsHandlerRef.current.on(CodeStreamEventType.ERROR, (error) => {
+        setCodeGenStatus("generationFailed")
+        setSuccessMessage("Connection error. Try again.")
+        setIsLoading(false)
+      })
+
+      wsHandlerRef.current.on(CodeStreamEventType.CLOSE, (event) => {
+        if (codeGenStatus === "generating") {
+          setCodeGenStatus("generationFailed")
+          setSuccessMessage("Connection closed unexpectedly. Try again.")
+          setIsLoading(false)
+        }
+      })
+
+      wsHandlerRef.current.connect()
     } catch (error) {
       console.error("Error getting AI response:", error)
       setCodeGenStatus("generationFailed")
@@ -293,7 +297,6 @@ export default function AIChat({ projectId }: AIChartProps) {
       }
 
       setMessages((prev) => [...prev, errorMessage])
-    } finally {
       setIsLoading(false)
     }
   }

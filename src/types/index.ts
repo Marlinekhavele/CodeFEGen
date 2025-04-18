@@ -111,19 +111,23 @@
   
   // 
   export interface CodeChatActivationResponse {
-    status_code?: number
-    success?: boolean
-    message?: string
+    status: string;
+    status_code: number;
+    success: boolean;
+    message: string;
+    project_id: string;
+    websocket_url?: string;
+    code?: string;
     data?: {
-      project_id: string
-      status: string
-      websocket_url: string
-      code?: string
-    }
-    error?: string
-    status?: string
-    websocket_url?: string
-    code?: string
+      project_id: string;
+      status: string;
+      websocket_url: string;
+      code?: string;
+      endpoint?: EndpointType;
+      model?: ModelType;
+      schema?: SchemaType;
+      migration?: MigrationType;
+    };
   }
   
   export interface CodeGenData {
