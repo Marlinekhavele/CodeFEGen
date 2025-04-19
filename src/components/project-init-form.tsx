@@ -45,20 +45,16 @@ export function ProjectInitForm({ onProjectInitialized }: ProjectInitFormProps) 
       )
 
       if (response) {
-        // Assuming the response contains a url_friendly_name field
-        // If not, you might need to generate it here or adjust based on your API response
-        const urlFriendlyName = values.project_name
-          .toLowerCase()
-          .replace(/\s+/g, "-")
-          .replace(/[^a-z0-9-]/g, "")
+        // Use the project_id from the backend response
+        const projectId = response.project_id
 
         if (onProjectInitialized) {
-          // If callback is provided, use it
-          onProjectInitialized(values.project_name, urlFriendlyName)
+          // Pass the actual project_id to the callback
+          onProjectInitialized(values.project_name, projectId)
         } else {
-          // Otherwise, redirect to the editor with project details in URL parameters
+          // Use project_id in the URL when redirecting
           router.push(
-            `/create-backend?name=${encodeURIComponent(values.project_name)}&url=${encodeURIComponent(urlFriendlyName)}`,
+            `/create-backend?name=${encodeURIComponent(values.project_name)}&url=${encodeURIComponent(projectId)}`,
           )
         }
       }

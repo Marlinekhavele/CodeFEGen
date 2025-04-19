@@ -174,34 +174,7 @@ export default function AIChat({ projectId }: AIChartProps) {
     }, 100)
 
     try {
-      // Use the CodeGenService to generate code
-      const codeGenService =  CodeGenService
-
-      // Try to get the structured response directly
-      try {
-        // Update the handleSubmit function to use the selected language, framework, method, and endpoint path
-        // Replace the codeGenData object in both API calls with this:
-        const codeGenData = {
-          project_id: projectId,
-          prompt: userMessage.content,
-          language: language,
-          method: method,
-          endpoint_path: endpointPath,
-          additional_context: `Framework: ${framework}`,
-        }
-
-        const structuredResponse = await codeGenService.getGeneratedCode(codeGenData)
-        if (structuredResponse.success && structuredResponse.data) {
-          processResponseData(structuredResponse)
-          setIsLoading(false)
-          return
-        }
-      } catch (structuredError) {
-        console.error("Error getting structured response:", structuredError)
-        // Fall back to the WebSocket approach if direct API call fails
-      }
-
-      // Fall back to the WebSocket approach
+      // Only use WebSocket for code generation
       const codeGenData = {
         project_id: projectId,
         prompt: userMessage.content,
@@ -210,13 +183,6 @@ export default function AIChat({ projectId }: AIChartProps) {
         endpoint_path: endpointPath,
         additional_context: `Framework: ${framework}`,
       }
-      const response = await codeGenService.generateCode(codeGenData)
-
-      // If the service returns a WebSocket URL for streaming
-      const wsUrl = response.websocket_url || (response.data && response.data.websocket_url) || ""
-      console.log("WebSocket URL:", wsUrl)
-
-      let accumulatedData = ""
 
       // Close any existing WebSocket connection
       if (wsHandlerRef.current) {
@@ -224,13 +190,14 @@ export default function AIChat({ projectId }: AIChartProps) {
         wsHandlerRef.current = null
       }
 
-      // Always use the provided WebSocket URL
       wsHandlerRef.current = new WebSocketHandler("wss://codebegen.canadacentral.cloudapp.azure.com/api/v1/generate/stream")
 
       wsHandlerRef.current.on(CodeStreamEventType.CONNECTED, () => {
         setSuccessMessage("Connected to code generation service...")
         wsHandlerRef.current?.send(codeGenData)
       })
+
+      let accumulatedData = ""
 
       wsHandlerRef.current.on(CodeStreamEventType.TOKEN, (token) => {
         accumulatedData += token

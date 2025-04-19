@@ -10,7 +10,6 @@ import { cn } from "@/lib/utils"
 import { EndpointEditor } from "@/components/endpoint-editor"
 import { GeneratedCodeDisplay } from "@/components/gen-code-display"
 import { toast } from "@/components/ui/use-toast"
-import CodeGenService from "@/app/api/services/code-gen-service"
 import WebSocketHandler, { CodeStreamEventType } from "@/app/api/services/websocket-handler"
 import { CodeGenData } from "@/types"
 import { MonacoEditor } from "@/components/monaco-editor"
@@ -214,9 +213,8 @@ export function BackendGenerator() {
     }
     
     try {
-      // Use your CodeGenService to get a WebSocket URL
       const codeGenData: CodeGenData = {
-        project_id: "project-123", // Replace with actual project ID
+        project_id: "project-123", // Replace with actual project ID if available
         prompt: `Generate a ${method} endpoint for ${path}`,
         language: "python",
         method: method,
@@ -224,223 +222,81 @@ export function BackendGenerator() {
         additional_context: ""
       }
       
-      const response = await CodeGenService.generateCode(codeGenData)
+      wsHandlerRef.current = new WebSocketHandler("wss://codebegen.canadacentral.cloudapp.azure.com/api/v1/generate/stream")
       
-      // Check if the response indicates an error based on your API structure
-      if (!response.success) {
-        throw new Error(response.message)
-      }
+      wsHandlerRef.current.on(CodeStreamEventType.CONNECTED, () => {
+        setStatusMessage("Connected to server. Sending code generation request...")
+        wsHandlerRef.current?.send(codeGenData)
+      })
       
-      // If WebSocket URL is provided, use it for streaming
-      if (response.websocket_url) {
-        setStatusMessage("WebSocket connection established. Generating code...")
-        
-        // Always use the provided WebSocket URL
-        wsHandlerRef.current = new WebSocketHandler("wss://codebegen.canadacentral.cloudapp.azure.com/api/v1/generate/stream")
-        
-        // Create and setup WebSocket handler
-        wsHandlerRef.current = new WebSocketHandler(response.websocket_url)
-        
-        // Handle connection established
-        wsHandlerRef.current.on(CodeStreamEventType.CONNECTED, () => {
-          setStatusMessage("Connected to server. Sending code generation request...")
-          // Send the generation parameters
-          wsHandlerRef.current?.send(codeGenData)
-        })
-        
-        // Handle info messages
-        wsHandlerRef.current.on(CodeStreamEventType.INFO, (data) => {
-          setStatusMessage(data.message)
-        })
-        
-        // Handle progress updates
-        wsHandlerRef.current.on(CodeStreamEventType.PROGRESS, (data) => {
-          setStatusMessage(`${data.stage || 'Progress'}: ${data.message}`)
-        })
-        
-        // Handle token streaming
-        wsHandlerRef.current.on(CodeStreamEventType.TOKEN, (token) => {
-          setStreamedCode(prev => prev + token)
-        })
-        
-        // Handle component completion
-        wsHandlerRef.current.on(CodeStreamEventType.COMPLETED, (data) => {
-          setStatusMessage(`Generated ${data.stage || 'component'} completed`)
-          
-          // If we're getting the endpoint component, update UI with it
-          if (data.stage === "endpoint" && data.result) {
-            const endpointData = data.result
-            const newEndpoint: Endpoint = {
-              id: endpointData.endpoint_id || `endpoint-${Date.now()}`,
-              name: path.split('/').pop() || 'endpoint',
-              method: method,
-              path: path,
-              code: endpointData.generated_code,
-            }
-            
-            setEndpoints(prev => [...prev, newEndpoint])
-            setSelectedEndpoint(newEndpoint.id)
-          }
-        })
-        
-        // Handle complete generation
-        wsHandlerRef.current.on(CodeStreamEventType.COMPLETE, (data) => {
-          setIsGenerating(false)
-          setStatusMessage("Code generation completed")
-          
-          // Save the generated data and update UI
-          if (data.result) {
-            setGeneratedData(data.result)
-            
-            // Add the endpoint to the list if it exists
-            if (data.result.endpoint && data.result.endpoint.generated_code) {
-              const newEndpoint: Endpoint = {
-                id: data.result.endpoint.endpoint_id || `endpoint-${Date.now()}`,
-                name: path.split('/').pop() || 'endpoint',
-                method: method,
-                path: path,
-                code: data.result.endpoint.generated_code,
-              }
-              
-              // Don't add duplicates
-              if (!endpoints.some(e => e.id === newEndpoint.id)) {
-                setEndpoints(prev => [...prev, newEndpoint])
-                setSelectedEndpoint(newEndpoint.id)
-              }
-            }
-          }
-          
-          toast({
-            title: "Code generated successfully",
-            description: `Generated code for ${method} ${path}`,
-          })
-        })
-        
-        // Handle errors
-        wsHandlerRef.current.on(CodeStreamEventType.ERROR, (error) => {
-          setIsGenerating(false)
-          setStatusMessage(`Error: ${error.message}`)
-          
-          toast({
-            title: "Error generating code",
-            description: error.message,
-            variant: "destructive"
-          })
-        })
-        
-        // Handle connection close
-        wsHandlerRef.current.on(CodeStreamEventType.CLOSE, (event) => {
-          if (event.code !== 1000) {
-            setIsGenerating(false)
-            setStatusMessage(`Connection closed unexpectedly. Code: ${event.code}`)
-          }
-        })
-        
-        // Connect to WebSocket
-        wsHandlerRef.current.connect()
-      } else {
-        // Fallback to non-streaming implementation
-        setStatusMessage("Non-streaming implementation fallback")
-        
-        // Process the successful response
-        // The structure here should match your actual API response format
-        const processedData: GeneratedDataType = {
-          project_id: "project-123", // Use response data if available
-          endpoint: {
-            generated_code: `@app.route("${path}", methods=["${method}"])
-def endpoint_handler():
-    # Implementation for ${method} ${path}
-    data = request.json
-    
-    # Process request...
-    
-    return jsonify({
-        "message": "Success",
-        "data": {}
-    }), 200`,
-            endpoint_path: path,
-            method: method,
-            file_path: `routes${path}.py`,
-            endpoint_id: `${method.toLowerCase()}-${path.replace(/\//g, '-')}`,
-          },
-          model: {
-            generated_code: `class User(db.Model):
-    __tablename__ = "users"
-    
-    id = db.Column(db.Integer, primary_key=True)
-    email = db.Column(db.String(100), unique=True, nullable=False)
-    password = db.Column(db.String(200), nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)`,
-            entity_name: "User",
-            file_path: "models/user.py",
-            exists: true
-          },
-          schema: {
-            generated_code: `{
-  "type": "object",
-  "properties": {
-    "email": { "type": "string", "format": "email" },
-    "password": { "type": "string", "minLength": 8 }
-  },
-  "required": ["email", "password"]
-}`,
-            entity_name: "UserSchema",
-            file_path: "schemas/user_schema.json",
-            exists: true
-          },
-          migration: {
-            generated_code: `"""create users table
-Revision ID: 12345abcdef
-Creates Date: 2023-01-01 12:00:00.000000
-"""
-from alembic import op
-import sqlalchemy as sa
-
-def upgrade():
-    op.create_table('users',
-        sa.Column('id', sa.Integer(), nullable=False),
-        sa.Column('email', sa.String(length=100), nullable=False),
-        sa.Column('password', sa.String(length=200), nullable=False),
-        sa.Column('created_at', sa.DateTime(), nullable=False),
-        sa.PrimaryKeyConstraint('id'),
-        sa.UniqueConstraint('email')
-    )
-
-def downgrade():
-    op.drop_table('users')`,
-            entity_name: "create_users_table",
-            file_path: "migrations/versions/12345abcdef_create_users_table.py",
-            exists: true
-          },
-          git_results: {}
-        }
-        
-        setGeneratedData(processedData)
-        
-        // Add the generated endpoint to the endpoints list
-        if (processedData.endpoint && processedData.endpoint.generated_code) {
+      wsHandlerRef.current.on(CodeStreamEventType.INFO, (data) => {
+        setStatusMessage(data.message)
+      })
+      wsHandlerRef.current.on(CodeStreamEventType.PROGRESS, (data) => {
+        setStatusMessage(`${data.stage || 'Progress'}: ${data.message}`)
+      })
+      wsHandlerRef.current.on(CodeStreamEventType.TOKEN, (token) => {
+        setStreamedCode(prev => prev + token)
+      })
+      wsHandlerRef.current.on(CodeStreamEventType.COMPLETED, (data) => {
+        setStatusMessage(`Generated ${data.stage || 'component'} completed`)
+        if (data.stage === "endpoint" && data.result) {
+          const endpointData = data.result
           const newEndpoint: Endpoint = {
-            id: processedData.endpoint.endpoint_id || `endpoint-${Date.now()}`,
+            id: endpointData.endpoint_id || `endpoint-${Date.now()}`,
             name: path.split('/').pop() || 'endpoint',
             method: method,
             path: path,
-            code: processedData.endpoint.generated_code,
+            code: endpointData.generated_code,
           }
-          
           setEndpoints(prev => [...prev, newEndpoint])
           setSelectedEndpoint(newEndpoint.id)
         }
-        
+      })
+      wsHandlerRef.current.on(CodeStreamEventType.COMPLETE, (data) => {
+        setIsGenerating(false)
+        setStatusMessage(data?.message || "Code generation completed")
+        if (data.result) {
+          setGeneratedData(data.result)
+          if (data.result.endpoint && data.result.endpoint.generated_code) {
+            const newEndpoint: Endpoint = {
+              id: data.result.endpoint.endpoint_id || `endpoint-${Date.now()}`,
+              name: path.split('/').pop() || 'endpoint',
+              method: method,
+              path: path,
+              code: data.result.endpoint.generated_code,
+            }
+            if (!endpoints.some(e => e.id === newEndpoint.id)) {
+              setEndpoints(prev => [...prev, newEndpoint])
+              setSelectedEndpoint(newEndpoint.id)
+            }
+          }
+        }
         toast({
           title: "Code generated successfully",
           description: `Generated code for ${method} ${path}`,
         })
-      }
+      })
+      wsHandlerRef.current.on(CodeStreamEventType.ERROR, (error) => {
+        setIsGenerating(false)
+        setStatusMessage(`Error: ${error.message}`)
+        toast({
+          title: "Error generating code",
+          description: error.message,
+          variant: "destructive"
+        })
+      })
+      wsHandlerRef.current.on(CodeStreamEventType.CLOSE, (event) => {
+        if (event.code !== 1000) {
+          setIsGenerating(false)
+          setStatusMessage(`Connection closed unexpectedly. Code: ${event.code}`)
+        }
+      })
+      wsHandlerRef.current.connect()
     } catch (error) {
       console.error("Error generating code:", error)
       setIsGenerating(false)
       setStatusMessage(`Error: ${error instanceof Error ? error.message : "Unknown error"}`)
-      
       toast({
         title: "Error generating code",
         description: error instanceof Error ? error.message : "Failed to generate code",

@@ -31,27 +31,19 @@ export function FileContent({
     }
   }, [theme, iframeLoaded])
 
-  const handleIframeLoad = () => {
-    setIframeLoaded(true)
-
-    // Send initial theme and code to iframe
-    if (iframeRef.current && iframeRef.current.contentWindow) {
-      iframeRef.current.contentWindow.postMessage({ type: "THEME_CHANGED", theme }, "*")
-
-      if (selectedFile) {
-        const file = files.find((f) => f.id === selectedFile)
-        if (file) {
-          iframeRef.current.contentWindow.postMessage({ type: "UPDATE_CODE", code: file.code }, "*")
-        }
-      }
+  // Always send currentCode to iframe when it changes and iframe is loaded
+  useEffect(() => {
+    if (iframeRef.current && iframeRef.current.contentWindow && iframeLoaded) {
+      iframeRef.current.contentWindow.postMessage({ type: "UPDATE_CODE", code: currentCode }, "*")
     }
-  }
+  }, [currentCode, iframeLoaded])
 
   // Update current code when selected file changes
   useEffect(() => {
     if (selectedFile && iframeLoaded) {
       const file = files.find((f) => f.id === selectedFile)
       if (file) {
+        console.log("Sending code to iframe:", file.code)
         // Send code to iframe
         if (iframeRef.current && iframeRef.current.contentWindow) {
           iframeRef.current.contentWindow.postMessage({ type: "UPDATE_CODE", code: file.code }, "*")
@@ -59,6 +51,22 @@ export function FileContent({
       }
     }
   }, [selectedFile, files, iframeLoaded])
+
+  const handleIframeLoad = () => {
+    setIframeLoaded(true)
+    // Send initial theme and code to iframe
+    if (iframeRef.current && iframeRef.current.contentWindow) {
+      iframeRef.current.contentWindow.postMessage({ type: "THEME_CHANGED", theme }, "*")
+      
+      if (selectedFile) {
+        const file = files.find((f) => f.id === selectedFile)
+        if (file) {
+          console.log("Sending initial code to iframe:", file.code)
+          iframeRef.current.contentWindow.postMessage({ type: "UPDATE_CODE", code: file.code }, "*")
+        }
+      }
+    }
+  }
 
   // Listen for messages from the iframe
   useEffect(() => {

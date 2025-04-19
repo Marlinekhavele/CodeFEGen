@@ -1,4 +1,4 @@
-  export interface EditorFileData {
+export interface EditorFileData {
     project_id: string
     endpoint_path: string
     content_base64: string
@@ -48,6 +48,7 @@
   export interface EndpointListContent {
     path: string
     method: string
+    content_base64?: string
   }
   export interface ProjectListContent {
     id: string
