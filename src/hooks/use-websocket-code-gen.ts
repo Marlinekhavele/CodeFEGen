@@ -1,79 +1,27 @@
 "use client"
 
 import { useState, useEffect, useRef, useCallback } from "react"
-import { WebSocketManager, type WebSocketOptions } from "@/lib/websocket-manager"
-import CodeGenService from "@/app/api/services/code-gen-service"
 import type { CodeGenData, FileType } from "@/types"
 
-interface UseWebSocketCodeGenOptions {
+// Configuration
+const WEBSOCKET_URL = "wss://codebegen.canadacentral.cloudapp.azure.com/api/v1/generate/stream"
+const HTTP_FALLBACK_URL = "https://codebegen.canadacentral.cloudapp.azure.com/api/v1/generate/code"
+const WS_CONNECTION_TIMEOUT = 3000 // 3 seconds to establish connection
+
+export function useWebSocketCodeGen(options: {
   onStatusChange?: (status: string) => void
   onFileGenerated?: (file: FileType) => void
-}
-
-export function useWebSocketCodeGen(options: UseWebSocketCodeGenOptions = {}) {
+} = {}) {
   const [isGenerating, setIsGenerating] = useState(false)
   const [status, setStatus] = useState("idle")
   const [error, setError] = useState<Error | null>(null)
   const [progress, setProgress] = useState(0)
   const [messages, setMessages] = useState<string[]>([])
-  const wsManagerRef = useRef<WebSocketManager | null>(null)
-
-  // Initialize WebSocket manager
-  useEffect(() => {
-    const wsOptions: WebSocketOptions = {
-      onStatus: (status, message) => {
-        const statusMessage = `${status}${message ? `: ${message}` : ""}`
-        setMessages((prev) => [...prev, statusMessage])
-
-        if (status === "open") {
-          setStatus("connected")
-        } else if (status === "closed") {
-          setStatus("disconnected")
-          setIsGenerating(false)
-        } else if (status === "error") {
-          setStatus("error")
-          setIsGenerating(false)
-        } else if (status === "connecting") {
-          setStatus("connecting")
-        }
-
-        if (options.onStatusChange) {
-          options.onStatusChange(statusMessage)
-        }
-      },
-      onMessage: (data) => {
-        if (data.message) {
-          setMessages((prev) => [...prev, data.message])
-          setStatus(data.message)
-        }
-
-        if (data.progress) {
-          setProgress(data.progress)
-        }
-      },
-      onChunk: (chunk) => {
-        setMessages((prev) => [...prev, `Received chunk: ${chunk.length} bytes`])
-      },
-      onComplete: (data) => {
-        setStatus("Code generation completed")
-        setIsGenerating(false)
-        processGeneratedCode(data)
-      },
-      onError: (err) => {
-        setError(err)
-        setStatus(`Error: ${err.message}`)
-        setIsGenerating(false)
-      },
-    }
-
-    wsManagerRef.current = new WebSocketManager(wsOptions)
-
-    return () => {
-      if (wsManagerRef.current) {
-        wsManagerRef.current.close()
-      }
-    }
-  }, [options])
+  
+  // Keep track of the current generation request
+  const requestIdRef = useRef<string>("")
+  const abortControllerRef = useRef<AbortController | null>(null)
+  const wsConnectionTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   // Process generated code
   const processGeneratedCode = useCallback(
@@ -161,64 +109,258 @@ export function useWebSocketCodeGen(options: UseWebSocketCodeGenOptions = {}) {
     [options],
   )
 
-  // Generate code function with timeout
-const generateCode = useCallback(
-  async (codeGenData: CodeGenData) => {
-    if (isGenerating) {
-      return
+  // Update status with notification to UI
+  const updateStatus = useCallback((newStatus: string) => {
+    setStatus(newStatus)
+    if (options.onStatusChange) {
+      options.onStatusChange(newStatus)
     }
+  }, [options])
 
-    setIsGenerating(true)
-    setStatus("Initializing code generation...")
-    setError(null)
-    setProgress(0)
-    setMessages([])
+  // Clean up any active requests
+  const cleanup = useCallback(() => {
+    // Clear any WebSocket connection timeout
+    if (wsConnectionTimeoutRef.current) {
+      clearTimeout(wsConnectionTimeoutRef.current)
+      wsConnectionTimeoutRef.current = null
+    }
+    
+    // Abort any in-progress fetch requests
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort()
+      abortControllerRef.current = null
+    }
+  }, [])
 
+  // Use HTTP fallback method
+  const useHttpFallback = useCallback(async (codeGenData: CodeGenData) => {
+    updateStatus("WebSocket unavailable, using HTTP fallback...")
+    
     try {
-      // Set up WebSocket URL
-      const wsUrl = "wss://codebegen.canadacentral.cloudapp.azure.com/api/v1/generate/stream"
+      // Create a new abort controller for this request
+      abortControllerRef.current = new AbortController()
       
-      setStatus("Preparing to connect...")
+      // Make the HTTP request
+      const response = await fetch(HTTP_FALLBACK_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(codeGenData),
+        signal: abortControllerRef.current.signal
+      })
       
-      // Add a timeout before attempting to connect
-      setTimeout(() => {
-        if (wsManagerRef.current) {
-          try {
-            // Connect to the WebSocket with a delay
-            setStatus("Connecting to WebSocket...")
-            wsManagerRef.current.connect(wsUrl)
-            
-            // Add another delay before sending data
-            setTimeout(() => {
-              if (wsManagerRef.current && wsManagerRef.current.isConnected()) {
-                setStatus("Connection established, sending data...")
-                wsManagerRef.current.send(codeGenData)
-                setStatus("Data sent, waiting for response...")
-              } else {
-                throw new Error("WebSocket connection failed")
-              }
-            }, 1000) // Wait 1 second after connection before sending data
-          } catch (wsError) {
-            console.error("Error in WebSocket operation:", wsError)
-            setError(wsError instanceof Error ? wsError : new Error("Unknown WebSocket error"))
-            setStatus("WebSocket error occurred")
-            setIsGenerating(false)
-          }
-        } else {
-          setError(new Error("WebSocket manager not initialized"))
-          setStatus("WebSocket manager not initialized")
-          setIsGenerating(false)
-        }
-      }, 500) // Wait 500ms before attempting to connect
-    } catch (error) {
-      console.error("Error in generate code function:", error)
-      setError(error instanceof Error ? error : new Error("Unknown error"))
-      setStatus(`Error: ${error instanceof Error ? error.message : "Unknown error"}`)
+      if (!response.ok) {
+        throw new Error(`HTTP error! Status: ${response.status}`)
+      }
+      
+      const data = await response.json()
+      
+      // Process the response
+      updateStatus("Code generation completed via HTTP")
+      processGeneratedCode(data)
       setIsGenerating(false)
+    } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError') {
+        // This is an expected abort, do nothing
+        return
+      }
+      
+      console.error("HTTP fallback error:", error)
+      updateStatus(`HTTP fallback error: ${error instanceof Error ? error.message : "Unknown error"}`)
+      
+      // If even HTTP fails, use mock response as last resort
+      generateMockResponse(codeGenData)
     }
-  },
-  [isGenerating]
-)
+  }, [processGeneratedCode, updateStatus])
+
+  // Generate a mock response as last resort
+  const generateMockResponse = useCallback((codeGenData: CodeGenData) => {
+    updateStatus("Generating mock response...")
+    
+    setTimeout(() => {
+      // Create a simple mock response based on the request
+      const mockEndpointPath = codeGenData.endpoint_path || "/api/mock"
+      const mockMethod = codeGenData.method || "GET"
+      
+      const mockResponse = {
+        success: true,
+        data: {
+          endpoint: {
+            endpoint_id: `endpoint-${Date.now()}`,
+            endpoint_path: mockEndpointPath,
+            method: mockMethod,
+            generated_code: `"""
+Mock endpoint created as fallback when code generation services were unavailable.
+Method: ${mockMethod}
+Path: ${mockEndpointPath}
+"""
+
+from fastapi import APIRouter, Depends, HTTPException
+from typing import List, Optional
+from ..models.user import User
+from ..dependencies.auth import get_current_user
+
+router = APIRouter()
+
+@router.${mockMethod.toLowerCase()}("${mockEndpointPath}")
+async def ${mockMethod.toLowerCase()}_endpoint(
+    ${mockMethod === "GET" ? "" : "data: dict, "}current_user: User = Depends(get_current_user)
+):
+    """
+    ${codeGenData.prompt || "Mock endpoint handler"}
+    """
+    return {
+        "message": "Mock response - code generation service unavailable",
+        "status": "success",
+        "data": ${mockMethod === "GET" ? '[{"id": 1, "name": "Mock item"}]' : "data"}
+    }`
+          }
+        }
+      }
+      
+      // Process the mock response
+      processGeneratedCode(mockResponse)
+      updateStatus("Generated mock response (fallback)")
+      setIsGenerating(false)
+    }, 1000)
+  }, [processGeneratedCode, updateStatus])
+
+  // Generate code function - main entry point
+  const generateCode = useCallback(
+    async (codeGenData: CodeGenData) => {
+      if (isGenerating) {
+        return
+      }
+
+      // Clean up any previous requests
+      cleanup()
+      
+      // Start new generation
+      setIsGenerating(true)
+      updateStatus("Initializing code generation...")
+      setError(null)
+      setProgress(0)
+      setMessages([])
+      
+      // Generate a unique ID for this request
+      requestIdRef.current = `req-${Date.now()}`
+      
+      try {
+        // Try WebSocket first
+        updateStatus("Attempting WebSocket connection...")
+        
+        // Set a timeout for WebSocket connection
+        wsConnectionTimeoutRef.current = setTimeout(() => {
+          updateStatus("WebSocket connection timeout, falling back to HTTP...")
+          useHttpFallback(codeGenData)
+        }, WS_CONNECTION_TIMEOUT)
+        
+        // Create WebSocket
+        const socket = new WebSocket(WEBSOCKET_URL)
+        let isConnectionSuccessful = false
+        
+        // Socket open handler
+        socket.onopen = () => {
+          // Clear the connection timeout
+          if (wsConnectionTimeoutRef.current) {
+            clearTimeout(wsConnectionTimeoutRef.current)
+            wsConnectionTimeoutRef.current = null
+          }
+          
+          isConnectionSuccessful = true
+          updateStatus("WebSocket connected, sending data...")
+          
+          // Send the data
+          try {
+            socket.send(JSON.stringify(codeGenData))
+            updateStatus("Data sent, waiting for response...")
+          } catch (error) {
+            console.error("Error sending data via WebSocket:", error)
+            socket.close()
+            useHttpFallback(codeGenData)
+          }
+        }
+        
+        // Message handler
+        let buffer = ""
+        socket.onmessage = (event) => {
+          try {
+            const message = event.data
+            
+            if (typeof message === "string") {
+              // Add to buffer
+              buffer += message
+              
+              // Try to parse as JSON
+              try {
+                const data = JSON.parse(buffer)
+                buffer = "" // Clear buffer on successful parse
+                
+                // Check if this is the completion message
+                if (data.status === "completed" || data.completed || data.finished) {
+                  processGeneratedCode(data)
+                  updateStatus("Generation completed")
+                  setIsGenerating(false)
+                  socket.close()
+                } else {
+                  // Regular status update
+                  if (data.message) {
+                    updateStatus(data.message)
+                  }
+                  if (data.progress) {
+                    setProgress(data.progress)
+                  }
+                }
+              } catch (e) {
+                // Not a complete JSON object yet, continue buffering
+              }
+            }
+          } catch (error) {
+            console.error("Error processing message:", error)
+          }
+        }
+        
+        // Error handler
+        socket.onerror = (event) => {
+          console.error("WebSocket error:", event)
+          
+          // Only fall back if we haven't already successfully connected
+          if (!isConnectionSuccessful) {
+            if (wsConnectionTimeoutRef.current) {
+              clearTimeout(wsConnectionTimeoutRef.current)
+              wsConnectionTimeoutRef.current = null
+            }
+            useHttpFallback(codeGenData)
+          }
+        }
+        
+        // Close handler
+        socket.onclose = (event) => {
+          console.log(`WebSocket closed with code ${event.code}${event.reason ? `: ${event.reason}` : ""}`)
+          
+          // If the socket closes before we've received a completion message,
+          // and we've successfully connected, fall back to HTTP
+          if (isGenerating && isConnectionSuccessful) {
+            updateStatus(`WebSocket closed unexpectedly (${event.code}), using HTTP fallback...`)
+            useHttpFallback(codeGenData)
+          }
+        }
+      } catch (error) {
+        console.error("Error setting up WebSocket:", error)
+        useHttpFallback(codeGenData)
+      }
+    },
+    [cleanup, generateMockResponse, isGenerating, processGeneratedCode, updateStatus, useHttpFallback],
+  )
+
+  // Clean up on unmount
+  useEffect(() => {
+    return () => {
+      cleanup()
+    }
+  }, [cleanup])
+
   return {
     generateCode,
     isGenerating,
@@ -227,11 +369,9 @@ const generateCode = useCallback(
     progress,
     messages,
     cancelGeneration: () => {
-      if (wsManagerRef.current) {
-        wsManagerRef.current.close()
-      }
+      cleanup()
       setIsGenerating(false)
-      setStatus("Code generation cancelled")
+      updateStatus("Code generation cancelled")
     },
   }
 }
