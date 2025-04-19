@@ -23,11 +23,51 @@ export function CreateEndpointModal({
   const [httpMethod, setHttpMethod] = useState("GET")
   const [description, setDescription] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [pathError, setPathError] = useState("")
 
   if (!isOpen) return null
 
+  // Custom validation function for endpoint path
+  const validateEndpointPath = (path: string) => {
+    // Allow letters, numbers, hyphens, underscores, and forward slashes
+    const validPathRegex = /^[a-zA-Z0-9\-_\/]+$/
+    if (!validPathRegex.test(path)) {
+      setPathError("Only letters, numbers, hyphens, underscores, and forward slashes allowed")
+      return false
+    }
+    
+    // Additional validation rules if needed
+    // For example, no consecutive slashes
+    if (path.includes("//")) {
+      setPathError("Consecutive forward slashes are not allowed")
+      return false
+    }
+    
+    // Path looks good
+    setPathError("")
+    return true
+  }
+
+  const handleEndpointPathChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newPath = e.target.value
+    setEndpointPath(newPath)
+    
+    // Validate as user types, but don't show error until they've typed something
+    if (newPath) {
+      validateEndpointPath(newPath)
+    } else {
+      setPathError("")
+    }
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    
+    // Validate before submission
+    if (!validateEndpointPath(endpointPath)) {
+      return
+    }
+    
     setIsSubmitting(true)
     try {
       await onSubmit({
@@ -39,6 +79,7 @@ export function CreateEndpointModal({
       setEndpointPath("")
       setHttpMethod("GET")
       setDescription("")
+      setPathError("")
       onClose()
     } finally {
       setIsSubmitting(false)
@@ -63,14 +104,18 @@ export function CreateEndpointModal({
               <input
                 type="text"
                 value={endpointPath}
-                onChange={(e) => setEndpointPath(e.target.value)}
+                onChange={handleEndpointPathChange}
                 placeholder="users"
-                className="flex-1 p-2 border border-zinc-300 dark:border-zinc-700 rounded-r-md dark:bg-zinc-800 dark:text-zinc-200"
+                className={`flex-1 p-2 border ${pathError ? 'border-red-500' : 'border-zinc-300 dark:border-zinc-700'} rounded-r-md dark:bg-zinc-800 dark:text-zinc-200`}
                 required
-                pattern="[a-zA-Z0-9-/]+"
-                title="Only letters, numbers, hyphens and forward slashes allowed"
               />
             </div>
+            {pathError && (
+              <p className="mt-1 text-sm text-red-500">{pathError}</p>
+            )}
+            <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+              Example: users/profile or products/{"{id}"}
+            </p>
           </div>
           
           <div>
@@ -115,7 +160,7 @@ export function CreateEndpointModal({
             <Button
               type="submit"
               className="bg-[#7dff00] hover:bg-[#9aff33] text-black dark:bg-[#7dff00] dark:hover:bg-[#9aff33] dark:text-black"
-              disabled={isSubmitting}
+              disabled={isSubmitting || !!pathError}
             >
               {isSubmitting ? (
                 <>
