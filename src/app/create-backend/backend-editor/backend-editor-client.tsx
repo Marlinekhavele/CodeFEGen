@@ -26,90 +26,17 @@ export default function BackendEditorClient({
   const [selectedFile, setSelectedFile] = useState<string | null>(null)
   const [currentCode, setCurrentCode] = useState("")
   const [generatedData, setGeneratedData] = useState<GeneratedDataType | null>(null)
+  const [isGenerating, setIsGenerating] = useState(false)
+  const [generationStatus, setGenerationStatus] = useState("")
   const { theme } = useTheme()
 
   // Use our custom WebSocket hook for template code generation
-  const { generateCode, isGenerating, status, error } = useWebSocketCodeGen({
+  const { generateCode, status, error } = useWebSocketCodeGen({
+    onStatusChange: (status) => {
+      setGenerationStatus(status)
+    },
     onFileGenerated: (file) => {
-      // Add the generated file to our files list
-      setFiles((prev) => {
-        // Check if file already exists
-        const existingFileIndex = prev.findIndex((f) => f.id === file.id)
-        if (existingFileIndex >= 0) {
-          // Update existing file
-          const updatedFiles = [...prev]
-          updatedFiles[existingFileIndex] = file
-          return updatedFiles
-        } else {
-          // Add new file
-          return [...prev, file]
-        }
-      })
-
-      // Select the newly generated file
-      setSelectedFile(file.id)
-      setCurrentCode(file.code)
-
-      // Update generated data structure
-      if (file.type === "endpoint") {
-        setGeneratedData((prev) => ({
-          ...prev,
-          project_id: urlFriendlyName || "project-123",
-          endpoint: {
-            generated_code: file.code,
-            endpoint_path: file.path,
-            method: file.method || "GET",
-            content_base64: "",
-            file_path: file.path,
-            file_hash: "",
-            endpoint_id: file.id,
-          },
-        }))
-      } else if (file.type === "model") {
-        setGeneratedData((prev) => ({
-          ...prev,
-          project_id: urlFriendlyName || "project-123",
-          model: {
-            generated_code: file.code,
-            content_base64: "",
-            entity_name: file.name,
-            file_path: file.path,
-            file_hash: "",
-            exists: true,
-          },
-        }))
-      } else if (file.type === "schema") {
-        setGeneratedData((prev) => ({
-          ...prev,
-          project_id: urlFriendlyName || "project-123",
-          schema: {
-            generated_code: file.code,
-            content_base64: "",
-            entity_name: file.name,
-            file_path: file.path,
-            file_hash: "",
-            exists: true,
-          },
-        }))
-      } else if (file.type === "migration") {
-        setGeneratedData((prev) => ({
-          ...prev,
-          project_id: urlFriendlyName || "project-123",
-          migration: {
-            generated_code: file.code,
-            content_base64: "",
-            entity_name: file.name,
-            file_path: file.path,
-            file_hash: "",
-            exists: true,
-          },
-        }))
-      }
-
-      toast({
-        title: "File generated",
-        description: `Generated ${file.name} successfully.`,
-      })
+      handleFileGenerated(file)
     },
   })
 
@@ -166,18 +93,162 @@ export default function BackendEditorClient({
 
   // Generate code for a template using our WebSocket integration
   const generateTemplateCode = async (template: string) => {
-    await generateCode({
-      project_id: urlFriendlyName || "project-123",
-      prompt: `Generate code for ${template} template with authentication, models, and database schema`,
-      language: "python",
-      method: "POST",
-      endpoint_path: `/api/${template}`,
-      additional_context: `Template: ${template}, Include: authentication, database models, API endpoints`,
+    setIsGenerating(true)
+    setGenerationStatus(`Generating code for ${template} template...`)
+
+    try {
+      // Option 1: Use the hook
+      await generateCode({
+        project_id: urlFriendlyName || "project-123",
+        prompt: `Generate code for ${template} template with authentication, models, and database schema`,
+        language: "python",
+        method: "POST",
+        endpoint_path: `/api/${template}`,
+        additional_context: `Template: ${template}, Include: authentication, database models, API endpoints`,
+      })
+
+      // Option 2: Use the service directly to create a WebSocketHandler
+      // const codeGenService = new CodeGenService()
+      // const wsHandler = await codeGenService.createWebSocketHandler({
+      //   project_id: urlFriendlyName || "project-123",
+      //   prompt: `Generate code for ${template} template with authentication, models, and database schema`,
+      //   language: "python",
+      //   method: "POST",
+      //   endpoint_path: `/api/${template}`,
+      //   additional_context: `Template: ${template}, Include: authentication, database models, API endpoints`,
+      // })
+
+      // // Set up event listeners
+      // wsHandler.on(CodeStreamEventType.CONNECTED, () => {
+      //   setGenerationStatus("Connected to code generation service")
+      // })
+
+      // wsHandler.on(CodeStreamEventType.INFO, (data) => {
+      //   if (data.message) {
+      //     setGenerationStatus(data.message)
+      //   }
+      // })
+
+      // wsHandler.on(CodeStreamEventType.TOKEN, (token) => {
+      //   // Process token for file generation
+      //   try {
+      //     const tokenData = JSON.parse(token)
+      //     if (tokenData.data) {
+      //       // Process files...
+      //     }
+      //   } catch (e) {
+      //     // Not JSON
+      //   }
+      // })
+
+      // wsHandler.on(CodeStreamEventType.COMPLETED, () => {
+      //   setIsGenerating(false)
+      //   setGenerationStatus("Code generation completed")
+      // })
+
+      // wsHandler.on(CodeStreamEventType.ERROR, (error) => {
+      //   setIsGenerating(false)
+      //   setGenerationStatus(`Error: ${error.message}`)
+      // })
+
+      // // Connect to the WebSocket
+      // wsHandler.connect()
+
+      toast({
+        title: "Template code generation initiated",
+        description: `Generating code for ${template} template...`,
+      })
+    } catch (error) {
+      setIsGenerating(false)
+      setGenerationStatus(`Error: ${error instanceof Error ? error.message : "Unknown error"}`)
+
+      toast({
+        title: "Error",
+        description: `Failed to generate code: ${error instanceof Error ? error.message : "Unknown error"}`,
+        variant: "destructive",
+      })
+    }
+  }
+
+  const handleFileGenerated = (file: FileType) => {
+    // Add the generated file to our files list
+    setFiles((prev) => {
+      // Check if file already exists
+      const existingFileIndex = prev.findIndex((f) => f.id === file.id)
+      if (existingFileIndex >= 0) {
+        // Update existing file
+        const updatedFiles = [...prev]
+        updatedFiles[existingFileIndex] = file
+        return updatedFiles
+      } else {
+        // Add new file
+        return [...prev, file]
+      }
     })
 
+    // Select the newly generated file
+    setSelectedFile(file.id)
+    setCurrentCode(file.code)
+
+    // Update generated data structure
+    if (file.type === "endpoint") {
+      setGeneratedData((prev) => ({
+        ...prev,
+        project_id: urlFriendlyName || "project-123",
+        endpoint: {
+          generated_code: file.code,
+          endpoint_path: file.path,
+          method: file.method || "GET",
+          content_base64: "",
+          file_path: file.path,
+          file_hash: "",
+          endpoint_id: file.id,
+        },
+      }))
+    } else if (file.type === "model") {
+      setGeneratedData((prev) => ({
+        ...prev,
+        project_id: urlFriendlyName || "project-123",
+        model: {
+          generated_code: file.code,
+          content_base64: "",
+          entity_name: file.name,
+          file_path: file.path,
+          file_hash: "",
+          exists: true,
+        },
+      }))
+    } else if (file.type === "schema") {
+      setGeneratedData((prev) => ({
+        ...prev,
+        project_id: urlFriendlyName || "project-123",
+        schema: {
+          generated_code: file.code,
+          content_base64: "",
+          entity_name: file.name,
+          file_path: file.path,
+          file_hash: "",
+          exists: true,
+        },
+      }))
+    } else if (file.type === "migration") {
+      setGeneratedData((prev) => ({
+        ...prev,
+        project_id: urlFriendlyName || "project-123",
+        migration: {
+          generated_code: file.code,
+          content_base64: "",
+          entity_name: file.name,
+          file_path: file.path,
+          file_hash: "",
+          exists: true,
+        },
+      }))
+    }
+
     toast({
-      title: "Template code generation initiated",
-      description: `Generating code for ${template} template...`,
+      title: "File generated",
+      description: `Generated ${file.name} successfully.`,
     })
   }
 
@@ -293,38 +364,16 @@ export default function BackendEditorClient({
     })
   }
 
-  // Handle file generated from AI Chat
-  const handleFileGenerated = (file: FileType) => {
-    // Add the file to our files list if it doesn't exist
-    setFiles((prev) => {
-      const existingFileIndex = prev.findIndex((f) => f.id === file.id)
-      if (existingFileIndex >= 0) {
-        // Update existing file
-        const updatedFiles = [...prev]
-        updatedFiles[existingFileIndex] = file
-        return updatedFiles
-      } else {
-        // Add new file
-        return [...prev, file]
-      }
-    })
-
-    // Select the newly generated file
-    setSelectedFile(file.id)
-    setCurrentCode(file.code)
-  }
-
+  // Add this function to your BackendEditorClient component
   const handleCreateEndpoint = async (data: { endpointPath: string; httpMethod: string; description: string }) => {
-    // Implement your endpoint creation logic here
     toast({
       title: "Create Endpoint",
-      description: `Creating a new endpoint at ${data.endpointPath} with method ${data.httpMethod}...`,
+      description: `Creating a new ${data.httpMethod} endpoint at ${data.endpointPath}...`,
     })
 
-    // Call your additional code generation function or implement specific endpoint creation logic
     await generateCode({
       project_id: urlFriendlyName || "project-123",
-      prompt: `Generate a ${data.httpMethod} endpoint for ${data.endpointPath} with description: ${data.description}`,
+      prompt: `Generate a ${data.httpMethod} endpoint for ${data.endpointPath} with the following description: ${data.description}`,
       language: "python",
       method: data.httpMethod as "GET" | "POST" | "PUT" | "DELETE",
       endpoint_path: data.endpointPath,
