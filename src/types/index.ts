@@ -47,6 +47,14 @@ export interface EditorFileData {
     data: EndpointListContent[]
   }
   
+  export type EndpointDetails = {
+    language: string
+    framework: string
+    endpointPath: string
+    method: string
+    description: string
+  }
+
   export interface EndpointListContent {
     path: string
     method: string
