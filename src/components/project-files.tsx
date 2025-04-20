@@ -14,6 +14,7 @@ import {
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
+import { EndpointModal } from "@/components/endpoint-modal"
 
 interface ProjectFilesProps {
   files: FileType[]
@@ -28,6 +29,7 @@ interface ProjectFilesProps {
   onSelectGeneratedFile: (file: GeneratedFileType) => void
   isGenerating: boolean
   onGenerateAdditionalCode: () => Promise<void>
+  onEndpointDetailsSubmit: (details: any) => void
 }
 
 export function ProjectFiles({
@@ -38,6 +40,7 @@ export function ProjectFiles({
   onCreateEndpoint,
   onSelectGeneratedFile,
   onGenerateAdditionalCode,
+  onEndpointDetailsSubmit,
   isGenerating,
 }: ProjectFilesProps) {
   // State to track expanded sections
@@ -49,6 +52,9 @@ export function ProjectFiles({
     migrations: true,
     helpers: true
   });
+
+  // Added state for modal
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   // Toggle section expanded state
   const toggleSection = (section: keyof typeof expandedSections) => {
@@ -81,6 +87,12 @@ export function ProjectFiles({
         return <span className="text-xs bg-gray-100 text-gray-700 dark:bg-gray-900 dark:text-gray-300 px-1.5 py-0.5 rounded-sm">{method}</span>
     }
   }
+
+  // Added modal submit handler
+  const handleModalSubmit = (details: any) => {
+    setIsModalOpen(false);
+    onEndpointDetailsSubmit(details);
+  };
 
   return (
     <div className="rounded-lg overflow-hidden border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 h-full flex flex-col">
@@ -122,7 +134,7 @@ export function ProjectFiles({
                   className="h-6 w-6 text-zinc-600 hover:text-[#7dff00] dark:text-zinc-400 dark:hover:text-[#7dff00] p-0"
                   onClick={(e) => {
                     e.stopPropagation();
-                    onGenerateAdditionalCode();
+                    setIsModalOpen(true);
                   }}
                   disabled={isGenerating}
                 >
@@ -349,6 +361,13 @@ export function ProjectFiles({
           </div>
         )}
       </div>
+
+      {/* Endpoint creation modal */}
+      <EndpointModal 
+        isOpen={isModalOpen} 
+        onClose={() => setIsModalOpen(false)}
+        onSubmit={handleModalSubmit}
+      />
     </div>
   )
 

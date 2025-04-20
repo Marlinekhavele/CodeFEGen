@@ -31,6 +31,13 @@ type CodeGenStatus = "idle" | "generating" | "generated" | "generationFailed"
 type AIChartProps = {
   projectId: string
   onFileGenerated?: (file: FileType) => void
+  endpointDetails?: {
+    language: string
+    framework: string
+    endpointPath: string
+    method: string
+    description: string
+  } | null
 }
 
 // Constants for configuration
@@ -43,7 +50,7 @@ const cleanFileName = (fileName: string): string => {
   return fileName.replace(/\.(get|post|put|delete)\./i, ".");
 }
 
-export default function AIChat({ projectId, onFileGenerated }: AIChartProps) {
+export default function AIChat({ projectId, onFileGenerated, endpointDetails }: AIChartProps) {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState("")
   const [isLoading, setIsLoading] = useState(false)
@@ -56,14 +63,24 @@ export default function AIChat({ projectId, onFileGenerated }: AIChartProps) {
   const wsRef = useRef<WebSocket | null>(null)
   const timeoutRef = useRef<NodeJS.Timeout | null>(null)
 
-  // Add these state variables inside the AIChat component
-  const [language, setLanguage] = useState<string>("python")
-  const [framework, setFramework] = useState<string>("fastapi") // Using FastAPI as default
-  const [endpointPath, setEndpointPath] = useState<string>("/api/example")
-  const [method, setMethod] = useState<string>("GET")
-
   // Initialize code store if it exists
   const codeStore = typeof useCodeStore !== "undefined" ? useCodeStore : null
+
+  // Listen for new endpoint details and generate code when they're provided
+  useEffect(() => {
+    if (endpointDetails && !isLoading && codeGenStatus !== "generating") {
+      const { language, framework, endpointPath, method, description } = endpointDetails;
+      const prompt = `Create a ${method} endpoint at ${endpointPath} that ${description}`;
+      
+      // Set input and trigger submission
+      setInput(prompt);
+      
+      // Use setTimeout to allow state to update before submitting
+      setTimeout(() => {
+        handleSubmitWithDetails(prompt, language, framework, endpointPath, method);
+      }, 100);
+    }
+  }, [endpointDetails]);
 
   useEffect(() => {
     // Scroll to bottom when messages change
@@ -318,68 +335,68 @@ export default function AIChat({ projectId, onFileGenerated }: AIChartProps) {
     }
   }
 
-  const handleSubmit = async (e?: React.FormEvent) => {
-    e?.preventDefault()
-    if (!input.trim() || isLoading) return
+  const handleSubmitWithDetails = (
+    promptText: string, 
+    language: string, 
+    framework: string, 
+    endpointPath: string, 
+    method: string
+  ) => {
+    if (!promptText.trim() || isLoading) return;
 
     // Close any existing WebSocket
     if (wsRef.current) {
-      wsRef.current.close()
-      wsRef.current = null
+      wsRef.current.close();
+      wsRef.current = null;
     }
 
     // Clear any existing timeout
     if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current)
-      timeoutRef.current = null
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
     }
 
     const userMessage: Message = {
       id: Date.now().toString(),
       role: "user",
-      content: input.trim(),
+      content: promptText.trim(),
       timestamp: new Date(),
-    }
+    };
 
-    setMessages((prev) => [...prev, userMessage])
-    setLastMessage(input.trim())
-    setInput("")
-    setIsLoading(true)
-    setCodeGenStatus("generating")
-    setSuccessMessage("Generating code...")
-    setGeneratedFiles(null)
+    setMessages((prev) => [...prev, userMessage]);
+    setLastMessage(promptText.trim());
+    setInput("");
+    setIsLoading(true);
+    setCodeGenStatus("generating");
+    setSuccessMessage("Generating code...");
+    setGeneratedFiles(null);
 
     // Start code stream if code store exists
     if (codeStore) {
-      codeStore.getState().startStream()
+      codeStore.getState().startStream();
     }
 
-    // Focus the input after sending
-    setTimeout(() => {
-      inputRef.current?.focus()
-    }, 100)
-
     try {
-      // Only use WebSocket for code generation - using the approach from the original AIChat
+      // Only use WebSocket for code generation
       const codeGenData = {
         project_id: projectId,
-        prompt: userMessage.content,
+        prompt: promptText.trim(),
         language: language,
         method: method,
         endpoint_path: endpointPath,
         additional_context: `Framework: ${framework}`,
-      }
+      };
 
       console.log("Connecting to WebSocket with data:", codeGenData);
 
       // Direct WebSocket connection
-      const ws = new WebSocket("wss://codebegen.canadacentral.cloudapp.azure.com/api/v1/generate/stream")
+      const ws = new WebSocket("wss://codebegen.canadacentral.cloudapp.azure.com/api/v1/generate/stream");
       wsRef.current = ws;
 
       // Setup timeout handler
       setupTimeoutHandler();
 
-      let accumulatedData = ""
+      let accumulatedData = "";
       let receivedFirstChunk = false;
       let messageCount = 0;
       let lastActivityTime = Date.now();
@@ -395,10 +412,10 @@ export default function AIChat({ projectId, onFileGenerated }: AIChartProps) {
 
       ws.onopen = () => {
         console.log("WebSocket connected, sending data");
-        setSuccessMessage("Connected to code generation service...")
+        setSuccessMessage("Connected to code generation service...");
         lastActivityTime = Date.now();
         ws.send(JSON.stringify(codeGenData));
-      }
+      };
 
       ws.onmessage = (event) => {
         try {
@@ -595,7 +612,7 @@ export default function AIChat({ projectId, onFileGenerated }: AIChartProps) {
             codeStore.getState().endStream();
           }
         }
-      }
+      };
 
       ws.onerror = (error) => {
         console.error("WebSocket error:", error);
@@ -614,7 +631,7 @@ export default function AIChat({ projectId, onFileGenerated }: AIChartProps) {
         if (codeStore) {
           codeStore.getState().endStream();
         }
-      }
+      };
 
       ws.onclose = (event) => {
         console.log("WebSocket closed:", event);
@@ -643,13 +660,13 @@ export default function AIChat({ projectId, onFileGenerated }: AIChartProps) {
             role: "assistant",
             content: "The connection was closed unexpectedly. This could be due to server issues or network problems. Please try again.",
             timestamp: new Date(),
-          }
+          };
 
-          setMessages((prev) => [...prev, errorMessage])
+          setMessages((prev) => [...prev, errorMessage]);
         }
         
         wsRef.current = null;
-      }
+      };
     } catch (error) {
       console.error("Error getting AI response:", error);
       setCodeGenStatus("generationFailed");
@@ -665,11 +682,26 @@ export default function AIChat({ projectId, onFileGenerated }: AIChartProps) {
         role: "assistant",
         content: "Sorry, I encountered an error while generating code. Please try again.",
         timestamp: new Date(),
-      }
+      };
 
-      setMessages((prev) => [...prev, errorMessage])
+      setMessages((prev) => [...prev, errorMessage]);
     }
-  }
+  };
+
+  // Regular submit handler now calls handleSubmitWithDetails with current input
+  const handleSubmit = (e?: React.FormEvent) => {
+    e?.preventDefault();
+    if (!input.trim() || isLoading) return;
+    
+    // Call the detailed handler with default values
+    handleSubmitWithDetails(
+      input, 
+      "python", // default language
+      "fastapi", // default framework
+      "/api/example", // default endpoint path
+      "GET" // default method
+    );
+  };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -696,74 +728,6 @@ export default function AIChat({ projectId, onFileGenerated }: AIChartProps) {
             <Maximize2 className="h-4 w-4 text-zinc-500 dark:text-zinc-400" />
             <span className="sr-only">Expand</span>
           </Button>
-        </div>
-      </div>
-
-      {/* Add this form above the chat input */}
-      <div className="p-3 border-b border-zinc-200 bg-white dark:bg-zinc-900 dark:border-zinc-800">
-        <div className="grid grid-cols-2 gap-3">
-          <div className="space-y-1">
-            <Label htmlFor="language" className="text-xs">
-              Language
-            </Label>
-            <Select value={language} onValueChange={setLanguage}>
-              <SelectTrigger id="language" className="h-8">
-                <SelectValue placeholder="Select language" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="python">Python</SelectItem>
-                <SelectItem value="javascript">JavaScript</SelectItem>
-                <SelectItem value="typescript">TypeScript</SelectItem>
-                <SelectItem value="go">Go</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="framework" className="text-xs">
-              Framework
-            </Label>
-            <Select value={framework} onValueChange={setFramework}>
-              <SelectTrigger id="framework" className="h-8">
-                <SelectValue placeholder="Select framework" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="flask">Flask</SelectItem>
-                <SelectItem value="fastapi">FastAPI</SelectItem>
-                <SelectItem value="django">Django</SelectItem>
-                <SelectItem value="express">Express</SelectItem>
-                <SelectItem value="nextjs">Next.js</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="method" className="text-xs">
-              Method
-            </Label>
-            <Select value={method} onValueChange={setMethod}>
-              <SelectTrigger id="method" className="h-8">
-                <SelectValue placeholder="Select method" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="GET">GET</SelectItem>
-                <SelectItem value="POST">POST</SelectItem>
-                <SelectItem value="PUT">PUT</SelectItem>
-                <SelectItem value="DELETE">DELETE</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="endpoint" className="text-xs">
-              Endpoint Path
-            </Label>
-            <input
-              id="endpoint"
-              type="text"
-              value={endpointPath}
-              onChange={(e) => setEndpointPath(e.target.value)}
-              className="w-full h-8 px-3 rounded-md border border-zinc-200 bg-zinc-50 text-sm dark:bg-zinc-800 dark:border-zinc-700"
-              placeholder="/api/example"
-            />
-          </div>
         </div>
       </div>
 
