@@ -20,6 +20,7 @@ interface ProjectHeaderProps {
   isGenerating: boolean
   onCopyCode: () => void
   onDeleteFile: () => void
+  onDownloadFile: () => void
   onSaveFile: () => void
 }
 
@@ -30,6 +31,7 @@ export function ProjectHeader({
   isGenerating,
   onCopyCode,
   onDeleteFile,
+  onDownloadFile,
   onSaveFile
 }: ProjectHeaderProps) {
   // Display template info if available
@@ -124,13 +126,14 @@ export function ProjectHeader({
                   variant="outline"
                   size="sm"
                   className="border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
+                  onClick={onDownloadFile}
                 >
                   <Play className="h-4 w-4 mr-2" />
-                  Deploy
+                  Download
                 </Button>
               </TooltipTrigger>
               <TooltipContent>
-                <p>Deploy your backend</p>
+                <p>Download your backend files</p>
               </TooltipContent>
             </Tooltip>
 
