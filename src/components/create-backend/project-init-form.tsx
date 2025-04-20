@@ -11,6 +11,8 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Loader2 } from "lucide-react"
 import { useRouter } from "next/navigation"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { languages, frameworks } from "./options"
 
 interface ProjectInitFormProps {
   onProjectInitialized?: (projectName: string, urlFriendlyName: string) => void
@@ -30,6 +32,8 @@ export function ProjectInitForm({ onProjectInitialized }: ProjectInitFormProps) 
     },
   })
 
+  const selectedLanguage = form.watch("language")
+
   const { isDirty, isSubmitting } = form.formState
 
   const handleSubmit = async (values: z.infer<typeof CreateBackendFormSchema>) => {
@@ -45,14 +49,11 @@ export function ProjectInitForm({ onProjectInitialized }: ProjectInitFormProps) 
       )
 
       if (response) {
-        // Use the project_id from the backend response
         const projectId = response.project_id
 
         if (onProjectInitialized) {
-          // Pass the actual project_id to the callback
           onProjectInitialized(values.project_name, projectId)
         } else {
-          // Use project_id in the URL when redirecting
           router.push(
             `/create-backend?name=${encodeURIComponent(values.project_name)}&url=${encodeURIComponent(projectId)}`,
           )
@@ -100,14 +101,20 @@ export function ProjectInitForm({ onProjectInitialized }: ProjectInitFormProps) 
             render={({ field }) => (
               <FormItem className="space-y-2">
                 <FormLabel className="text-zinc-200">Language</FormLabel>
-                <FormControl>
-                  <Input
-                    {...field}
-                    type="text"
-                    placeholder="Enter Language (e.g., Python)"
-                    className="bg-zinc-800 border-zinc-700 text-zinc-200 focus:border-[#7dff00] focus:ring-[#7dff00]/20"
-                  />
-                </FormControl>
+                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <FormControl>
+                    <SelectTrigger className="bg-zinc-800 border-zinc-700 text-zinc-200 focus:border-[#7dff00] focus:ring-[#7dff00]/20">
+                      <SelectValue placeholder="Select a language" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent className="bg-zinc-800 border-zinc-700 text-zinc-200">
+                    {languages.map((language) => (
+                      <SelectItem key={language.value} value={language.value}>
+                        {language.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
                 <FormMessage />
               </FormItem>
             )}
@@ -119,14 +126,24 @@ export function ProjectInitForm({ onProjectInitialized }: ProjectInitFormProps) 
             render={({ field }) => (
               <FormItem className="space-y-2">
                 <FormLabel className="text-zinc-200">Framework</FormLabel>
-                <FormControl>
-                  <Input
-                    {...field}
-                    type="text"
-                    placeholder="Enter Framework (e.g., Flask)"
-                    className="bg-zinc-800 border-zinc-700 text-zinc-200 focus:border-[#7dff00] focus:ring-[#7dff00]/20"
-                  />
-                </FormControl>
+                <Select 
+                  onValueChange={field.onChange} 
+                  defaultValue={field.value}
+                  disabled={!selectedLanguage}
+                >
+                  <FormControl>
+                    <SelectTrigger className="bg-zinc-800 border-zinc-700 text-zinc-200 focus:border-[#7dff00] focus:ring-[#7dff00]/20">
+                      <SelectValue placeholder="Select a framework" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent className="bg-zinc-800 border-zinc-700 text-zinc-200">
+                    {selectedLanguage && frameworks[selectedLanguage as keyof typeof frameworks].map((framework) => (
+                      <SelectItem key={framework.value} value={framework.value}>
+                        {framework.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
                 <FormMessage />
               </FormItem>
             )}

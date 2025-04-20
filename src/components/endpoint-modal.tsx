@@ -1,179 +1,183 @@
 "use client"
 
+import React, { useState } from "react"
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogDescription, 
+  DialogFooter, 
+  DialogHeader, 
+  DialogTitle 
+} from "@/components/ui/dialog"
+import { Label } from "@/components/ui/label"
+import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
 import { Button } from "@/components/ui/button"
-import { useState } from "react"
-import { Loader2 } from "lucide-react"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { languages, frameworks } from "./create-backend/options"
 
-interface CreateEndpointModalProps {
-  isOpen: boolean
-  onClose: () => void
-  onSubmit: (data: {
-    endpointPath: string
-    httpMethod: string
-    description: string
-  }) => Promise<void> | void
+type EndpointDetails = {
+  language: string
+  framework: string
+  endpointPath: string
+  method: string
+  description: string
 }
 
-export function CreateEndpointModal({
-  isOpen,
-  onClose,
-  onSubmit,
-}: CreateEndpointModalProps) {
-  const [endpointPath, setEndpointPath] = useState("")
-  const [httpMethod, setHttpMethod] = useState("GET")
-  const [description, setDescription] = useState("")
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [pathError, setPathError] = useState("")
+interface EndpointModalProps {
+  isOpen: boolean
+  onClose: () => void
+  onSubmit: (details: EndpointDetails) => void
+}
 
-  if (!isOpen) return null
+export function EndpointModal({ isOpen, onClose, onSubmit }: EndpointModalProps) {
+  const [language, setLanguage] = useState<string>("python")
+  const [framework, setFramework] = useState<string>("flask")
+  const [endpointPath, setEndpointPath] = useState<string>("/api/")
+  const [method, setMethod] = useState<string>("GET")
+  const [description, setDescription] = useState<string>("")
 
-  // Custom validation function for endpoint path
-  const validateEndpointPath = (path: string) => {
-    // Allow letters, numbers, hyphens, underscores, and forward slashes
-    const validPathRegex = /^[a-zA-Z0-9\-_\/]+$/
-    if (!validPathRegex.test(path)) {
-      setPathError("Only letters, numbers, hyphens, underscores, and forward slashes allowed")
-      return false
-    }
-    
-    // Additional validation rules if needed
-    // For example, no consecutive slashes
-    if (path.includes("//")) {
-      setPathError("Consecutive forward slashes are not allowed")
-      return false
-    }
-    
-    // Path looks good
-    setPathError("")
-    return true
-  }
-
-  const handleEndpointPathChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newPath = e.target.value
-    setEndpointPath(newPath)
-    
-    // Validate as user types, but don't show error until they've typed something
-    if (newPath) {
-      validateEndpointPath(newPath)
-    } else {
-      setPathError("")
-    }
-  }
-
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    
-    // Validate before submission
-    if (!validateEndpointPath(endpointPath)) {
-      return
-    }
-    
-    setIsSubmitting(true)
-    try {
-      await onSubmit({
-        endpointPath,
-        httpMethod,
-        description,
-      })
-      // Reset form on success
-      setEndpointPath("")
-      setHttpMethod("GET")
-      setDescription("")
-      setPathError("")
-      onClose()
-    } finally {
-      setIsSubmitting(false)
+    onSubmit({
+      language,
+      framework,
+      endpointPath,
+      method,
+      description
+    })
+    resetForm()
+  }
+
+  const resetForm = () => {
+    setLanguage("python")
+    setFramework("flask")
+    setEndpointPath("login")
+    setMethod("GET")
+    setDescription("")
+  }
+
+  const handleLanguageChange = (value: string) => {
+    setLanguage(value)
+    // Reset framework to the first option of the new language
+    const languageFrameworks = frameworks[value as keyof typeof frameworks]
+    if (languageFrameworks && languageFrameworks.length > 0) {
+      setFramework(languageFrameworks[0].value)
     }
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-      <div className="bg-white dark:bg-zinc-950 rounded-lg p-6 w-[400px]">
-        <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-100 mb-4">
-          Create New Endpoint
-        </h2>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-              Endpoint Path
-            </label>
-            <div className="flex items-center mt-1">
-              <span className="px-3 py-2 bg-zinc-100 dark:bg-zinc-800 rounded-l-md border border-r-0 border-zinc-300 dark:border-zinc-700 text-sm">
-                /api/
-              </span>
-              <input
-                type="text"
-                value={endpointPath}
-                onChange={handleEndpointPathChange}
-                placeholder="users"
-                className={`flex-1 p-2 border ${pathError ? 'border-red-500' : 'border-zinc-300 dark:border-zinc-700'} rounded-r-md dark:bg-zinc-800 dark:text-zinc-200`}
-                required
+    <Dialog open={isOpen} onOpenChange={(open) => {
+      if (!open) {
+        onClose()
+        resetForm()
+      }
+    }}>
+      <DialogContent className="sm:max-w-[425px]">
+        <DialogHeader>
+          <DialogTitle>Create New Endpoint</DialogTitle>
+          <DialogDescription>
+            Enter the details for your new endpoint. The AI will generate code based on these specifications.
+          </DialogDescription>
+        </DialogHeader>
+        <form onSubmit={handleSubmit}>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="language">Language</Label>
+                <Select value={language} onValueChange={handleLanguageChange}>
+                  <SelectTrigger id="language" className="bg-zinc-800 border-zinc-700 text-zinc-200">
+                    <SelectValue placeholder="Select language" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-zinc-800 border-zinc-700 text-zinc-200">
+                    {languages.map((lang) => (
+                      <SelectItem key={lang.value} value={lang.value}>
+                        {lang.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="framework">Framework</Label>
+                <Select 
+                  value={framework} 
+                  onValueChange={setFramework}
+                  disabled={!language}
+                >
+                  <SelectTrigger id="framework" className="bg-zinc-800 border-zinc-700 text-zinc-200">
+                    <SelectValue placeholder="Select framework" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-zinc-800 border-zinc-700 text-zinc-200">
+                    {language && frameworks[language as keyof typeof frameworks]?.map((fw) => (
+                      <SelectItem key={fw.value} value={fw.value}>
+                        {fw.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="method">Method</Label>
+                <Select value={method} onValueChange={setMethod}>
+                  <SelectTrigger id="method" className="bg-zinc-800 border-zinc-700 text-zinc-200">
+                    <SelectValue placeholder="Select method" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-zinc-800 border-zinc-700 text-zinc-200">
+                    <SelectItem value="GET">GET</SelectItem>
+                    <SelectItem value="POST">POST</SelectItem>
+                    <SelectItem value="PUT">PUT</SelectItem>
+                    <SelectItem value="DELETE">DELETE</SelectItem>
+                    <SelectItem value="PATCH">PATCH</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="endpoint-path">Endpoint Path</Label>
+                <Input 
+                  id="endpoint-path" 
+                  value={endpointPath}
+                  onChange={(e) => setEndpointPath(e.target.value)}
+                  placeholder="eg. login"
+                  className="bg-zinc-800 border-zinc-700 text-zinc-200"
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="description">Description</Label>
+              <Textarea
+                id="description"
+                placeholder="Describe what this endpoint should do..."
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                className="resize-none h-20 bg-zinc-800 border-zinc-700 text-zinc-200"
               />
             </div>
-            {pathError && (
-              <p className="mt-1 text-sm text-red-500">{pathError}</p>
-            )}
-            <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-              Example: users/profile or products/{"{id}"}
-            </p>
           </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-              HTTP Method
-            </label>
-            <select
-              value={httpMethod}
-              onChange={(e) => setHttpMethod(e.target.value)}
-              className="w-full mt-1 p-2 border border-zinc-300 rounded-md dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-200"
-            >
-              <option value="GET">GET</option>
-              <option value="POST">POST</option>
-              <option value="PUT">PUT</option>
-              <option value="DELETE">DELETE</option>
-              <option value="PATCH">PATCH</option>
-            </select>
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-              Description
-            </label>
-            <textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="What does this endpoint do?"
-              className="w-full mt-1 p-2 border border-zinc-300 rounded-md dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-200"
-              rows={3}
-            />
-          </div>
-          
-          <div className="flex justify-end gap-2 pt-2">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={onClose}
-              disabled={isSubmitting}
+          <DialogFooter>
+            <Button 
+              type="button" 
+              variant="outline" 
+              onClick={() => {
+                onClose()
+                resetForm()
+              }}
+              className="text-zinc-200 border-zinc-700 hover:bg-zinc-800"
             >
               Cancel
             </Button>
-            <Button
-              type="submit"
-              className="bg-[#7dff00] hover:bg-[#9aff33] text-black dark:bg-[#7dff00] dark:hover:bg-[#9aff33] dark:text-black"
-              disabled={isSubmitting || !!pathError}
+            <Button 
+              type="submit" 
+              className="bg-[#7dff00] text-black hover:bg-[#9aff33]"
+              disabled={!endpointPath.trim() || !description.trim()}
             >
-              {isSubmitting ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Creating...
-                </>
-              ) : (
-                "Create Endpoint"
-              )}
+              Generate
             </Button>
-          </div>
+          </DialogFooter>
         </form>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   )
 }
