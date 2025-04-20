@@ -31,6 +31,9 @@ export default function BackendEditorClient({
   const [isGenerating, setIsGenerating] = useState(false)
   const [generatedData, setGeneratedData] = useState<GeneratedDataType | null>(null)
   const { theme } = useTheme()
+  
+  // Add a state to track streaming code
+  const [streamingCode, setStreamingCode] = useState("")
 
   useEffect(() => {
     const fetchEndpoints = async () => {
@@ -47,7 +50,7 @@ export default function BackendEditorClient({
               try {
                 // Use the correct /endpoint API
                 const resp = await axios.get(
-                  `https://codebegen.canadacentral.cloudapp.azure.com/api/v1/endpoint/`,
+                  `https://codebegen.canadacentral.cloudapp.azure.com/api/v1/generate/stream`,
                   {
                     params: {
                       project_id: urlFriendlyName,
@@ -109,6 +112,129 @@ export default function BackendEditorClient({
       fetchEndpoints()
     }
   }, [urlFriendlyName])
+
+  // Listen for code updates from AIChat component
+  useEffect(() => {
+    const handleCodeUpdate = (event: any) => {
+      const { files, code } = event.detail;
+      
+      // If we receive files objects from the AI Chat component
+      if (files) {
+        console.log("Received files from AI Chat:", files);
+        
+        // Process each file type (endpoint, model, schema, migration)
+        const newFiles: FileType[] = [];
+        
+        // Process endpoint file
+        if (files.endpoint) {
+          const endpoint = files.endpoint;
+          newFiles.push({
+            id: endpoint.endpoint_id || `endpoint-${Date.now()}`,
+            name: endpoint.file_path?.split('/').pop() || 'endpoint',
+            path: endpoint.endpoint_path || '',
+            type: "endpoint",
+            code: endpoint.generated_code,
+            method: endpoint.method as MethodType || "GET",
+          });
+        }
+        
+        // Process model file
+        if (files.model) {
+          const model = files.model;
+          newFiles.push({
+            id: `model-${model.entity_name || Date.now()}`,
+            name: model.file_path?.split('/').pop() || 'model',
+            path: model.file_path || '',
+            type: "model",
+            code: model.generated_code,
+            method: "GET", // Default method
+          });
+        }
+        
+        // Process schema file
+        if (files.schema) {
+          const schema = files.schema;
+          newFiles.push({
+            id: `schema-${schema.entity_name || Date.now()}`,
+            name: schema.file_path?.split('/').pop() || 'schema',
+            path: schema.file_path || '',
+            type: "schema",
+            code: schema.generated_code,
+            method: "GET", // Default method
+          });
+        }
+        
+        // Process migration file
+        if (files.migration) {
+          const migration = files.migration;
+          newFiles.push({
+            id: `migration-${migration.entity_name || Date.now()}`,
+            name: migration.file_path?.split('/').pop() || 'migration',
+            path: migration.file_path || '',
+            type: "migration",
+            code: migration.generated_code,
+            method: "GET", // Default method
+          });
+        }
+        
+        // Update files state with new files
+        if (newFiles.length > 0) {
+          setFiles(prev => {
+            // Filter out any existing files with the same ids
+            const filteredPrev = prev.filter(file => 
+              !newFiles.some(newFile => newFile.id === file.id)
+            );
+            
+            return [...filteredPrev, ...newFiles];
+          });
+          
+          // Select the first new file
+          setSelectedFile(newFiles[0].id);
+          setCurrentCode(newFiles[0].code);
+          
+          // Clear streaming code
+          setStreamingCode("");
+          
+          toast({
+            title: "Code generated",
+            description: `${newFiles.length} new file(s) have been added to your project.`,
+          });
+        }
+        
+        // Update generatedData state
+        setGeneratedData({
+          endpoint: files.endpoint || null,
+          model: files.model || null,
+          schema: files.schema || null,
+          migration: files.migration || null,
+        });
+      }
+      
+      // If we receive just code (not structured files)
+      if (code && !files) {
+        setStreamingCode(code);
+      }
+    };
+    
+    // Handle streaming code chunks
+    const handleCodeChunk = (event: any) => {
+      const { code } = event.detail;
+      
+      if (code) {
+        setStreamingCode(prev => prev + code);
+      }
+    };
+    
+    // Add event listeners
+    window.addEventListener("code-update", handleCodeUpdate);
+    window.addEventListener("code-chunk", handleCodeChunk);
+    
+    // Clean up
+    return () => {
+      window.removeEventListener("code-update", handleCodeUpdate);
+      window.removeEventListener("code-chunk", handleCodeChunk);
+    };
+  }, []);
 
   // Ensure currentCode updates when selectedFile changes
   useEffect(() => {
@@ -307,6 +433,7 @@ export default function BackendEditorClient({
               files={files}
               onCodeChange={setCurrentCode}
               theme={theme}
+              streamingCode={streamingCode} // Pass streaming code to FileContent
             />
 
             {/* AI Chat Panel */}
