@@ -91,7 +91,7 @@ export function ProjectFiles({
         </div>
       </div>
       
-      <div className="p-2 overflow-auto" style={{ height: "calc(100vh - 300px)" }}>
+      <div className="p-2 overflow-auto" style={{ height: "calc(100vh)", width: "100%" }}>
         {files.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full py-6 px-2 text-center">
             <div className="rounded-full bg-zinc-100 dark:bg-zinc-800 p-2.5 mb-3">
@@ -144,7 +144,7 @@ export function ProjectFiles({
                     >
                       <div className="flex items-center gap-2">
                         {getMethodBadge(file.method || "UNKNOWN")}
-                        <span>{file.path ?? "/endpoint"}</span>
+                        <span>{file.path ? file.path : `${file.name ?? "endpoint"}`}</span>
                       </div>
                     </div>
                   ))}
@@ -351,5 +351,5 @@ export function ProjectFiles({
       </div>
     </div>
   )
-  )
+
 }
