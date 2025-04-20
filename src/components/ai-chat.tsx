@@ -32,94 +32,215 @@ type CodeGenStatus = "idle" | "generating" | "generated" | "generationFailed"
 type AIChartProps = {
   projectId: string
   onFileGenerated?: (file: FileType) => void
+  onFileGenerated?: (file: FileType) => void
 }
 
-// Constants for configuration
-const GENERATION_TIMEOUT = 120000; // 2 minutes in milliseconds
-const HEARTBEAT_INTERVAL = 30000; // 30 seconds in milliseconds
-
+export default function AIChat({ projectId, onFileGenerated }: AIChartProps) {
 export default function AIChat({ projectId, onFileGenerated }: AIChartProps) {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState("")
   const [lastMessage, setLastMessage] = useState<string | null>(null)
-  const [codeGenStatus, setCodeGenStatus] = useState<CodeGenStatus>("idle")
-  const [successMessage, setSuccessMessage] = useState<string | null>(null)
+  const [generatedFiles, setGeneratedFiles] = useState<Record<string, any> | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
-  const timeoutRef = useRef<NodeJS.Timeout | null>(null)
   const wsRef = useRef<WebSocket | null>(null)
 
   // Add these state variables inside the AIChat component
   const [language, setLanguage] = useState<string>("python")
-  const [framework, setFramework] = useState<string>("flask")
+  const [framework, setFramework] = useState<string>("fastapi") // Changed default to fastapi
   const [endpointPath, setEndpointPath] = useState<string>("/api/example")
   const [method, setMethod] = useState<string>("GET")
 
   // Initialize code store if it exists
   const codeStore = typeof useCodeStore !== "undefined" ? useCodeStore : null
 
-  // Add this near the top of the component
-  const logLevel = process.env.NEXT_PUBLIC_LOG_LEVEL || "info"
-  const shouldLog = logLevel === "debug" || logLevel === "trace"
-
-  // Clean up WebSocket and timeouts when component unmounts
-  useEffect(() => {
-    return () => {
-      if (wsRef.current) {
-        wsRef.current.close();
-      }
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-      }
-    };
-  }, []);
-
   useEffect(() => {
     // Scroll to bottom when messages change
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
   }, [messages])
 
-  const setupTimeoutHandler = () => {
-    // Clear existing timeout if any
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
-    }
-    
-    // Set new timeout
-    timeoutRef.current = setTimeout(() => {
-      console.log("Code generation timed out after", GENERATION_TIMEOUT/1000, "seconds");
-      
+  // Clean up WebSocket connection on unmount
+  useEffect(() => {
+    return () => {
       if (wsRef.current) {
-        wsRef.current.close();
+        wsRef.current.close()
+        wsRef.current = null
       }
-      
-      setCodeGenStatus("generationFailed");
-      setSuccessMessage("Code generation timed out. Please try again.");
-      
-      if (codeStore) {
-        codeStore.getState().endStream();
+    }
+  }, [])
+
+  // Process the response data and update the state
+  const processResponseData = (data: any) => {
+    console.log("Processing response data:", data)
+    
+    if (data.success && data.data) {
+      const files: Record<string, any> = {}
+
+      if (
+        data.data.endpoint &&
+        data.data.endpoint.file_path &&
+        data.data.endpoint.generated_code &&
+        data.data.endpoint.content_base64 &&
+        data.data.endpoint.file_hash
+      ) {
+        files["endpoint"] = {
+          file_path: data.data.endpoint.file_path,
+          generated_code: data.data.endpoint.generated_code,
+          content_base64: data.data.endpoint.content_base64,
+          file_hash: data.data.endpoint.file_hash,
+          endpoint_path: data.data.endpoint.endpoint_path ?? "",
+          method: data.data.endpoint.method ?? "",
+          endpoint_id: data.data.endpoint.endpoint_id,
+          exists: "exists" in data.data.endpoint && typeof (data.data.endpoint as any).exists === "boolean" ? (data.data.endpoint as any).exists : false,
+        }
       }
-      
-      // Add error message to chat
-      const errorMessage: Message = {
-        id: Date.now().toString(),
+      if (data.data.model && data.data.model.file_path && data.data.model.generated_code && data.data.model.content_base64 && data.data.model.file_hash) {
+        files["model"] = {
+          file_path: data.data.model.file_path,
+          generated_code: data.data.model.generated_code,
+          content_base64: data.data.model.content_base64,
+          file_hash: data.data.model.file_hash,
+          entity_name: data.data.model.entity_name,
+          exists: data.data.model.exists,
+        }
+      }
+      if (data.data.schema && data.data.schema.file_path && data.data.schema.generated_code && data.data.schema.content_base64 && data.data.schema.file_hash) {
+        files["schema"] = {
+          file_path: data.data.schema.file_path,
+          generated_code: data.data.schema.generated_code,
+          content_base64: data.data.schema.content_base64,
+          file_hash: data.data.schema.file_hash,
+          entity_name: data.data.schema.entity_name,
+          exists: data.data.schema.exists,
+        }
+      }
+      if (data.data.migration && data.data.migration.file_path && data.data.migration.generated_code && data.data.migration.content_base64 && data.data.migration.file_hash) {
+        files["migration"] = {
+          file_path: data.data.migration.file_path,
+          generated_code: data.data.migration.generated_code,
+          content_base64: data.data.migration.content_base64,
+          file_hash: data.data.migration.file_hash,
+          entity_name: data.data.migration.entity_name,
+          exists: data.data.migration.exists,
+        }
+      }
+
+      setGeneratedFiles(files)
+
+      // Dispatch event with generated files - this is crucial for BackendEditorClient to get the files
+      window.dispatchEvent(
+        new CustomEvent("code-update", {
+          detail: { files },
+        }),
+      )
+
+      // If onFileGenerated callback provided, call it for each file
+      if (onFileGenerated) {
+        Object.keys(files).forEach(key => {
+          const fileData = files[key];
+          const file: FileType = {
+            id: fileData.endpoint_id || `${key}-${Date.now()}`,
+            name: fileData.file_path?.split("/").pop() || key,
+            path: fileData.endpoint_path || fileData.file_path || "",
+            type: key as "endpoint" | "model" | "schema" | "migration",
+            code: fileData.generated_code,
+            method: fileData.method as "GET" | "POST" | "PUT" | "DELETE",
+          };
+          onFileGenerated(file);
+        });
+      }
+
+      const fileNames = Object.keys(files)
+        .map((key) => {
+          const file = files[key]
+          return file.file_path?.split("/").pop() || key
+        })
+        .join(", ")
+
+      const assistantMessage: Message = {
+        id: (Date.now() + 1).toString(),
         role: "assistant",
-        content: "Sorry, code generation timed out. This could be due to high server load or a complex request. Please try again with a simpler request or try later.",
+        content: `I've generated the following files: ${fileNames}. You can view them in the editor.`,
         timestamp: new Date(),
-      };
+      }
+
+      setMessages((prev) => [...prev, assistantMessage])
+      setCodeGenStatus("generated")
+      setSuccessMessage("Code generated successfully!")
+    } else if (data.result) {
+      // Handle the direct result structure
+      const files: Record<string, any> = {}
       
-      setMessages((prev) => [...prev, errorMessage]);
-    }, GENERATION_TIMEOUT);
-  };
+      if (data.result.endpoint) {
+        files["endpoint"] = data.result.endpoint;
+      }
+      if (data.result.model) {
+        files["model"] = data.result.model;
+      }
+      if (data.result.schema) {
+        files["schema"] = data.result.schema;
+      }
+      if (data.result.migration) {
+        files["migration"] = data.result.migration;
+      }
+      
+      if (Object.keys(files).length > 0) {
+        setGeneratedFiles(files);
+        
+        // Dispatch event with generated files
+        window.dispatchEvent(
+          new CustomEvent("code-update", {
+            detail: { files },
+          }),
+        );
+        
+        // If onFileGenerated callback provided, call it for each file
+        if (onFileGenerated) {
+          Object.keys(files).forEach(key => {
+            const fileData = files[key];
+            const file: FileType = {
+              id: fileData.endpoint_id || `${key}-${Date.now()}`,
+              name: fileData.file_path?.split("/").pop() || key,
+              path: fileData.endpoint_path || fileData.file_path || "",
+              type: key as "endpoint" | "model" | "schema" | "migration",
+              code: fileData.generated_code,
+              method: fileData.method as "GET" | "POST" | "PUT" | "DELETE",
+            };
+            onFileGenerated(file);
+          });
+        }
+        
+        const fileNames = Object.keys(files)
+          .map((key) => {
+            const file = files[key]
+            return file.file_path?.split("/").pop() || key
+          })
+          .join(", ");
+          
+        const assistantMessage: Message = {
+          id: (Date.now() + 1).toString(),
+          role: "assistant",
+          content: `I've generated the following files: ${fileNames}. You can view them in the editor.`,
+          timestamp: new Date(),
+        }
+        
+        setMessages((prev) => [...prev, assistantMessage]);
+        setCodeGenStatus("generated");
+        setSuccessMessage("Code generated successfully!");
+      }
+    } else {
+      throw new Error(data.message || "Failed to generate code")
+    }
+  }
 
   const handleSubmit = async (e?: React.FormEvent) => {
     e?.preventDefault()
-    if (!input.trim() || codeGenStatus === "generating") return
+    if (!input.trim() || isLoading) return
 
     // Close any existing WebSocket
     if (wsRef.current) {
-      wsRef.current.close();
-      wsRef.current = null;
+      wsRef.current.close()
+      wsRef.current = null
     }
 
     const userMessage: Message = {
@@ -132,8 +253,10 @@ export default function AIChat({ projectId, onFileGenerated }: AIChartProps) {
     setMessages((prev) => [...prev, userMessage])
     setLastMessage(input.trim())
     setInput("")
+    setIsLoading(true)
     setCodeGenStatus("generating")
-    setSuccessMessage("Preparing to generate code...")
+    setSuccessMessage("Generating code...")
+    setGeneratedFiles(null)
 
     // Start code stream if code store exists
     if (codeStore) {
@@ -146,244 +269,329 @@ export default function AIChat({ projectId, onFileGenerated }: AIChartProps) {
     }, 100)
 
     try {
-      const codeGenService = new CodeGenService()
-
-      console.log("Sending request to code generation service with:", {
-        project_id: projectId,
-        prompt: userMessage.content,
-        language,
-        method,
-        endpoint_path: endpointPath,
-        framework
-      });
-
-      // Use the correct interface format
-      const response = await codeGenService.generateCode({
+      // Only use WebSocket for code generation - using the approach from the original AIChat
+      const codeGenData = {
         project_id: projectId,
         prompt: userMessage.content,
         language: language,
         method: method,
         endpoint_path: endpointPath,
         additional_context: `Framework: ${framework}`,
-      })
-
-      // Check if response is defined
-      if (!response) {
-        throw new Error("No response received from code generation service")
       }
 
-      // Get the WebSocket URL from the response
-      const wsUrl = response.websocket_url
+      console.log("Connecting to WebSocket with data:", codeGenData);
 
-      if (!wsUrl) {
-        throw new Error("WebSocket URL not provided")
-      }
-
-      console.log("Connecting to WebSocket:", wsUrl)
-      const ws = new WebSocket(wsUrl)
+      // Direct WebSocket connection (similar to the original implementation)
+      const ws = new WebSocket("wss://codebegen.canadacentral.cloudapp.azure.com/api/v1/generate/stream")
       wsRef.current = ws;
-      
-      // Setup timeout handler for code generation
-      setupTimeoutHandler();
-
-      let receivedFirstChunk = false;
-      let messageCount = 0;
-      let lastActivityTime = Date.now();
-
-      // Setup heartbeat check to detect stalled connections
-      const heartbeatInterval = setInterval(() => {
-        const inactiveTime = Date.now() - lastActivityTime;
-        if (inactiveTime > HEARTBEAT_INTERVAL) {
-          console.warn(`No activity for ${inactiveTime/1000} seconds. Connection might be stalled.`);
-          setSuccessMessage(`Waiting for server response... (${Math.floor(inactiveTime/1000)}s)`);
-        }
-      }, 10000); // Check every 10 seconds
 
       ws.onopen = () => {
-        console.log("WebSocket connection established")
+        console.log("WebSocket connected, sending data");
         setSuccessMessage("Connected to code generation service...")
-        lastActivityTime = Date.now();
+        ws.send(JSON.stringify(codeGenData));
       }
 
+      let accumulatedData = ""
+
+      // ws.onmessage = (event) => {
+      //   try {
+      //     console.log("WebSocket message received:", event.data.substring(0, 100) + (event.data.length > 100 ? "..." : ""));
+      //     const data = JSON.parse(event.data);
+
+      //     // Handle token streaming
+      //     if (data.token) {
+      //       accumulatedData += data.token;
+            
+      //       // Dispatch code chunk event
+      //       window.dispatchEvent(
+      //         new CustomEvent("code-chunk", {
+      //           detail: { code: data.token },
+      //         }),
+      //       );
+            
+      //       // Update code store if it exists
+      //       if (codeStore) {
+      //         codeStore.getState().appendCode(data.token);
+      //       }
+      //     }
+          
+      //     // Handle status updates
+      //     if (data.status) {
+      //       if (data.message) {
+      //         setSuccessMessage(data.message);
+      //       }
+            
+      //       // Handle progress updates
+      //       if (data.status === "progress" && data.stage) {
+      //         setSuccessMessage(`Generating ${data.stage}...`);
+      //       }
+            
+      //       // Handle completed stages
+      //       if (data.status === "completed" && data.stage && data.result) {
+      //         console.log(`${data.stage} generation completed:`, data.result);
+              
+      //         // Process completed stage data
+      //         if (data.result && onFileGenerated) {
+      //           const stageData = data.result;
+      //           if (stageData.generated_code) {
+      //             const file: FileType = {
+      //               id: stageData.endpoint_id || `${data.stage}-${Date.now()}`,
+      //               name: stageData.file_path?.split("/").pop() || data.stage,
+      //               path: stageData.endpoint_path || stageData.file_path || "",
+      //               type: data.stage as "endpoint" | "model" | "schema" | "migration",
+      //               code: stageData.generated_code,
+      //               method: stageData.method as "GET" | "POST" | "PUT" | "DELETE" || "GET",
+      //             };
+      //             onFileGenerated(file);
+      //           }
+      //         }
+      //       }
+            
+      //       // Handle overall completion
+      //       if (data.status === "complete") {
+      //         console.log("Code generation complete:", data);
+              
+      //         if (data.result) {
+      //           processResponseData(data);
+      //         } else {
+      //           // Handle completion without structured result
+      //           window.dispatchEvent(
+      //             new CustomEvent("code-update", {
+      //               detail: { code: accumulatedData },
+      //             }),
+      //           );
+                
+      //           setMessages((prev) => [
+      //             ...prev,
+      //             {
+      //               id: (Date.now() + 1).toString(),
+      //               role: "assistant",
+      //               content: "I've generated code for you. Check the editor.",
+      //               timestamp: new Date(),
+      //             },
+      //           ]);
+                
+      //           setCodeGenStatus("generated");
+      //           setSuccessMessage("Code generated successfully!");
+      //         }
+              
+      //         setIsLoading(false);
+              
+      //         if (codeStore) {
+      //           codeStore.getState().endStream();
+      //         }
+              
+      //         // Revalidate paths if needed
+      //         if (typeof window !== "undefined" && typeof window.revalidatePaths === "function") {
+      //           window.revalidatePaths(projectId);
+      //         }
+      //       }
+      //     }
+      //   } catch (err) {
+      //     console.error("Error processing WebSocket message:", err);
+      //     setCodeGenStatus("generationFailed");
+      //     setSuccessMessage("Error processing code generation");
+      //     setIsLoading(false);
+          
+      //     if (codeStore) {
+      //       codeStore.getState().endStream();
+      //     }
+      //   }
+      // }
+      // AIChat.tsx - Updated file processing logic
       ws.onmessage = (event) => {
-        lastActivityTime = Date.now();
-        messageCount++;
-        
-        // Log raw message for debugging
-        console.log(`WebSocket message #${messageCount} received:`, event.data.substring(0, 100) + (event.data.length > 100 ? "..." : ""));
-        
         try {
-          const messageData = JSON.parse(event.data)
+          console.log("WebSocket message received:", event.data.substring(0, 100) + (event.data.length > 100 ? "..." : ""));
+          const data = JSON.parse(event.data);
           
-          if (messageData.message && messageData.status) {
-            setSuccessMessage(messageData.message)
-          }
-
-          if (messageData.is_chunk) {
-            const chunk = atob(messageData.base64_encoded)
-            console.log("Decoded chunk:", chunk.substring(0, 100) + (chunk.length > 100 ? "..." : ""));
-
-            // Reset timeout since we're receiving data
-            if (timeoutRef.current) {
-              clearTimeout(timeoutRef.current);
-              setupTimeoutHandler();
-            }
-
-            // Skip first chunk if needed (as in RightPanelClient)
-            if (!receivedFirstChunk) {
-              receivedFirstChunk = true;
-              console.log("First chunk received and skipped");
-            } else if (codeStore) {
-              // Append chunk to code store if it exists
-              codeStore.getState().appendCode(chunk)
-              console.log("Chunk appended to code store");
-            }
-
-            // Process chunk for file generation
-            try {
-              // Try to parse the chunk as JSON
-              const chunkData = JSON.parse(chunk)
-
-              if (chunkData.data) {
-                // Process endpoint
-                if (chunkData.data.endpoint) {
-                  console.log("Processing endpoint data:", chunkData.data.endpoint);
-                  
-                  const file: FileType = {
-                    id: chunkData.data.endpoint.endpoint_id || `endpoint-${Date.now()}`,
-                    name: chunkData.data.endpoint.endpoint_path?.split("/").pop() || "Endpoint",
-                    path: chunkData.data.endpoint.endpoint_path || "/api/endpoint",
-                    type: "endpoint",
-                    code: chunkData.data.endpoint.generated_code,
-                    method: chunkData.data.endpoint.method as "GET" | "POST" | "PUT" | "DELETE",
-                  }
-
-                  if (onFileGenerated) {
-                    onFileGenerated(file)
-                    console.log("File generated and callback triggered");
-                  }
-                }
-
-                // Process other file types similarly
-                // ...
-              }
-            } catch (parseError) {
-              // Not JSON or not in expected format, just continue
-              console.log("Chunk is not JSON or not in expected format:", parseError)
-            }
-          } else if (messageData.status === "COMPLETED") {
-            console.log("Code generation completed");
-            
-            // Clear timeout
-            if (timeoutRef.current) {
-              clearTimeout(timeoutRef.current);
-              timeoutRef.current = null;
-            }
-            
-            clearInterval(heartbeatInterval);
-            
+          // Handle token streaming
+          if (data.token) {
+            accumulatedData += data.token;
+      
+            // Dispatch code chunk event
+            window.dispatchEvent(
+              new CustomEvent("code-chunk", {
+                detail: { code: data.token },
+              }),
+            );
+      
+            // Update code store if it exists
             if (codeStore) {
-              codeStore.getState().endStream()
-            }
-
-            setCodeGenStatus("generated")
-            setSuccessMessage("Code generation completed")
-
-            // Add assistant response
-            const assistantMessage: Message = {
-              id: (Date.now() + 1).toString(),
-              role: "assistant",
-              content: "I've generated code based on your request. You can view it in the editor.",
-              timestamp: new Date(),
-            }
-
-            setMessages((prev) => [...prev, assistantMessage])
-
-            ws.close()
-            wsRef.current = null;
-
-            // Revalidate paths if needed
-            if (typeof window !== "undefined" && typeof window.revalidatePaths === "function") {
-              window.revalidatePaths(projectId)
+              codeStore.getState().appendCode(data.token);
             }
           }
-        } catch (error) {
-          console.error("Error processing WebSocket message:", error)
-          setSuccessMessage("Error processing code generation")
-          setCodeGenStatus("generationFailed")
-
+    
+          // Handle status updates
+          if (data.status) {
+            if (data.message) {
+              setSuccessMessage(data.message);
+            }
+          
+            // Handle progress updates
+            if (data.status === "progress" && data.stage) {
+              setSuccessMessage(`Generating ${data.stage}...`);
+            }
+          
+            // Handle completed stages
+            if (data.status === "completed" && data.stage && data.result) {
+              console.log(`${data.stage} generation completed:`, data.result);
+            
+              // Process completed stage data
+              if (data.result && data.result.generated_code) {
+                const stageData = data.result;
+                const fileType = data.stage === "helpers" ? "helpers" :
+                                (data.stage as "endpoint" | "model" | "schema" | "migration" | "config");
+          
+                // Create standardized file object
+                const file: FileType = {
+                  id: stageData.endpoint_id || `${fileType}-${Date.now()}`,
+                  name: stageData.file_path?.split("/").pop() || fileType,
+                  path: stageData.endpoint_path || stageData.file_path || `/${fileType}`,
+                  type: fileType,
+                  code: stageData.generated_code,
+                  method: (stageData.method as "GET" | "POST" | "PUT" | "DELETE") || "GET",
+                };
+          
+                // Call the callback directly
+                if (onFileGenerated) {
+                  onFileGenerated(file);
+                }
+                
+                // Also dispatch an event for each completed file
+                window.dispatchEvent(
+                  new CustomEvent("file-generated", {
+                    detail: { file },
+                  }),
+                );
+              }
+            }
+      
+            // Handle overall completion
+            if (data.status === "complete") {
+              console.log("Code generation complete:", data);
+              
+              if (data.result) {
+                
+                // Create a collection of files from the result
+                const files: Record<string, any> = {};
+          
+                // Process all components in the result
+                // Only include components that are valid file types in our type definition
+                if (data.result.endpoint) files.endpoint = data.result.endpoint;
+                if (data.result.model) files.model = data.result.model;
+                if (data.result.schema) files.schema = data.result.schema;
+                if (data.result.migration) files.migration = data.result.migration;
+                if (data.result.helpers) files.helpers = data.result.helpers;
+                if (data.result.config) files.config = data.result.config;
+          
+                // If we have any files, process them
+                if (Object.keys(files).length > 0) {
+                  // Dispatch code-update event with all files
+                  window.dispatchEvent(
+                    new CustomEvent("code-update", {
+                      detail: { files },
+                    }),
+                  );
+            
+                  // Store the generated files
+                  setGeneratedFiles(files);
+            
+                  // Add assistant response
+                  const fileNames = Object.keys(files)
+                  .map((key) => {
+                    const file = files[key];
+                    return file.file_path?.split("/").pop() || key;
+                  })
+                  .join(", ");
+                  
+                  const assistantMessage: Message = {
+                    id: (Date.now() + 1).toString(),
+                    role: "assistant",
+                    content: `I've generated the following files: ${fileNames}. You can view them in the editor.`,
+                    timestamp: new Date(),
+                  };
+                  
+                  setMessages((prev) => [...prev, assistantMessage]);
+                } else {
+                  // Handle completion without structured files
+                  window.dispatchEvent(
+                    new CustomEvent("code-update", {
+                      detail: { code: accumulatedData },
+                    }),
+                  );
+                  
+                  setMessages((prev) => [
+                    ...prev,
+                    {
+                      id: (Date.now() + 1).toString(),
+                      role: "assistant",
+                      content: "I've generated code for you. Check the editor.",
+                      timestamp: new Date(),
+                    },
+                  ]);
+                }
+                
+                setCodeGenStatus("generated");
+                setSuccessMessage("Code generated successfully!");
+              }
+              setIsLoading(false);
+              
+              if (codeStore) {
+                codeStore.getState().endStream();
+              }
+              
+              // Revalidate paths if needed
+              if (typeof window !== "undefined" && typeof window.revalidatePaths === "function") {
+                window.revalidatePaths(projectId);
+              }
+            }
+          }
+        } catch (err) {
+          console.error("Error processing WebSocket message:", err);
+          setCodeGenStatus("generationFailed");
+          setSuccessMessage("Error processing code generation");
+          setIsLoading(false);
+          
           if (codeStore) {
-            codeStore.getState().endStream()
-          }
-          
-          clearInterval(heartbeatInterval);
-          
-          if (timeoutRef.current) {
-            clearTimeout(timeoutRef.current);
-            timeoutRef.current = null;
+            codeStore.getState().endStream();
           }
         }
       }
 
       ws.onerror = (error) => {
-        console.error("WebSocket error:", error)
-        setSuccessMessage("Connection error. Try again.")
-        setCodeGenStatus("generationFailed")
-
+        console.error("WebSocket error:", error);
+        setCodeGenStatus("generationFailed");
+        setSuccessMessage("Connection error. Try again.");
+        setIsLoading(false);
+        
         if (codeStore) {
-          codeStore.getState().endStream()
-        }
-        
-        clearInterval(heartbeatInterval);
-        
-        if (timeoutRef.current) {
-          clearTimeout(timeoutRef.current);
-          timeoutRef.current = null;
+          codeStore.getState().endStream();
         }
       }
 
-      ws.onclose = () => {
-        console.log("WebSocket connection closed")
-        wsRef.current = null;
+      ws.onclose = (event) => {
+        console.log("WebSocket closed:", event);
         
-        clearInterval(heartbeatInterval);
-        
-        // Only update status if we're still generating (avoid overriding completed status)
-        const currentStatus = codeGenStatus;
-        if (currentStatus === "generating") {
-          setCodeGenStatus("generationFailed")
-          setSuccessMessage("Connection closed unexpectedly. Try again.")
-
-          if (codeStore) {
-            codeStore.getState().endStream()
-          }
+        if (codeGenStatus === "generating") {
+          setCodeGenStatus("generationFailed");
+          setSuccessMessage("Connection closed unexpectedly. Try again.");
+          setIsLoading(false);
           
-          // Add error message
-          const errorMessage: Message = {
-            id: (Date.now() + 1).toString(),
-            role: "assistant",
-            content: "The connection was closed unexpectedly. This could be due to server issues or network problems. Please try again.",
-            timestamp: new Date(),
+          if (codeStore) {
+            codeStore.getState().endStream();
           }
-
-          setMessages((prev) => [...prev, errorMessage])
-        }
-        
-        if (timeoutRef.current) {
-          clearTimeout(timeoutRef.current);
-          timeoutRef.current = null;
         }
       }
     } catch (error) {
-      console.error("Error generating code:", error)
-      setSuccessMessage("Something went wrong. Try again.")
-      setCodeGenStatus("generationFailed")
-
+      console.error("Error getting AI response:", error);
+      setCodeGenStatus("generationFailed");
+      setSuccessMessage("Something went wrong. Try again.");
+      setIsLoading(false);
+      
       if (codeStore) {
-        codeStore.getState().endStream()
+        codeStore.getState().endStream();
       }
 
-      // Add error message
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: "assistant",

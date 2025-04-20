@@ -1,4 +1,6 @@
-  export interface EditorFileData {
+import { Config } from "tailwindcss"
+
+export interface EditorFileData {
     project_id: string
     endpoint_path: string
     content_base64: string
@@ -48,6 +50,7 @@
   export interface EndpointListContent {
     path: string
     method: string
+    content_base64?: string
   }
   export interface ProjectListContent {
     id: string
@@ -111,19 +114,23 @@
   
   // 
   export interface CodeChatActivationResponse {
-    status_code?: number
-    success?: boolean
-    message?: string
+    status: string;
+    status_code: number;
+    success: boolean;
+    message: string;
+    project_id: string;
+    websocket_url?: string;
+    code?: string;
     data?: {
-      project_id: string
-      status: string
-      websocket_url: string
-      code?: string
-    }
-    error?: string
-    status?: string
-    websocket_url?: string
-    code?: string
+      project_id: string;
+      status: string;
+      websocket_url: string;
+      code?: string;
+      endpoint?: EndpointType;
+      model?: ModelType;
+      schema?: SchemaType;
+      migration?: MigrationType;
+    };
   }
   
   export interface CodeGenData {
@@ -282,7 +289,7 @@ export type FileType = {
   id: string
   name: string
   path: string
-  type: "endpoint" | "model" | "schema" | "config" | "migration"
+  type: "endpoint" | "model" | "schema" | "config" | "migration" | "helpers"
   code: string
   method?: MethodType
 }
@@ -325,12 +332,32 @@ export interface MigrationType {
   content_base64?: string;
 }
 
+export type HelpersType = {
+  file_path: string
+  generated_code: string
+  content_base64: string
+  file_hash: string
+  entity_name?: string
+  exists?: boolean
+}
+
+export type ConfigType = {
+  file_path: string
+  generated_code: string
+  content_base64: string
+  file_hash: string
+  entity_name?: string
+  exists?: boolean
+}
+
 export interface GeneratedDataType {
   project_id?: string;
   endpoint?: EndpointType;
   model?: ModelType;
   schema?: SchemaType;
   migration?: MigrationType;
+  helpers?: HelpersType;
+  config?: ConfigType;
   git_results?: Record<string, string>;
 }
 
