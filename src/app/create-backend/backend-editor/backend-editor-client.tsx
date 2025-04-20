@@ -50,7 +50,7 @@ export default function BackendEditorClient({
               try {
                 // Use the correct /endpoint API
                 const resp = await axios.get(
-                  `https://codebegen.canadacentral.cloudapp.azure.com/api/v1/generate/stream`,
+                  `https://codebegen.canadacentral.cloudapp.azure.com/api/v1/endpoint/`,
                   {
                     params: {
                       project_id: urlFriendlyName,
@@ -116,6 +116,8 @@ export default function BackendEditorClient({
   // Listen for code updates from AIChat component
   useEffect(() => {
     const handleCodeUpdate = (event: any) => {
+      console.log("BackendEditorClient received code-update event:", event.detail);
+      
       const { files, code } = event.detail;
       
       // If we receive files objects from the AI Chat component
@@ -213,28 +215,73 @@ export default function BackendEditorClient({
       // If we receive just code (not structured files)
       if (code && !files) {
         setStreamingCode(code);
+        
+        // If there's no selected file, show the streaming code
+        if (!selectedFile) {
+          setCurrentCode(code);
+        }
       }
+
+      // End the generation state
+      setIsGenerating(false);
     };
     
     // Handle streaming code chunks
     const handleCodeChunk = (event: any) => {
+      console.log("BackendEditorClient received code-chunk event:", event.detail);
+      
       const { code } = event.detail;
       
       if (code) {
         setStreamingCode(prev => prev + code);
+        
+        // If no file is selected, update the current code to show the streaming
+        if (!selectedFile) {
+          setCurrentCode(prev => prev + code);
+        }
       }
+    };
+    
+    // Handle when code generation starts
+    const handleCodeGenerationStart = () => {
+      console.log("Code generation started");
+      setIsGenerating(true);
+    };
+    
+    // Create a custom method to handle file generation directly
+    const handleFileGenerated = (file: FileType) => {
+      console.log("File generated directly:", file);
+      
+      setFiles(prev => {
+        // Check if file already exists by id
+        const fileExists = prev.some(f => f.id === file.id);
+        
+        if (fileExists) {
+          // Update existing file
+          return prev.map(f => f.id === file.id ? file : f);
+        } else {
+          // Add new file
+          return [...prev, file];
+        }
+      });
+      
+      // Select the newly generated file
+      setSelectedFile(file.id);
+      setCurrentCode(file.code);
     };
     
     // Add event listeners
     window.addEventListener("code-update", handleCodeUpdate);
     window.addEventListener("code-chunk", handleCodeChunk);
+    window.addEventListener("code-generation-start", handleCodeGenerationStart);
     
     // Clean up
     return () => {
       window.removeEventListener("code-update", handleCodeUpdate);
       window.removeEventListener("code-chunk", handleCodeChunk);
+      window.removeEventListener("code-generation-start", handleCodeGenerationStart);
     };
-  }, []);
+  }, [selectedFile]);
 
   // Ensure currentCode updates when selectedFile changes
   useEffect(() => {
@@ -335,70 +382,28 @@ export default function BackendEditorClient({
     }
   }
 
-  // Function to generate additional code using WebSocket only
-  const handleGenerateAdditionalCode = async () => {
-    setIsGenerating(true)
-    toast({
-      title: "Generating additional code",
-      description: "Please wait while we generate more code for your project.",
-    })
-    try {
-      const endpoint = `/api/users/${Math.floor(Math.random() * 1000)}`
-      const method = ["GET", "POST", "PUT", "DELETE"][Math.floor(Math.random() * 4)] as "GET" | "POST" | "PUT" | "DELETE"
-      const codeGenData: CodeGenData = {
-        project_id: urlFriendlyName || "project-123",
-        prompt: `Generate a ${method} endpoint for ${endpoint}`,
-        language: "python",
-        method: method,
-        endpoint_path: endpoint,
-        additional_context: ""
+  // Function to handle file generation directly from AIChat
+  const handleFileGenerated = (file: FileType) => {
+    console.log("File generated from AIChat:", file);
+    
+    setFiles(prev => {
+      // Check if file already exists
+      const existingFile = prev.find(f => f.id === file.id);
+      
+      if (existingFile) {
+        // Update existing file
+        return prev.map(f => f.id === file.id ? { ...f, code: file.code } : f);
+      } else {
+        // Add new file
+        return [...prev, file];
       }
-      // Use WebSocket for code generation
-      const wsHandler = new (require('@/app/api/services/websocket-handler').default)("wss://codebegen.canadacentral.cloudapp.azure.com/api/v1/generate/stream")
-      wsHandler.on('connected', () => {
-        wsHandler.send(codeGenData)
-      })
-      wsHandler.on('complete', (data: any) => {
-        setIsGenerating(false)
-        if (data.result) {
-          setGeneratedData(data.result)
-          if (data.result.endpoint?.generated_code) {
-            const newEndpoint: FileType = {
-              id: data.result.endpoint.endpoint_id || `endpoint-${Date.now()}`,
-              name: data.result.endpoint.endpoint_path?.split('/').pop() || 'endpoint',
-              path: data.result.endpoint.endpoint_path || '',
-              type: "endpoint",
-              method: data.result.endpoint.method as "GET" | "POST" | "PUT" | "DELETE" || "GET",
-              code: data.result.endpoint.generated_code,
-            }
-            setFiles(prev => [...prev, newEndpoint])
-            setSelectedFile(newEndpoint.id)
-            setCurrentCode(newEndpoint.code)
-          }
-        }
-        toast({
-          title: "Code generated",
-          description: `Generated new ${method} endpoint at ${endpoint}`,
-        })
-      })
-      wsHandler.on('error', (error: any) => {
-        setIsGenerating(false)
-        toast({
-          title: "Error generating code",
-          description: error instanceof Error ? error.message : "Failed to generate code",
-          variant: "destructive"
-        })
-      })
-      wsHandler.connect()
-    } catch (error) {
-      setIsGenerating(false)
-      toast({
-        title: "Error generating code",
-        description: error instanceof Error ? error.message : "Failed to generate code",
-        variant: "destructive"
-      })
-    }
-  }
+    });
+    
+    // Select the newly generated file
+    setSelectedFile(file.id);
+    setCurrentCode(file.code);
+    setIsGenerating(false);
+  };
 
   return (
     <div className="flex min-h-screen flex-col bg-zinc-100 text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100">
@@ -421,7 +426,14 @@ export default function BackendEditorClient({
               selectedFile={selectedFile}
               setSelectedFile={setSelectedFile}
               generatedData={generatedData}
-              onGenerateAdditionalCode={handleGenerateAdditionalCode}
+              onGenerateAdditionalCode={() => {
+                // Show mock empty state while AI generates code
+                setIsGenerating(true);
+                toast({
+                  title: "Generating code",
+                  description: "Please use the AI chat to generate more code for your project.",
+                });
+              }}
               onSelectGeneratedFile={handleSelectGeneratedFile}
               isGenerating={isGenerating}
             />
@@ -433,12 +445,15 @@ export default function BackendEditorClient({
               files={files}
               onCodeChange={setCurrentCode}
               theme={theme}
-              streamingCode={streamingCode} // Pass streaming code to FileContent
+              streamingCode={streamingCode}
             />
 
             {/* AI Chat Panel */}
             <div className="h-full">
-              <AIChat projectId={urlFriendlyName || projectName} />
+              <AIChat 
+                projectId={urlFriendlyName || projectName} 
+                onFileGenerated={handleFileGenerated}
+              />
             </div>
           </div>
         </div>

@@ -26,7 +26,20 @@ export function FileContent({
   
   // Determine what language to use for the editor
   const getLanguage = () => {
-    if (!file) return "python" // Default
+    if (!file) {
+      // If no file is selected but we have streaming code, try to determine language
+      if (streamingCode) {
+        // Logic to detect language from streaming code
+        if (streamingCode.includes("def ") && streamingCode.includes(":")) return "python"
+        if (streamingCode.includes("import React") || streamingCode.includes("export default")) return "javascript"
+        if (streamingCode.includes("func ") && streamingCode.includes("package ")) return "go"
+        if (streamingCode.includes("interface ") || streamingCode.includes("class ")) return "typescript"
+        
+        // Default to Python for API generation
+        return "python"
+      }
+      return "python" // Default
+    }
     
     const filePath = file.path || ""
     
@@ -46,14 +59,31 @@ export function FileContent({
     return "python" // Default to Python if unable to determine
   }
   
-  // If there's streaming code and no selected file, show the streaming code
-  const displayCode = streamingCode && !selectedFile ? streamingCode : currentCode
+  // Decide what code to display
+  // If a file is selected, show its content
+  // If no file is selected but we have streaming code, show the streaming preview
+  const displayCode = selectedFile 
+    ? currentCode 
+    : streamingCode 
+      ? streamingCode 
+      : currentCode;
+  
+  // Get title for the editor
+  const getEditorTitle = () => {
+    if (selectedFile && file) {
+      return file.path || file.name || "Code Editor";
+    } else if (streamingCode) {
+      return "AI Generated Code (Preview)";
+    } else {
+      return "Select a file or generate code";
+    }
+  };
 
   return (
     <div className="rounded-lg overflow-hidden border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 h-full flex flex-col">
       <div className="p-2 border-b border-zinc-200 dark:border-zinc-800">
         <div className="text-sm font-medium">
-          {selectedFile ? file?.path || "Code Editor" : streamingCode ? "AI Generated Code (Preview)" : "Select a file"}
+          {getEditorTitle()}
         </div>
       </div>
       <div className="flex-1 overflow-hidden">
@@ -76,7 +106,7 @@ export function FileContent({
           />
         ) : (
           <div className="flex items-center justify-center h-full text-zinc-500 dark:text-zinc-400">
-            <p>Select a file to view or edit its content</p>
+            <p>Select a file to view or edit its content, or use the AI chat to generate code</p>
           </div>
         )}
       </div>
