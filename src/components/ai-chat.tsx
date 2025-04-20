@@ -294,88 +294,247 @@ export default function AIChat({ projectId, onFileGenerated }: AIChartProps) {
 
       let accumulatedData = ""
 
+      // ws.onmessage = (event) => {
+      //   try {
+      //     console.log("WebSocket message received:", event.data.substring(0, 100) + (event.data.length > 100 ? "..." : ""));
+      //     const data = JSON.parse(event.data);
+
+      //     // Handle token streaming
+      //     if (data.token) {
+      //       accumulatedData += data.token;
+            
+      //       // Dispatch code chunk event
+      //       window.dispatchEvent(
+      //         new CustomEvent("code-chunk", {
+      //           detail: { code: data.token },
+      //         }),
+      //       );
+            
+      //       // Update code store if it exists
+      //       if (codeStore) {
+      //         codeStore.getState().appendCode(data.token);
+      //       }
+      //     }
+          
+      //     // Handle status updates
+      //     if (data.status) {
+      //       if (data.message) {
+      //         setSuccessMessage(data.message);
+      //       }
+            
+      //       // Handle progress updates
+      //       if (data.status === "progress" && data.stage) {
+      //         setSuccessMessage(`Generating ${data.stage}...`);
+      //       }
+            
+      //       // Handle completed stages
+      //       if (data.status === "completed" && data.stage && data.result) {
+      //         console.log(`${data.stage} generation completed:`, data.result);
+              
+      //         // Process completed stage data
+      //         if (data.result && onFileGenerated) {
+      //           const stageData = data.result;
+      //           if (stageData.generated_code) {
+      //             const file: FileType = {
+      //               id: stageData.endpoint_id || `${data.stage}-${Date.now()}`,
+      //               name: stageData.file_path?.split("/").pop() || data.stage,
+      //               path: stageData.endpoint_path || stageData.file_path || "",
+      //               type: data.stage as "endpoint" | "model" | "schema" | "migration",
+      //               code: stageData.generated_code,
+      //               method: stageData.method as "GET" | "POST" | "PUT" | "DELETE" || "GET",
+      //             };
+      //             onFileGenerated(file);
+      //           }
+      //         }
+      //       }
+            
+      //       // Handle overall completion
+      //       if (data.status === "complete") {
+      //         console.log("Code generation complete:", data);
+              
+      //         if (data.result) {
+      //           processResponseData(data);
+      //         } else {
+      //           // Handle completion without structured result
+      //           window.dispatchEvent(
+      //             new CustomEvent("code-update", {
+      //               detail: { code: accumulatedData },
+      //             }),
+      //           );
+                
+      //           setMessages((prev) => [
+      //             ...prev,
+      //             {
+      //               id: (Date.now() + 1).toString(),
+      //               role: "assistant",
+      //               content: "I've generated code for you. Check the editor.",
+      //               timestamp: new Date(),
+      //             },
+      //           ]);
+                
+      //           setCodeGenStatus("generated");
+      //           setSuccessMessage("Code generated successfully!");
+      //         }
+              
+      //         setIsLoading(false);
+              
+      //         if (codeStore) {
+      //           codeStore.getState().endStream();
+      //         }
+              
+      //         // Revalidate paths if needed
+      //         if (typeof window !== "undefined" && typeof window.revalidatePaths === "function") {
+      //           window.revalidatePaths(projectId);
+      //         }
+      //       }
+      //     }
+      //   } catch (err) {
+      //     console.error("Error processing WebSocket message:", err);
+      //     setCodeGenStatus("generationFailed");
+      //     setSuccessMessage("Error processing code generation");
+      //     setIsLoading(false);
+          
+      //     if (codeStore) {
+      //       codeStore.getState().endStream();
+      //     }
+      //   }
+      // }
+      // AIChat.tsx - Updated file processing logic
       ws.onmessage = (event) => {
         try {
           console.log("WebSocket message received:", event.data.substring(0, 100) + (event.data.length > 100 ? "..." : ""));
           const data = JSON.parse(event.data);
-
+          
           // Handle token streaming
           if (data.token) {
             accumulatedData += data.token;
-            
+      
             // Dispatch code chunk event
             window.dispatchEvent(
               new CustomEvent("code-chunk", {
                 detail: { code: data.token },
               }),
             );
-            
+      
             // Update code store if it exists
             if (codeStore) {
               codeStore.getState().appendCode(data.token);
             }
           }
-          
+    
           // Handle status updates
           if (data.status) {
             if (data.message) {
               setSuccessMessage(data.message);
             }
-            
+          
             // Handle progress updates
             if (data.status === "progress" && data.stage) {
               setSuccessMessage(`Generating ${data.stage}...`);
             }
-            
+          
             // Handle completed stages
             if (data.status === "completed" && data.stage && data.result) {
               console.log(`${data.stage} generation completed:`, data.result);
-              
+            
               // Process completed stage data
-              if (data.result && onFileGenerated) {
+              if (data.result && data.result.generated_code) {
                 const stageData = data.result;
-                if (stageData.generated_code) {
-                  const file: FileType = {
-                    id: stageData.endpoint_id || `${data.stage}-${Date.now()}`,
-                    name: stageData.file_path?.split("/").pop() || data.stage,
-                    path: stageData.endpoint_path || stageData.file_path || "",
-                    type: data.stage as "endpoint" | "model" | "schema" | "migration",
-                    code: stageData.generated_code,
-                    method: stageData.method as "GET" | "POST" | "PUT" | "DELETE" || "GET",
-                  };
+                const fileType = data.stage === "helpers" ? "helpers" :
+                                (data.stage as "endpoint" | "model" | "schema" | "migration" | "config");
+          
+                // Create standardized file object
+                const file: FileType = {
+                  id: stageData.endpoint_id || `${fileType}-${Date.now()}`,
+                  name: stageData.file_path?.split("/").pop() || fileType,
+                  path: stageData.endpoint_path || stageData.file_path || `/${fileType}`,
+                  type: fileType,
+                  code: stageData.generated_code,
+                  method: (stageData.method as "GET" | "POST" | "PUT" | "DELETE") || "GET",
+                };
+          
+                // Call the callback directly
+                if (onFileGenerated) {
                   onFileGenerated(file);
                 }
+                
+                // Also dispatch an event for each completed file
+                window.dispatchEvent(
+                  new CustomEvent("file-generated", {
+                    detail: { file },
+                  }),
+                );
               }
             }
-            
+      
             // Handle overall completion
             if (data.status === "complete") {
               console.log("Code generation complete:", data);
               
               if (data.result) {
-                processResponseData(data);
-              } else {
-                // Handle completion without structured result
-                window.dispatchEvent(
-                  new CustomEvent("code-update", {
-                    detail: { code: accumulatedData },
-                  }),
-                );
                 
-                setMessages((prev) => [
-                  ...prev,
-                  {
+                // Create a collection of files from the result
+                const files: Record<string, any> = {};
+          
+                // Process all components in the result
+                // Only include components that are valid file types in our type definition
+                if (data.result.endpoint) files.endpoint = data.result.endpoint;
+                if (data.result.model) files.model = data.result.model;
+                if (data.result.schema) files.schema = data.result.schema;
+                if (data.result.migration) files.migration = data.result.migration;
+                if (data.result.helpers) files.helpers = data.result.helpers;
+                if (data.result.config) files.config = data.result.config;
+          
+                // If we have any files, process them
+                if (Object.keys(files).length > 0) {
+                  // Dispatch code-update event with all files
+                  window.dispatchEvent(
+                    new CustomEvent("code-update", {
+                      detail: { files },
+                    }),
+                  );
+            
+                  // Store the generated files
+                  setGeneratedFiles(files);
+            
+                  // Add assistant response
+                  const fileNames = Object.keys(files)
+                  .map((key) => {
+                    const file = files[key];
+                    return file.file_path?.split("/").pop() || key;
+                  })
+                  .join(", ");
+                  
+                  const assistantMessage: Message = {
                     id: (Date.now() + 1).toString(),
                     role: "assistant",
-                    content: "I've generated code for you. Check the editor.",
+                    content: `I've generated the following files: ${fileNames}. You can view them in the editor.`,
                     timestamp: new Date(),
-                  },
-                ]);
+                  };
+                  
+                  setMessages((prev) => [...prev, assistantMessage]);
+                } else {
+                  // Handle completion without structured files
+                  window.dispatchEvent(
+                    new CustomEvent("code-update", {
+                      detail: { code: accumulatedData },
+                    }),
+                  );
+                  
+                  setMessages((prev) => [
+                    ...prev,
+                    {
+                      id: (Date.now() + 1).toString(),
+                      role: "assistant",
+                      content: "I've generated code for you. Check the editor.",
+                      timestamp: new Date(),
+                    },
+                  ]);
+                }
                 
                 setCodeGenStatus("generated");
                 setSuccessMessage("Code generated successfully!");
               }
-              
               setIsLoading(false);
               
               if (codeStore) {

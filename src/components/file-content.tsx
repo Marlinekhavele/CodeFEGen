@@ -1,4 +1,3 @@
-// @/components/file-content.tsx
 "use client"
 
 import { Editor } from "@monaco-editor/react"
@@ -10,7 +9,7 @@ type FileContentProps = {
   files: FileType[]
   onCodeChange: (value: string) => void
   theme: string | undefined
-  streamingCode?: string // Add support for streaming code
+  streamingCode?: string
 }
 
 export function FileContent({ 
@@ -24,7 +23,7 @@ export function FileContent({
   // Find the selected file to determine language
   const file = files.find(f => f.id === selectedFile)
   
-  // Determine what language to use for the editor
+  // Determine what language to use for the editor based on file type and path
   const getLanguage = () => {
     if (!file) {
       // If no file is selected but we have streaming code, try to determine language
@@ -43,6 +42,7 @@ export function FileContent({
     
     const filePath = file.path || ""
     
+    // Determine by extension
     if (filePath.endsWith(".py")) return "python"
     if (filePath.endsWith(".js")) return "javascript"
     if (filePath.endsWith(".ts")) return "typescript"
@@ -50,6 +50,12 @@ export function FileContent({
     if (filePath.endsWith(".sql")) return "sql"
     if (filePath.endsWith(".json")) return "json"
     if (filePath.endsWith(".md")) return "markdown"
+    
+    // Determine by type
+    if (file.type === "model" || file.type === "schema" || file.type === "endpoint") {
+      // These are typically Python in the backend context
+      return "python" 
+    }
     
     // Default based on common language patterns
     if (file.code.includes("func ") && file.code.includes("package ")) return "go"
@@ -71,12 +77,35 @@ export function FileContent({
   // Get title for the editor
   const getEditorTitle = () => {
     if (selectedFile && file) {
-      return file.path || file.name || "Code Editor";
+      // Show the file type and path
+      const fileType = file.type.charAt(0).toUpperCase() + file.type.slice(1);
+      return `${fileType}: ${file.path || file.name}`;
     } else if (streamingCode) {
       return "AI Generated Code (Preview)";
     } else {
       return "Select a file or generate code";
     }
+  };
+  
+  // Get a more specific description of the file
+  const getFileDescription = () => {
+    if (!file) return null;
+    
+    if (file.type === "endpoint") {
+      return `${file.method} ${file.path}`;
+    } else if (file.type === "model") {
+      return "Database model";
+    } else if (file.type === "schema") {
+      return "Database schema";
+    } else if (file.type === "migration") {
+      return "Database migration";
+    } else if (file.type === "helpers") {
+      return "Helper functions";
+    } else if (file.type === "config") {
+      return "Configuration file";
+    }
+    
+    return null;
   };
 
   return (
@@ -85,6 +114,11 @@ export function FileContent({
         <div className="text-sm font-medium">
           {getEditorTitle()}
         </div>
+        {getFileDescription() && (
+          <div className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
+            {getFileDescription()}
+          </div>
+        )}
       </div>
       <div className="flex-1 overflow-hidden">
         {(selectedFile || streamingCode) ? (

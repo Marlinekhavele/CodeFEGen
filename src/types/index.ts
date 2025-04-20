@@ -1,3 +1,5 @@
+import { Config } from "tailwindcss"
+
 export interface EditorFileData {
     project_id: string
     endpoint_path: string
@@ -287,7 +289,7 @@ export type FileType = {
   id: string
   name: string
   path: string
-  type: "endpoint" | "model" | "schema" | "config" | "migration"
+  type: "endpoint" | "model" | "schema" | "config" | "migration" | "helpers"
   code: string
   method?: MethodType
 }
@@ -330,12 +332,32 @@ export interface MigrationType {
   content_base64?: string;
 }
 
+export type HelpersType = {
+  file_path: string
+  generated_code: string
+  content_base64: string
+  file_hash: string
+  entity_name?: string
+  exists?: boolean
+}
+
+export type ConfigType = {
+  file_path: string
+  generated_code: string
+  content_base64: string
+  file_hash: string
+  entity_name?: string
+  exists?: boolean
+}
+
 export interface GeneratedDataType {
   project_id?: string;
   endpoint?: EndpointType;
   model?: ModelType;
   schema?: SchemaType;
   migration?: MigrationType;
+  helpers?: HelpersType;
+  config?: ConfigType;
   git_results?: Record<string, string>;
 }
 

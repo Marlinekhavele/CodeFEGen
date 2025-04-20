@@ -113,175 +113,384 @@ export default function BackendEditorClient({
     }
   }, [urlFriendlyName])
 
-  // Listen for code updates from AIChat component
-  useEffect(() => {
-    const handleCodeUpdate = (event: any) => {
-      console.log("BackendEditorClient received code-update event:", event.detail);
+// Update the file processing in BackendEditorClient.tsx
+
+// Listen for code updates from AIChat component
+useEffect(() => {
+  const handleCodeUpdate = (event: any) => {
+    console.log("BackendEditorClient received code-update event:", event.detail);
+    
+    const { files, code } = event.detail;
+    
+    // If we receive files objects from the AI Chat component
+    if (files) {
+      console.log("Received files from AI Chat:", files);
       
-      const { files, code } = event.detail;
+      // Process each file type (endpoint, model, schema, migration, helpers, config)
+      const newFiles: FileType[] = [];
       
-      // If we receive files objects from the AI Chat component
-      if (files) {
-        console.log("Received files from AI Chat:", files);
+      // Helper function to process each file
+      const processFile = (fileKey: "endpoint" | "model" | "schema" | "migration" | "helpers" | "config", fileData: any) => {
+        if (!fileData || !fileData.generated_code) return;
         
-        // Process each file type (endpoint, model, schema, migration)
-        const newFiles: FileType[] = [];
+        // Get file details in a consistent way
+        const fileName = fileData.file_path?.split('/').pop() || fileKey;
+        const filePath = fileData.endpoint_path || fileData.file_path || `/${fileKey}`;
+        const fileCode = fileData.generated_code || "";
+        const fileMethod = (fileData.method as "GET" | "POST" | "PUT" | "DELETE") || "GET";
         
-        // Process endpoint file
-        if (files.endpoint) {
-          const endpoint = files.endpoint;
-          newFiles.push({
-            id: endpoint.endpoint_id || `endpoint-${Date.now()}`,
-            name: endpoint.file_path?.split('/').pop() || 'endpoint',
-            path: endpoint.endpoint_path || '',
-            type: "endpoint",
-            code: endpoint.generated_code,
-            method: endpoint.method as MethodType || "GET",
-          });
-        }
-        
-        // Process model file
-        if (files.model) {
-          const model = files.model;
-          newFiles.push({
-            id: `model-${model.entity_name || Date.now()}`,
-            name: model.file_path?.split('/').pop() || 'model',
-            path: model.file_path || '',
-            type: "model",
-            code: model.generated_code,
-            method: "GET", // Default method
-          });
-        }
-        
-        // Process schema file
-        if (files.schema) {
-          const schema = files.schema;
-          newFiles.push({
-            id: `schema-${schema.entity_name || Date.now()}`,
-            name: schema.file_path?.split('/').pop() || 'schema',
-            path: schema.file_path || '',
-            type: "schema",
-            code: schema.generated_code,
-            method: "GET", // Default method
-          });
-        }
-        
-        // Process migration file
-        if (files.migration) {
-          const migration = files.migration;
-          newFiles.push({
-            id: `migration-${migration.entity_name || Date.now()}`,
-            name: migration.file_path?.split('/').pop() || 'migration',
-            path: migration.file_path || '',
-            type: "migration",
-            code: migration.generated_code,
-            method: "GET", // Default method
-          });
-        }
-        
-        // Update files state with new files
-        if (newFiles.length > 0) {
-          setFiles(prev => {
-            // Filter out any existing files with the same ids
-            const filteredPrev = prev.filter(file => 
-              !newFiles.some(newFile => newFile.id === file.id)
+        // Add file to array
+        newFiles.push({
+          id: fileData.endpoint_id || fileData.entity_name || `${fileKey}-${Date.now()}`,
+          name: fileName,
+          path: filePath,
+          type: fileKey,
+          code: fileCode,
+          method: fileMethod,
+        });
+      };
+      
+      // Process each possible file type
+      if (files.endpoint) processFile("endpoint", files.endpoint);
+      if (files.model) processFile("model", files.model);
+      if (files.schema) processFile("schema", files.schema);
+      if (files.migration) processFile("migration", files.migration);
+      if (files.helpers) processFile("helpers", files.helpers);
+      if (files.config) processFile("config", files.config);
+      
+      // Update files state with new files
+      if (newFiles.length > 0) {
+        setFiles(prev => {
+          // Create a merged array
+          let merged = [...prev];
+          
+          // Process each new file
+          newFiles.forEach(newFile => {
+            // Check if file already exists
+            const existingFileIndex = merged.findIndex(f => 
+              f.id === newFile.id || 
+              (f.type === newFile.type && f.path === newFile.path)
             );
             
-            return [...filteredPrev, ...newFiles];
+            if (existingFileIndex >= 0) {
+              // Update existing file
+              merged[existingFileIndex] = newFile;
+            } else {
+              // Add new file
+              merged.push(newFile);
+            }
           });
           
-          // Select the first new file
+          return merged;
+        });
+        
+        // Select the first endpoint file if available, otherwise any new file
+        const endpointFile = newFiles.find(f => f.type === "endpoint");
+        if (endpointFile) {
+          setSelectedFile(endpointFile.id);
+          setCurrentCode(endpointFile.code);
+        } else if (newFiles.length > 0) {
           setSelectedFile(newFiles[0].id);
           setCurrentCode(newFiles[0].code);
-          
-          // Clear streaming code
-          setStreamingCode("");
-          
-          toast({
-            title: "Code generated",
-            description: `${newFiles.length} new file(s) have been added to your project.`,
-          });
         }
         
-        // Update generatedData state
-        setGeneratedData({
-          endpoint: files.endpoint || null,
-          model: files.model || null,
-          schema: files.schema || null,
-          migration: files.migration || null,
+        // Clear streaming code
+        setStreamingCode("");
+        
+        toast({
+          title: "Code generated",
+          description: `${newFiles.length} new file(s) have been added to your project.`,
         });
       }
       
-      // If we receive just code (not structured files)
-      if (code && !files) {
-        setStreamingCode(code);
-        
-        // If there's no selected file, show the streaming code
-        if (!selectedFile) {
-          setCurrentCode(code);
-        }
+      // Update generatedData state
+      const updatedGeneratedData: GeneratedDataType = {};
+      
+      if (files.endpoint) updatedGeneratedData.endpoint = files.endpoint;
+      if (files.model) updatedGeneratedData.model = files.model;
+      if (files.schema) updatedGeneratedData.schema = files.schema;
+      if (files.migration) updatedGeneratedData.migration = files.migration;
+      if (files.helpers) updatedGeneratedData.helpers = files.helpers;
+      // Add any other properties from the original generatedData
+      if (generatedData) {
+        if (generatedData.project_id) updatedGeneratedData.project_id = generatedData.project_id;
+        if (generatedData.git_results) updatedGeneratedData.git_results = generatedData.git_results;
       }
+      
+      setGeneratedData(updatedGeneratedData);
+    }
+    
+    // If we receive just code (not structured files)
+    if (code && !files) {
+      setStreamingCode(code);
+      
+      // If there's no selected file, show the streaming code
+      if (!selectedFile) {
+        setCurrentCode(code);
+      }
+    }
 
-      // End the generation state
-      setIsGenerating(false);
-    };
+    // End the generation state
+    setIsGenerating(false);
+  };
+  
+  // Handle direct file generation
+  const handleFileGenerated = (event: any) => {
+    const { file } = event.detail;
     
-    // Handle streaming code chunks
-    const handleCodeChunk = (event: any) => {
-      console.log("BackendEditorClient received code-chunk event:", event.detail);
+    if (file && file.type) {
+      console.log("File generated event received:", file);
       
-      const { code } = event.detail;
-      
-      if (code) {
-        setStreamingCode(prev => prev + code);
+      // Make sure the file type is valid according to our TypeScript definition
+      if (["endpoint", "model", "schema", "migration", "helpers", "config"].includes(file.type)) {
+        setFiles(prev => {
+          // Check if file already exists
+          const existingFileIndex = prev.findIndex(f => 
+            f.id === file.id || (f.type === file.type && f.path === file.path)
+          );
+          
+          if (existingFileIndex >= 0) {
+            // Update existing file
+            return prev.map((f, i) => i === existingFileIndex ? file : f);
+          } else {
+            // Add new file
+            return [...prev, file];
+          }
+        });
         
-        // If no file is selected, update the current code to show the streaming
-        if (!selectedFile) {
-          setCurrentCode(prev => prev + code);
+        // Update generatedData state if needed
+        if (["endpoint", "model", "schema", "migration", "helpers", "config"].includes(file.type)) {
+          setGeneratedData(prev => {
+            // Create a new object to avoid direct mutation
+            const updated = { ...prev } as GeneratedDataType;
+            
+            // The key being used for indexing
+            const fileType = file.type as "endpoint" | "model" | "schema" | "migration" | "helpers" | "config";
+            
+            // Create a new entry for this file type
+            updated[fileType] = {
+              file_path: file.path,
+              generated_code: file.code,
+              endpoint_path: file.path,
+              method: file.method,
+              content_base64: "", // Default, as we don't have this from the event
+              file_hash: "",      // Default, as we don't have this from the event
+              ...((prev && prev[fileType]) || {}) // Preserve any existing fields
+            };
+            
+            return updated;
+          });
         }
       }
-    };
+    }
+  };
+  
+  // Handle streaming code chunks
+  const handleCodeChunk = (event: any) => {
+    console.log("BackendEditorClient received code-chunk event:", event.detail);
     
-    // Handle when code generation starts
-    const handleCodeGenerationStart = () => {
-      console.log("Code generation started");
-      setIsGenerating(true);
-    };
+    const { code } = event.detail;
     
-    // Create a custom method to handle file generation directly
-    const handleFileGenerated = (file: FileType) => {
-      console.log("File generated directly:", file);
+    if (code) {
+      setStreamingCode(prev => prev + code);
       
-      setFiles(prev => {
-        // Check if file already exists by id
-        const fileExists = prev.some(f => f.id === file.id);
+      // If no file is selected, update the current code to show the streaming
+      if (!selectedFile) {
+        setCurrentCode(prev => prev + code);
+      }
+    }
+  };
+  
+  // Handle when code generation starts
+  const handleCodeGenerationStart = () => {
+    console.log("Code generation started");
+    setIsGenerating(true);
+  };
+  
+  // Add event listeners
+  window.addEventListener("code-update", handleCodeUpdate);
+  window.addEventListener("code-chunk", handleCodeChunk);
+  window.addEventListener("code-generation-start", handleCodeGenerationStart);
+  window.addEventListener("file-generated", handleFileGenerated);
+  
+  // Clean up
+  return () => {
+    window.removeEventListener("code-update", handleCodeUpdate);
+    window.removeEventListener("code-chunk", handleCodeChunk);
+    window.removeEventListener("code-generation-start", handleCodeGenerationStart);
+    window.removeEventListener("file-generated", handleFileGenerated);
+  };
+}, [selectedFile, generatedData]);
+
+  // // Listen for code updates from AIChat component
+  // useEffect(() => {
+  //   const handleCodeUpdate = (event: any) => {
+  //     console.log("BackendEditorClient received code-update event:", event.detail);
+      
+  //     const { files, code } = event.detail;
+      
+  //     // If we receive files objects from the AI Chat component
+  //     if (files) {
+  //       console.log("Received files from AI Chat:", files);
         
-        if (fileExists) {
-          // Update existing file
-          return prev.map(f => f.id === file.id ? file : f);
-        } else {
-          // Add new file
-          return [...prev, file];
-        }
-      });
+  //       // Process each file type (endpoint, model, schema, migration)
+  //       const newFiles: FileType[] = [];
+        
+  //       // Process endpoint file
+  //       if (files.endpoint) {
+  //         const endpoint = files.endpoint;
+  //         newFiles.push({
+  //           id: endpoint.endpoint_id || `endpoint-${Date.now()}`,
+  //           name: endpoint.file_path?.split('/').pop() || 'endpoint',
+  //           path: endpoint.endpoint_path || '',
+  //           type: "endpoint",
+  //           code: endpoint.generated_code,
+  //           method: endpoint.method as MethodType || "GET",
+  //         });
+  //       }
+        
+  //       // Process model file
+  //       if (files.model) {
+  //         const model = files.model;
+  //         newFiles.push({
+  //           id: `model-${model.entity_name || Date.now()}`,
+  //           name: model.file_path?.split('/').pop() || 'model',
+  //           path: model.file_path || '',
+  //           type: "model",
+  //           code: model.generated_code,
+  //           method: "GET", // Default method
+  //         });
+  //       }
+        
+  //       // Process schema file
+  //       if (files.schema) {
+  //         const schema = files.schema;
+  //         newFiles.push({
+  //           id: `schema-${schema.entity_name || Date.now()}`,
+  //           name: schema.file_path?.split('/').pop() || 'schema',
+  //           path: schema.file_path || '',
+  //           type: "schema",
+  //           code: schema.generated_code,
+  //           method: "GET", // Default method
+  //         });
+  //       }
+        
+  //       // Process migration file
+  //       if (files.migration) {
+  //         const migration = files.migration;
+  //         newFiles.push({
+  //           id: `migration-${migration.entity_name || Date.now()}`,
+  //           name: migration.file_path?.split('/').pop() || 'migration',
+  //           path: migration.file_path || '',
+  //           type: "migration",
+  //           code: migration.generated_code,
+  //           method: "GET", // Default method
+  //         });
+  //       }
+        
+  //       // Update files state with new files
+  //       if (newFiles.length > 0) {
+  //         setFiles(prev => {
+  //           // Filter out any existing files with the same ids
+  //           const filteredPrev = prev.filter(file => 
+  //             !newFiles.some(newFile => newFile.id === file.id)
+  //           );
+            
+  //           return [...filteredPrev, ...newFiles];
+  //         });
+          
+  //         // Select the first new file
+  //         setSelectedFile(newFiles[0].id);
+  //         setCurrentCode(newFiles[0].code);
+          
+  //         // Clear streaming code
+  //         setStreamingCode("");
+          
+  //         toast({
+  //           title: "Code generated",
+  //           description: `${newFiles.length} new file(s) have been added to your project.`,
+  //         });
+  //       }
+        
+  //       // Update generatedData state
+  //       setGeneratedData({
+  //         endpoint: files.endpoint || null,
+  //         model: files.model || null,
+  //         schema: files.schema || null,
+  //         migration: files.migration || null,
+  //       });
+  //     }
       
-      // Select the newly generated file
-      setSelectedFile(file.id);
-      setCurrentCode(file.code);
-    };
+  //     // If we receive just code (not structured files)
+  //     if (code && !files) {
+  //       setStreamingCode(code);
+        
+  //       // If there's no selected file, show the streaming code
+  //       if (!selectedFile) {
+  //         setCurrentCode(code);
+  //       }
+  //     }
+
+  //     // End the generation state
+  //     setIsGenerating(false);
+  //   };
     
-    // Add event listeners
-    window.addEventListener("code-update", handleCodeUpdate);
-    window.addEventListener("code-chunk", handleCodeChunk);
-    window.addEventListener("code-generation-start", handleCodeGenerationStart);
+  //   // Handle streaming code chunks
+  //   const handleCodeChunk = (event: any) => {
+  //     console.log("BackendEditorClient received code-chunk event:", event.detail);
+      
+  //     const { code } = event.detail;
+      
+  //     if (code) {
+  //       setStreamingCode(prev => prev + code);
+        
+  //       // If no file is selected, update the current code to show the streaming
+  //       if (!selectedFile) {
+  //         setCurrentCode(prev => prev + code);
+  //       }
+  //     }
+  //   };
     
-    // Clean up
-    return () => {
-      window.removeEventListener("code-update", handleCodeUpdate);
-      window.removeEventListener("code-chunk", handleCodeChunk);
-      window.removeEventListener("code-generation-start", handleCodeGenerationStart);
-    };
-  }, [selectedFile]);
+  //   // Handle when code generation starts
+  //   const handleCodeGenerationStart = () => {
+  //     console.log("Code generation started");
+  //     setIsGenerating(true);
+  //   };
+    
+  //   // Create a custom method to handle file generation directly
+  //   const handleFileGenerated = (file: FileType) => {
+  //     console.log("File generated directly:", file);
+      
+  //     setFiles(prev => {
+  //       // Check if file already exists by id
+  //       const fileExists = prev.some(f => f.id === file.id);
+        
+  //       if (fileExists) {
+  //         // Update existing file
+  //         return prev.map(f => f.id === file.id ? file : f);
+  //       } else {
+  //         // Add new file
+  //         return [...prev, file];
+  //       }
+  //     });
+      
+  //     // Select the newly generated file
+  //     setSelectedFile(file.id);
+  //     setCurrentCode(file.code);
+  //   };
+    
+  //   // Add event listeners
+  //   window.addEventListener("code-update", handleCodeUpdate);
+  //   window.addEventListener("code-chunk", handleCodeChunk);
+  //   window.addEventListener("code-generation-start", handleCodeGenerationStart);
+    
+  //   // Clean up
+  //   return () => {
+  //     window.removeEventListener("code-update", handleCodeUpdate);
+  //     window.removeEventListener("code-chunk", handleCodeChunk);
+  //     window.removeEventListener("code-generation-start", handleCodeGenerationStart);
+  //   };
+  // }, [selectedFile]);
 
   // Ensure currentCode updates when selectedFile changes
   useEffect(() => {

@@ -1,16 +1,23 @@
 "use client"
 
-import { useState } from "react"
-import { Plus, Server, Database, FileJson, FileCode, FolderTree } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { GeneratedCodeDisplay } from "@/components/gen-code-display"
-import { getFileIcon, getMethodBadge } from "@/schemas/modal"
 import { FileType, GeneratedDataType, GeneratedFileType } from "@/types"
+import { 
+  FolderIcon, 
+  CircleIcon, 
+  FileIcon, 
+  PlusIcon, 
+  DatabaseIcon,
+  CodeIcon,
+  TableIcon,
+  ArrowUpIcon
+} from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { cn } from "@/lib/utils"
 
 interface ProjectFilesProps {
   files: FileType[]
   selectedFile: string | null
-  setSelectedFile: (fileId: string) => void
+  setSelectedFile: (id: string) => void
   generatedData: GeneratedDataType | null
   onGenerateAdditionalCode: () => void
   onSelectGeneratedFile: (file: GeneratedFileType) => void
@@ -26,239 +33,232 @@ export function ProjectFiles({
   onSelectGeneratedFile,
   isGenerating,
 }: ProjectFilesProps) {
-  const [activeSection, setActiveSection] = useState<string>("endpoints");
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  // Group files by type
+  const endpoints = files.filter((file) => file.type === "endpoint")
+  const models = files.filter((file) => file.type === "model")
+  const schemas = files.filter((file) => file.type === "schema")
+  const migrations = files.filter((file) => file.type === "migration")
+  const helpers = files.filter((file) => file.type === "helpers")
+  const configFiles = files.filter((file) => file.type === "config")
+
+  // Get method color
+  const getMethodColor = (method: string) => {
+    switch (method.toUpperCase()) {
+      case "GET":
+        return "text-blue-500"
+      case "POST":
+        return "text-green-500"
+      case "PUT":
+        return "text-orange-500"
+      case "DELETE":
+        return "text-red-500"
+      default:
+        return "text-gray-500"
+    }
+  }
 
   return (
-    <div className="rounded-lg border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950 overflow-hidden">
-      <div className="p-4 border-b border-zinc-200 dark:border-zinc-800 flex justify-between items-center">
-        <div className="flex items-center gap-2">
-          <FolderTree className="h-5 w-5 text-[#7dff00]" />
-          <span className="font-medium text-zinc-900 dark:text-zinc-100">Project Files</span>
+    <div className="rounded-lg overflow-hidden border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 h-full flex flex-col">
+      <div className="p-2 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between">
+        <div className="text-sm font-medium flex items-center gap-2">
+          <FolderIcon className="h-4 w-4" />
+          Project Files
         </div>
         <Button
           variant="ghost"
-          size="sm"
-          className="h-7 w-7 text-zinc-600 hover:text-[#7dff00] dark:text-zinc-400 dark:hover:text-[#7dff00]"
-          onClick={() => setIsModalOpen(true)}
+          size="icon"
+          className="h-6 w-6"
+          onClick={onGenerateAdditionalCode}
+          disabled={isGenerating}
         >
-          <Plus className="h-4 w-4" />
+          <PlusIcon className="h-4 w-4" />
+          <span className="sr-only">Add File</span>
         </Button>
       </div>
-
-      {/* Modal */}
-      {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-          <div className="bg-white dark:bg-zinc-950 rounded-lg p-6 w-[400px]">
-            <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-100 mb-4">
-              Create a New Endpoint
-            </h2>
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                // Handle form submission logic here
-                setIsModalOpen(false);
-              }}
-              className="space-y-4"
-            >
+      <div className="flex-1 overflow-y-auto p-2">
+        {files.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-full py-6 px-2 text-center">
+            <div className="rounded-full bg-zinc-100 dark:bg-zinc-800 p-2.5 mb-3">
+              <FolderIcon className="h-5 w-5 text-zinc-500 dark:text-zinc-400" />
+            </div>
+            <div className="text-sm font-medium mb-1">No files yet</div>
+            <div className="text-xs text-zinc-500 dark:text-zinc-400 mb-4">
+              Use the AI chat to generate your first endpoint and related files.
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {/* Endpoints Section */}
+            {endpoints.length > 0 && (
               <div>
-                <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-                  Endpoint URL
-                </label>
-                <input
-                  type="text"
-                  placeholder="Your-endpoint"
-                  className="w-full mt-1 p-2 border border-zinc-300 rounded-md dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-200"
-                />
+                <div className="flex items-center gap-1 px-2 py-1.5">
+                  <CodeIcon className="h-3.5 w-3.5 text-zinc-500 dark:text-zinc-400" />
+                  <span className="text-xs font-medium">Endpoints</span>
+                </div>
+                <div className="mt-1 space-y-1">
+                  {endpoints.map((file) => (
+                    <button
+                      key={file.id}
+                      className={cn(
+                        "flex items-center gap-2 w-full px-2 py-1.5 text-xs rounded-md",
+                        selectedFile === file.id
+                          ? "bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-50"
+                          : "text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-50 hover:bg-zinc-50 dark:hover:bg-zinc-800/50"
+                      )}
+                      onClick={() => setSelectedFile(file.id)}
+                    >
+                      <CircleIcon className={cn("h-2 w-2", getMethodColor(file.method ?? ""))} />
+                      <span className="truncate">{file.name ?? "endpoint"}</span>
+                    </button>
+                  ))}
+                </div>
               </div>
+            )}
+
+            {/* Models Section */}
+            {models.length > 0 && (
               <div>
-                <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-                  HTTP Method
-                </label>
-                <select
-                  className="w-full mt-1 p-2 border border-zinc-300 rounded-md dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-200"
-                >
-                  <option value="GET">GET</option>
-                  <option value="POST">POST</option>
-                  <option value="PUT">PUT</option>
-                  <option value="DELETE">DELETE</option>
-                </select>
+                <div className="flex items-center gap-1 px-2 py-1.5">
+                  <DatabaseIcon className="h-3.5 w-3.5 text-zinc-500 dark:text-zinc-400" />
+                  <span className="text-xs font-medium">Models</span>
+                </div>
+                <div className="mt-1 space-y-1">
+                  {models.map((file) => (
+                    <button
+                      key={file.id}
+                      className={cn(
+                        "flex items-center gap-2 w-full px-2 py-1.5 text-xs rounded-md",
+                        selectedFile === file.id
+                          ? "bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-50"
+                          : "text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-50 hover:bg-zinc-50 dark:hover:bg-zinc-800/50"
+                      )}
+                      onClick={() => setSelectedFile(file.id)}
+                    >
+                      <FileIcon className="h-3 w-3" />
+                      <span className="truncate">{file.name ?? "model"}</span>
+                    </button>
+                  ))}
+                </div>
               </div>
+            )}
+
+            {/* Schemas Section */}
+            {schemas.length > 0 && (
               <div>
-                <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-                  API Description
-                </label>
-                <textarea
-                  placeholder="Enter description"
-                  className="w-full mt-1 p-2 border border-zinc-300 rounded-md dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-200"
-                />
-              </div>
-              <div className="flex justify-end space-x-2">
-                <Button
-                  variant="ghost"
-                  onClick={() => setIsModalOpen(false)}
-                  className="text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
-                >
-                  Cancel
-                </Button>
-                <Button
-                  type="submit"
-                  className="bg-[#7dff00] text-black hover:bg-[#9aff33] dark:bg-[#7dff00] dark:text-black dark:hover:bg-[#9aff33]"
-                >
-                  Continue
-                </Button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Display Generated Code in Folders */}
-      {generatedData ? (
-        <GeneratedCodeDisplay 
-          generatedData={generatedData}
-          onSelectFile={onSelectGeneratedFile}
-          selectedFileId={selectedFile || undefined}
-        />
-      ) : (
-        <div className="p-2 overflow-auto" style={{ height: "calc(100vh - 300px)" }}>
-          {/* Endpoints Section */}
-          <div
-            className={`p-2 ${activeSection === "endpoints" ? "bg-zinc-100/50 dark:bg-zinc-800/50" : ""} rounded-md mb-2 cursor-pointer`}
-            onClick={() => setActiveSection("endpoints")}
-          >
-            <div className="flex items-center gap-2 text-[#7dff00] font-medium text-sm mb-2">
-              <Server className="h-4 w-4" />
-              <span>Endpoints</span>
-            </div>
-
-            {activeSection === "endpoints" && (
-              <div className="space-y-1 ml-6">
-                {files
-                  .filter((file) => file.type === "endpoint")
-                  .map((file) => (
-                    <div
+                <div className="flex items-center gap-1 px-2 py-1.5">
+                  <TableIcon className="h-3.5 w-3.5 text-zinc-500 dark:text-zinc-400" />
+                  <span className="text-xs font-medium">Schemas</span>
+                </div>
+                <div className="mt-1 space-y-1">
+                  {schemas.map((file) => (
+                    <button
                       key={file.id}
-                      className={`flex items-center justify-between rounded-md px-2 py-1.5 text-sm ${
+                      className={cn(
+                        "flex items-center gap-2 w-full px-2 py-1.5 text-xs rounded-md",
                         selectedFile === file.id
-                          ? "bg-[#7dff00]/20 text-[#7dff00]"
-                          : "text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800"
-                      } cursor-pointer`}
+                          ? "bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-50"
+                          : "text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-50 hover:bg-zinc-50 dark:hover:bg-zinc-800/50"
+                      )}
                       onClick={() => setSelectedFile(file.id)}
                     >
-                      <div className="flex items-center gap-2">
-                        {getMethodBadge(file.path, file.method)}
-                        <span>{file.path}</span>
-                      </div>
-                    </div>
+                      <FileIcon className="h-3 w-3" />
+                      <span className="truncate">{file.name ?? "schema"}</span>
+                    </button>
                   ))}
+                </div>
+              </div>
+            )}
+
+            {/* Migrations Section */}
+            {migrations.length > 0 && (
+              <div>
+                <div className="flex items-center gap-1 px-2 py-1.5">
+                  <ArrowUpIcon className="h-3.5 w-3.5 text-zinc-500 dark:text-zinc-400" />
+                  <span className="text-xs font-medium">Migrations</span>
+                </div>
+                <div className="mt-1 space-y-1">
+                  {migrations.map((file) => (
+                    <button
+                      key={file.id}
+                      className={cn(
+                        "flex items-center gap-2 w-full px-2 py-1.5 text-xs rounded-md",
+                        selectedFile === file.id
+                          ? "bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-50"
+                          : "text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-50 hover:bg-zinc-50 dark:hover:bg-zinc-800/50"
+                      )}
+                      onClick={() => setSelectedFile(file.id)}
+                    >
+                      <FileIcon className="h-3 w-3" />
+                      <span className="truncate">{file.name ?? "migration"}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Helpers Section */}
+            {helpers.length > 0 && (
+              <div>
+                <div className="flex items-center gap-1 px-2 py-1.5">
+                  <CodeIcon className="h-3.5 w-3.5 text-zinc-500 dark:text-zinc-400" />
+                  <span className="text-xs font-medium">Helpers</span>
+                </div>
+                <div className="mt-1 space-y-1">
+                  {helpers.map((file) => (
+                    <button
+                      key={file.id}
+                      className={cn(
+                        "flex items-center gap-2 w-full px-2 py-1.5 text-xs rounded-md",
+                        selectedFile === file.id
+                          ? "bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-50"
+                          : "text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-50 hover:bg-zinc-50 dark:hover:bg-zinc-800/50"
+                      )}
+                      onClick={() => setSelectedFile(file.id)}
+                    >
+                      <FileIcon className="h-3 w-3" />
+                      <span className="truncate">{file.name ?? "helper"}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Config Section */}
+            {configFiles.length > 0 && (
+              <div>
+                <div className="flex items-center gap-1 px-2 py-1.5">
+                  <FileIcon className="h-3.5 w-3.5 text-zinc-500 dark:text-zinc-400" />
+                  <span className="text-xs font-medium">Config</span>
+                </div>
+                <div className="mt-1 space-y-1">
+                  {configFiles.map((file) => (
+                    <button
+                      key={file.id}
+                      className={cn(
+                        "flex items-center gap-2 w-full px-2 py-1.5 text-xs rounded-md",
+                        selectedFile === file.id
+                          ? "bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-50"
+                          : "text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-50 hover:bg-zinc-50 dark:hover:bg-zinc-800/50"
+                      )}
+                      onClick={() => setSelectedFile(file.id)}
+                    >
+                      <FileIcon className="h-3 w-3" />
+                      <span className="truncate">{file.name ?? "config"}</span>
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
           </div>
+        )}
 
-          {/* Models Section */}
-          <div
-            className={`p-2 ${activeSection === "models" ? "bg-zinc-100/50 dark:bg-zinc-800/50" : ""} rounded-md mb-2 cursor-pointer`}
-            onClick={() => setActiveSection("models")}
-          >
-            <div className="flex items-center gap-2 text-zinc-700 dark:text-zinc-300 font-medium text-sm">
-              <Database className="h-4 w-4 text-[#7dff00]" />
-              <span>Models</span>
-            </div>
-
-            {activeSection === "models" && (
-              <div className="space-y-1 ml-6 mt-2">
-                {files
-                  .filter((file) => file.type === "model")
-                  .map((file) => (
-                    <div
-                      key={file.id}
-                      className={`flex items-center justify-between rounded-md px-2 py-1.5 text-sm ${
-                        selectedFile === file.id
-                          ? "bg-[#7dff00]/20 text-[#7dff00]"
-                          : "text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800"
-                      } cursor-pointer`}
-                      onClick={() => setSelectedFile(file.id)}
-                    >
-                      <div className="flex items-center gap-2">
-                        {getFileIcon("model")}
-                        <span>{file.name}</span>
-                      </div>
-                    </div>
-                  ))}
-              </div>
-            )}
+        {isGenerating && (
+          <div className="flex items-center justify-center py-4">
+            <div className="animate-spin h-4 w-4 border-2 border-zinc-500 border-t-transparent rounded-full"></div>
+            <span className="ml-2 text-xs">Generating code...</span>
           </div>
-
-          {/* Schemas Section */}
-          <div
-            className={`p-2 ${activeSection === "schemas" ? "bg-zinc-100/50 dark:bg-zinc-800/50" : ""} rounded-md mb-2 cursor-pointer`}
-            onClick={() => setActiveSection("schemas")}
-          >
-            <div className="flex items-center gap-2 text-zinc-700 dark:text-zinc-300 font-medium text-sm">
-              <FileJson className="h-4 w-4 text-[#7dff00]" />
-              <span>Schemas</span>
-            </div>
-
-            {activeSection === "schemas" && (
-              <div className="space-y-1 ml-6 mt-2">
-                {files
-                  .filter((file) => file.type === "schema")
-                  .map((file) => (
-                    <div
-                      key={file.id}
-                      className={`flex items-center justify-between rounded-md px-2 py-1.5 text-sm ${
-                        selectedFile === file.id
-                          ? "bg-[#7dff00]/20 text-[#7dff00]"
-                          : "text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800"
-                      } cursor-pointer`}
-                      onClick={() => setSelectedFile(file.id)}
-                    >
-                      <div className="flex items-center gap-2">
-                        {getFileIcon("schema")}
-                        <span>{file.name}</span>
-                      </div>
-                    </div>
-                  ))}
-              </div>
-            )}
-          </div>
-
-          {/* Configuration Section */}
-          <div
-            className={`p-2 ${activeSection === "config" ? "bg-zinc-100/50 dark:bg-zinc-800/50" : ""} rounded-md mb-2 cursor-pointer`}
-            onClick={() => setActiveSection("config")}
-          >
-            <div className="flex items-center gap-2 text-zinc-700 dark:text-zinc-300 font-medium text-sm">
-              <FileCode className="h-4 w-4 text-[#7dff00]" />
-              <span>Configuration</span>
-            </div>
-
-            {activeSection === "config" && (
-              <div className="space-y-1 ml-6 mt-2">
-                {files
-                  .filter((file) => file.type === "config")
-                  .map((file) => (
-                    <div
-                      key={file.id}
-                      className={`flex items-center justify-between rounded-md px-2 py-1.5 text-sm ${
-                        selectedFile === file.id
-                          ? "bg-[#7dff00]/20 text-[#7dff00]"
-                          : "text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800"
-                      } cursor-pointer`}
-                      onClick={() => setSelectedFile(file.id)}
-                    >
-                      <div className="flex items-center gap-2">
-                        {getFileIcon("config")}
-                        <span>{file.name}</span>
-                      </div>
-                    </div>
-                  ))}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
-  );
+  )
 }
