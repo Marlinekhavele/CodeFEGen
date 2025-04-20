@@ -32,14 +32,13 @@ type CodeGenStatus = "idle" | "generating" | "generated" | "generationFailed"
 type AIChartProps = {
   projectId: string
   onFileGenerated?: (file: FileType) => void
+  onFileGenerated?: (file: FileType) => void
 }
 
 export default function AIChat({ projectId, onFileGenerated }: AIChartProps) {
+export default function AIChat({ projectId, onFileGenerated }: AIChartProps) {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState("")
-  const [isLoading, setIsLoading] = useState(false)
-  const [codeGenStatus, setCodeGenStatus] = useState<CodeGenStatus>("idle")
-  const [successMessage, setSuccessMessage] = useState<string | null>(null)
   const [lastMessage, setLastMessage] = useState<string | null>(null)
   const [generatedFiles, setGeneratedFiles] = useState<Record<string, any> | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -621,7 +620,15 @@ export default function AIChat({ projectId, onFileGenerated }: AIChartProps) {
       }
 
       setMessages((prev) => [...prev, userMessage])
-      handleSubmit()
+
+      generateCode({
+        project_id: projectId,
+        prompt: lastMessage,
+        language: language,
+        method: method,
+        endpoint_path: endpointPath,
+        additional_context: `Framework: ${framework}`,
+      })
     }
   }
 
@@ -790,7 +797,7 @@ export default function AIChat({ projectId, onFileGenerated }: AIChartProps) {
               onKeyDown={handleKeyDown}
               placeholder="Describe the next API you want to build."
               className="min-h-[44px] max-h-[200px] py-3 pr-10 resize-none bg-zinc-50 border-zinc-200 text-zinc-800 placeholder:text-zinc-500 focus:border-[#7dff00] focus:ring-[#7dff00]/20 dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-200 dark:placeholder:text-zinc-500"
-              disabled={isLoading}
+              disabled={isGenerating}
             />
             <div className="absolute right-2 bottom-2 flex items-center gap-1">
               <Button type="button" variant="ghost" size="icon" className="h-6 w-6 rounded-full">
@@ -803,7 +810,7 @@ export default function AIChat({ projectId, onFileGenerated }: AIChartProps) {
             type="submit"
             size="icon"
             className="h-9 w-9 rounded-full bg-[#7dff00] text-black hover:bg-[#9aff33]"
-            disabled={!input.trim() || isLoading}
+            disabled={!input.trim() || isGenerating}
           >
             <ArrowUp className="h-4 w-4" />
             <span className="sr-only">Send</span>

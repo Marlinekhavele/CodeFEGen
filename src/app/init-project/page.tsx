@@ -3,7 +3,7 @@ import Image from "next/image"
 import Link from "next/link"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { Footer } from "@/components/footer"
-import { ProjectInitForm } from "@/components/project-init-form"
+import { ProjectInitForm } from "@/components/create-backend/project-init-form"
 
 export const metadata: Metadata = {
   title: "Initialize Project - CodeBEGen",

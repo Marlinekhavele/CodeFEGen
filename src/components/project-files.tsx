@@ -20,9 +20,14 @@ interface ProjectFilesProps {
   selectedFile: string | null
   setSelectedFile: (id: string) => void
   generatedData: GeneratedDataType | null
-  onGenerateAdditionalCode: () => void
+  onCreateEndpoint: (data: {
+    endpointPath: string
+    httpMethod: string
+    description: string
+  }) => Promise<void>
   onSelectGeneratedFile: (file: GeneratedFileType) => void
   isGenerating: boolean
+  onGenerateAdditionalCode: () => Promise<void>
 }
 
 export function ProjectFiles({
@@ -30,8 +35,9 @@ export function ProjectFiles({
   selectedFile,
   setSelectedFile,
   generatedData,
-  onGenerateAdditionalCode,
+  onCreateEndpoint,
   onSelectGeneratedFile,
+  onGenerateAdditionalCode,
   isGenerating,
 }: ProjectFilesProps) {
   // State to track expanded sections
@@ -344,5 +350,6 @@ export function ProjectFiles({
         )}
       </div>
     </div>
+  )
   )
 }

@@ -4,7 +4,7 @@ import axios from "axios"
 
 class EndPointService extends BaseService {
   constructor() {
-    super('/projects')
+    super('/endpoint')
   }
 
   public async newEndpointCreation(

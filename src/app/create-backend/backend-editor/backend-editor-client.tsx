@@ -1,4 +1,3 @@
-// app/create-backend/backend-editor/BackendEditorClient.tsx
 "use client"
 
 import { useState, useEffect } from "react"
@@ -28,7 +27,6 @@ export default function BackendEditorClient({
   const [files, setFiles] = useState<FileType[]>([])
   const [selectedFile, setSelectedFile] = useState<string | null>(null)
   const [currentCode, setCurrentCode] = useState("")
-  const [isGenerating, setIsGenerating] = useState(false)
   const [generatedData, setGeneratedData] = useState<GeneratedDataType | null>(null)
   const { theme } = useTheme()
   
@@ -507,10 +505,10 @@ useEffect(() => {
 
     // If this file is part of the generated data, update that too
     if (generatedData) {
-      const currentFile = files.find(f => f.id === selectedFile)
+      const currentFile = files.find((f) => f.id === selectedFile)
       if (currentFile) {
         const updatedGeneratedData = { ...generatedData }
-        
+
         if (currentFile.type === "endpoint" && updatedGeneratedData.endpoint) {
           updatedGeneratedData.endpoint.generated_code = currentCode
         } else if (currentFile.type === "model" && updatedGeneratedData.model) {
@@ -520,7 +518,7 @@ useEffect(() => {
         } else if (currentFile.type === "migration" && updatedGeneratedData.migration) {
           updatedGeneratedData.migration.generated_code = currentCode
         }
-        
+
         setGeneratedData(updatedGeneratedData)
       }
     }
@@ -568,13 +566,13 @@ useEffect(() => {
 
   // Handler for selecting a file from the Generated Code Display
   const handleSelectGeneratedFile = (file: GeneratedFileType) => {
-    const existingFile = files.find(f => 
-      (f.type === file.type && f.id === file.id) || 
-      (f.type === file.type && f.path === file.path)
+    const existingFile = files.find(
+      (f) => (f.type === file.type && f.id === file.id) || (f.type === file.type && f.path === file.path),
     )
-    
+
     if (existingFile) {
       setSelectedFile(existingFile.id)
+      setCurrentCode(existingFile.code)
     } else {
       // Add file to files list
       const newFile: FileType = {
@@ -583,11 +581,12 @@ useEffect(() => {
         path: file.path,
         type: file.type,
         code: file.code,
-        method: file.method as "GET" | "POST" | "PUT" | "DELETE"
+        method: file.method as "GET" | "POST" | "PUT" | "DELETE",
       }
-      
-      setFiles(prev => [...prev, newFile])
+
+      setFiles((prev) => [...prev, newFile])
       setSelectedFile(newFile.id)
+      setCurrentCode(newFile.code)
     }
   }
 
@@ -616,7 +615,7 @@ useEffect(() => {
 
   return (
     <div className="flex min-h-screen flex-col bg-zinc-100 text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100">
-      <ProjectHeader 
+      <ProjectHeader
         projectName={projectName}
         urlFriendlyName={urlFriendlyName}
         templateId={templateId}
@@ -630,10 +629,16 @@ useEffect(() => {
         <div className="container py-6">
           <div className="grid grid-cols-[280px_1fr_300px] gap-6" style={{ height: "calc(100vh - 200px)" }}>
             {/* Project Files */}
-            <ProjectFiles 
+            <ProjectFiles
               files={files}
               selectedFile={selectedFile}
-              setSelectedFile={setSelectedFile}
+              setSelectedFile={(fileId) => {
+                setSelectedFile(fileId)
+                const file = files.find((f) => f.id === fileId)
+                if (file) {
+                  setCurrentCode(file.code)
+                }
+              }}
               generatedData={generatedData}
               onGenerateAdditionalCode={() => {
                 // Show mock empty state while AI generates code
@@ -645,10 +650,11 @@ useEffect(() => {
               }}
               onSelectGeneratedFile={handleSelectGeneratedFile}
               isGenerating={isGenerating}
+              onCreateEndpoint={handleCreateEndpoint}
             />
 
             {/* File Content */}
-            <FileContent 
+            <FileContent
               selectedFile={selectedFile}
               currentCode={currentCode}
               files={files}

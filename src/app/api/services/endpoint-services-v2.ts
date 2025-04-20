@@ -10,7 +10,7 @@ import { BaseService } from './base-service'
 
 class EndPointServiceV2 extends BaseService {
   constructor() {
-    super('/projects', 'v2')
+    super('/endpoint')
   }
 
   public async getModelList(projectId: string) {
