@@ -1,7 +1,8 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import Editor from "@monaco-editor/react"
+import { useEffect, useState, useRef } from "react"
+import Editor, { Monaco } from "@monaco-editor/react"
+import type { editor } from "monaco-editor"
 
 interface MonacoEditorProps {
   code: string
@@ -9,6 +10,8 @@ interface MonacoEditorProps {
   onChange?: (code: string) => void
   readOnly?: boolean
   theme?: string
+  streaming?: boolean
+  streamingCode?: string
 }
 
 export function MonacoEditor({
@@ -17,12 +20,54 @@ export function MonacoEditor({
   onChange,
   readOnly = false,
   theme = "vs-dark",
+  streaming = false,
+  streamingCode = "",
 }: MonacoEditorProps) {
   const [mounted, setMounted] = useState(false)
+  const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null)
+  const [initialContent] = useState(code) // Use initial code as base, only update in streaming mode
+  
+  // Previous streaming code length to determine what to append
+  const prevStreamingCodeLength = useRef(0)
 
   useEffect(() => {
     setMounted(true)
   }, [])
+
+  // Effect for handling streaming updates
+  useEffect(() => {
+    if (streaming && editorRef.current && streamingCode) {
+      // Get what was added since last update
+      const newText = streamingCode.substring(prevStreamingCodeLength.current)
+      if (newText) {
+        // Get current editor model
+        const model = editorRef.current.getModel()
+        if (model) {
+          // Get position at the end of content
+          const lastLine = model.getLineCount()
+          const lastColumn = model.getLineMaxColumn(lastLine)
+          const position = { lineNumber: lastLine, column: lastColumn }
+          
+          // Insert the new text at the end
+          editorRef.current.executeEdits('', [{
+            range: {
+              startLineNumber: position.lineNumber,
+              startColumn: position.column,
+              endLineNumber: position.lineNumber,
+              endColumn: position.column
+            },
+            text: newText
+          }])
+          
+          // Auto-scroll to the end
+          editorRef.current.revealPositionInCenter(position)
+        }
+        
+        // Update the previous length for next comparison
+        prevStreamingCodeLength.current = streamingCode.length
+      }
+    }
+  }, [streaming, streamingCode])
 
   const handleEditorChange = (value: string | undefined) => {
     if (onChange && value !== undefined) {
@@ -30,7 +75,14 @@ export function MonacoEditor({
     }
   }
 
-  const handleEditorWillMount = (monaco: any) => {
+  // Reset streaming state when code changes (non-streaming update)
+  useEffect(() => {
+    if (!streaming) {
+      prevStreamingCodeLength.current = 0
+    }
+  }, [code, streaming])
+
+  const handleEditorWillMount = (monaco: Monaco) => {
     // Configure editor options
     monaco.editor.defineTheme("custom-dark", {
       base: "vs-dark",
@@ -51,12 +103,19 @@ export function MonacoEditor({
     })
   }
 
+  const handleEditorDidMount = (editor: editor.IStandaloneCodeEditor) => {
+    editorRef.current = editor
+  }
+
   // Map theme to custom theme
   const getTheme = () => {
     if (theme === "vs-dark") return "custom-dark"
     if (theme === "vs-light" || theme === "vs") return "custom-light"
     return theme
   }
+
+  // Use streaming code in streaming mode, otherwise use regular code
+  const displayCode = streaming ? initialContent : code
 
   return (
     <div className="h-full w-full border-0 bg-transparent overflow-hidden">
@@ -65,13 +124,14 @@ export function MonacoEditor({
           height="100vh"
           width="100%"
           defaultLanguage={language}
-          defaultValue={code}
-          value={code}
+          defaultValue={displayCode}
+          value={displayCode}
           onChange={handleEditorChange}
           theme={getTheme()}
           beforeMount={handleEditorWillMount}
+          onMount={handleEditorDidMount}
           options={{
-            readOnly,
+            readOnly: streaming || readOnly, // Lock editing during streaming
             minimap: { enabled: true },
             scrollBeyondLastLine: false,
             fontSize: 14,

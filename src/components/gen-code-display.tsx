@@ -109,15 +109,13 @@ export function GeneratedCodeDisplay({
     if (!generatedData?.endpoint || !generatedData.endpoint.generated_code) {
       return <div className="ml-6 text-xs text-zinc-400">No endpoint generated</div>
     }
-
     const endpoint = {
       id: generatedData.endpoint.endpoint_id || "endpoint-1",
-      path: generatedData.endpoint.endpoint_path || "/endpoint",
+      path: generatedData.endpoint.file_path || generatedData.endpoint.endpoint_path || "/endpoint",
       method: generatedData.endpoint.method || "GET",
       file_path: generatedData.endpoint.file_path || "",
-      code: generatedData.endpoint.generated_code
+      code: generatedData.endpoint.generated_code || (generatedData.endpoint.content_base64 ? atob(generatedData.endpoint.content_base64) : "")
     }
-
     return (
       <div className="space-y-1 ml-6">
         <div
@@ -138,9 +136,12 @@ export function GeneratedCodeDisplay({
           )}
         >
           <div className="flex items-center gap-2">
-            <MethodBadge method={endpoint.method} />
+            <span className="font-mono text-xs bg-zinc-200 dark:bg-zinc-800 px-2 py-0.5 rounded">{endpoint.method}</span>
             <span>{endpoint.path || endpoint.file_path}</span>
           </div>
+        </div>
+        <div className="bg-zinc-900 text-zinc-100 rounded p-2 mt-2 overflow-x-auto text-xs">
+          <pre>{endpoint.code}</pre>
         </div>
       </div>
     )
@@ -296,7 +297,7 @@ export function GeneratedCodeDisplay({
           <span>Models</span>
         </div>
         
-        {expandedSections.models && renderModel()}
+        {expandedSections.models && (generatedData?.model && generatedData.model.generated_code ? renderModel() : <div className="ml-6 text-xs text-zinc-400">No model generated</div>)}
       </div>
 
       {/* Schemas Section */}
@@ -313,7 +314,7 @@ export function GeneratedCodeDisplay({
           <span>Schemas</span>
         </div>
         
-        {expandedSections.schemas && renderSchema()}
+        {expandedSections.schemas && (generatedData?.schema && generatedData.schema.generated_code ? renderSchema() : <div className="ml-6 text-xs text-zinc-400">No schema generated</div>)}
       </div>
 
       {/* Migrations Section */}
@@ -330,7 +331,7 @@ export function GeneratedCodeDisplay({
           <span>Migrations</span>
         </div>
         
-        {expandedSections.migrations && renderMigration()}
+        {expandedSections.migrations && (generatedData?.migration && generatedData.migration.generated_code ? renderMigration() : <div className="ml-6 text-xs text-zinc-400">No migration generated</div>)}
       </div>
     </div>
   )
