@@ -4,12 +4,11 @@ import { useState, useEffect } from "react"
 import AIChat from "@/components/ai-chat"
 import { toast } from "@/components/ui/use-toast"
 import CodeGenService from "@/app/api/services/code-gen-service"
-import { GeneratedFileType, FileType, GeneratedDataType, EndpointListContent, MethodType } from "@/types"
+import { GeneratedFileType, FileType, GeneratedDataType, EndpointListContent, MethodType, EndpointDetails } from "@/types"
 import { ProjectHeader } from "@/components/project-header"
 import { ProjectFiles } from "@/components/project-files"
 import { FileContent } from "@/components/file-content"
 import { useTheme } from "@/components/theme-provider"
-import { CodeGenData } from "@/types"
 import EndPointService from "@/app/api/services/endpoint-service"
 import axios from "axios"
 
@@ -33,6 +32,8 @@ export default function BackendEditorClient({
   
   // Add a state to track streaming code
   const [streamingCode, setStreamingCode] = useState("")
+
+  const [endpointDetails, setEndpointDetails] = useState<EndpointDetails | null>(null)
 
   useEffect(() => {
     const fetchEndpoints = async () => {
@@ -497,6 +498,21 @@ export default function BackendEditorClient({
     setIsGenerating(false);
   };
 
+  // Handler for endpoint details submission from modal
+  const handleEndpointDetailsSubmit = (details: EndpointDetails) => {
+    // Set the generation state
+    setIsGenerating(true);
+    
+    // Set endpoint details to trigger the AIChat useEffect
+    setEndpointDetails(details);
+    
+    // Show a toast message
+    toast({
+      title: "Generating endpoint",
+      description: `Creating a ${details.method} endpoint at ${details.endpointPath}`,
+    });
+  };
+
   // Function to generate additional code using WebSocket
   const handleGenerateAdditionalCode = async () => {
     // Set state to indicate code generation is starting
@@ -528,6 +544,21 @@ export default function BackendEditorClient({
         onCopyCode={handleCopyCode}
         onDeleteFile={handleDeleteFile}
         onSaveFile={handleSaveFile}
+        onDownloadFile={() => {
+          if (!selectedFile) return;
+          const file = files.find(f => f.id === selectedFile);
+          if (file) {
+            const blob = new Blob([file.code], { type: "text/plain" });
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.download = file.name || "file.txt";
+            link.click();
+            toast({
+              title: "File downloaded",
+              description: `The file "${file.name}" has been downloaded.`,
+            });
+          }
+        }}
       />
 
       <main className="flex-1">
@@ -541,6 +572,7 @@ export default function BackendEditorClient({
               generatedData={generatedData}
               onGenerateAdditionalCode={handleGenerateAdditionalCode}
               onSelectGeneratedFile={handleSelectGeneratedFile}
+              onEndpointDetailsSubmit={handleEndpointDetailsSubmit}
               isGenerating={isGenerating}
               onCreateEndpoint={async ({ endpointPath, httpMethod, description }) => {
                 toast({
@@ -566,6 +598,7 @@ export default function BackendEditorClient({
               <AIChat 
                 projectId={urlFriendlyName || projectName} 
                 onFileGenerated={handleFileGenerated}
+                endpointDetails={endpointDetails}
               />
             </div>
           </div>
