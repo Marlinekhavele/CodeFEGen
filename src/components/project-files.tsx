@@ -30,6 +30,8 @@ interface ProjectFilesProps {
   isGenerating: boolean
   onGenerateAdditionalCode: () => Promise<void>
   onEndpointDetailsSubmit: (details: any) => void
+  projectLanguage: string
+  projectFramework: string
 }
 
 export function ProjectFiles({
@@ -42,6 +44,8 @@ export function ProjectFiles({
   onGenerateAdditionalCode,
   onEndpointDetailsSubmit,
   isGenerating,
+  projectLanguage,
+  projectFramework,
 }: ProjectFilesProps) {
   // State to track expanded sections
   const [expandedSections, setExpandedSections] = useState({
@@ -91,7 +95,12 @@ export function ProjectFiles({
   // Added modal submit handler
   const handleModalSubmit = (details: any) => {
     setIsModalOpen(false);
-    onEndpointDetailsSubmit(details);
+    // Only call onCreateEndpoint for creation, not onEndpointDetailsSubmit
+    onCreateEndpoint({
+      endpointPath: details.endpointPath,
+      httpMethod: details.method,
+      description: details.description,
+    });
   };
 
   return (

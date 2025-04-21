@@ -18,28 +18,28 @@ export default function CreateBackendPage() {
     const nameFromUrl = searchParams.get("name")
     const urlFromUrl = searchParams.get("url")
     const templateFromUrl = searchParams.get("template")
+    const languageFromUrl = searchParams.get("language")
+    const frameworkFromUrl = searchParams.get("framework")
     
     if (nameFromUrl && urlFromUrl && templateFromUrl) {
-      // All parameters present, go to editor
       setProjectName(nameFromUrl)
       setUrlFriendlyName(urlFromUrl)
       setLoading(false)
       setShowInitForm(false)
     } else if (nameFromUrl && urlFromUrl) {
-      // Project details found but no template, redirect to template selection
-      router.push(`/create-backend?name=${nameFromUrl}&url=${urlFromUrl}`)
+      // Preserve language and framework in the redirect
+      router.push(`/create-backend?name=${nameFromUrl}&url=${urlFromUrl}&language=${languageFromUrl || "python"}&framework=${frameworkFromUrl || "flask"}`)
       return
     } else {
-      // No project details, show initialization form
       setLoading(false)
       setShowInitForm(true)
     }
   }, [searchParams, router])
   
   // Handle successful project initialization
-  const handleProjectInitialized = (name: string, url: string) => {
-    // After project initialization, redirect to template selection
-    router.push(`/create-backend?name=${name}&url=${url}`)
+  const handleProjectInitialized = (name: string, url: string, language: string, framework: string) => {
+    // After project initialization, redirect to template selection with language and framework
+    router.push(`/create-backend?name=${name}&url=${url}&language=${language}&framework=${framework}`)
   }
   
   // If still loading, show loading indicator

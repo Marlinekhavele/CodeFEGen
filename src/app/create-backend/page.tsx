@@ -12,6 +12,10 @@ import { Footer } from "@/components/footer"
 export default function CreateBackend() {
   const [projectName, setProjectName] = useState("")
   const [urlFriendlyName, setUrlFriendlyName] = useState("")
+  const [projectLanguage, setProjectLanguage] = useState<string>("python")
+  const [projectFramework, setProjectFramework] = useState<string>("flask")
+  const [loading, setLoading] = useState(true);
+  const [showInitForm, setShowInitForm] = useState(false);
   const searchParams = useSearchParams()
   const router = useRouter()
 
@@ -19,19 +23,34 @@ export default function CreateBackend() {
     // Get project details from URL parameters
     const nameFromUrl = searchParams.get("name")
     const urlFromUrl = searchParams.get("url")
+    const languageFromUrl = searchParams.get("language")
+    const frameworkFromUrl = searchParams.get("framework")
+    const templateFromUrl = searchParams.get("template")
 
-    if (nameFromUrl && urlFromUrl) {
+    if (nameFromUrl && urlFromUrl && templateFromUrl) {
       setProjectName(nameFromUrl)
       setUrlFriendlyName(urlFromUrl)
+      setProjectLanguage(languageFromUrl || "python")
+      setProjectFramework(frameworkFromUrl || "flask")
+      setLoading(false)
+      setShowInitForm(false)
+    } else if (nameFromUrl && urlFromUrl) {
+      // Always preserve language and framework in the redirect
+      router.push(`/create-backend?name=${nameFromUrl}&url=${urlFromUrl}&language=${languageFromUrl || "python"}&framework=${frameworkFromUrl || "flask"}`)
+      return
     } else {
-      // If no parameters found, redirect to project initialization
-      router.push("/init-project")
+      setLoading(false)
+      setShowInitForm(true)
     }
   }, [searchParams, router])
 
   // Template selection handler
   const selectTemplate = (templateId: string) => {
-    router.push(`/create-backend/backend-editor?name=${projectName}&url=${urlFriendlyName}&template=${templateId}`)
+    router.push(`/create-backend/backend-editor?name=${projectName}&url=${urlFriendlyName}&template=${templateId}&language=${projectLanguage}&framework=${projectFramework}`)
+  }
+
+  const handleProjectInitialized = (name: string, url: string, language: string, framework: string) => {
+    router.push(`/create-backend?name=${name}&url=${url}&language=${language}&framework=${framework}`)
   }
 
   return (
@@ -71,7 +90,7 @@ export default function CreateBackend() {
               <div className="mb-4 rounded-full bg-[#7dff00]/10 p-3 w-fit">
                 <Database className="h-6 w-6 text-[#7dff00]" />
               </div>
-              <h3 className="text-xl font-medium mb-2 text-zinc-900 group-hover:text-[#7dff00] dark:text-white">
+              <h3 className="text-xl font-medium mb-2 text-zinc-900 group-hover:text-[#7dff00] dark:text:white">
                 REST API
               </h3>
               <p className="text-zinc-600 mb-4 dark:text-zinc-400">
@@ -89,7 +108,7 @@ export default function CreateBackend() {
               <div className="mb-4 rounded-full bg-[#7dff00]/10 p-3 w-fit">
                 <Server className="h-6 w-6 text-[#7dff00]" />
               </div>
-              <h3 className="text-xl font-medium mb-2 text-zinc-900 group-hover:text-[#7dff00] dark:text-white">
+              <h3 className="text-xl font-medium mb-2 text-zinc-900 group-hover:text-[#7dff00] dark:text:white">
                 GraphQL API
               </h3>
               <p className="text-zinc-600 mb-4 dark:text-zinc-400">
@@ -107,7 +126,7 @@ export default function CreateBackend() {
               <div className="mb-4 rounded-full bg-[#7dff00]/10 p-3 w-fit">
                 <Code className="h-6 w-6 text-[#7dff00]" />
               </div>
-              <h3 className="text-xl font-medium mb-2 text-zinc-900 group-hover:text-[#7dff00] dark:text-white">
+              <h3 className="text-xl font-medium mb-2 text-zinc-900 group-hover:text-[#7dff00] dark:text:white">
                 Serverless Functions
               </h3>
               <p className="text-zinc-600 mb-4 dark:text-zinc-400">
@@ -125,7 +144,7 @@ export default function CreateBackend() {
               <div className="mb-4 rounded-full bg-[#7dff00]/10 p-3 w-fit">
                 <Zap className="h-6 w-6 text-[#7dff00]" />
               </div>
-              <h3 className="text-xl font-medium mb-2 text-zinc-900 group-hover:text-[#7dff00] dark:text-white">
+              <h3 className="text-xl font-medium mb-2 text-zinc-900 group-hover:text-[#7dff00] dark:text:white">
                 Real-time API
               </h3>
               <p className="text-zinc-600 mb-4 dark:text-zinc-400">
@@ -143,7 +162,7 @@ export default function CreateBackend() {
               <div className="mb-4 rounded-full bg-[#7dff00]/10 p-3 w-fit">
                 <Globe className="h-6 w-6 text-[#7dff00]" />
               </div>
-              <h3 className="text-xl font-medium mb-2 text-zinc-900 group-hover:text-[#7dff00] dark:text-white">
+              <h3 className="text-xl font-medium mb-2 text-zinc-900 group-hover:text-[#7dff00] dark:text:white">
                 E-commerce API
               </h3>
               <p className="text-zinc-600 mb-4 dark:text-zinc-400">
@@ -161,7 +180,7 @@ export default function CreateBackend() {
               <div className="mb-4 rounded-full bg-[#7dff00]/10 p-3 w-fit">
                 <Lock className="h-6 w-6 text-[#7dff00]" />
               </div>
-              <h3 className="text-xl font-medium mb-2 text-zinc-900 group-hover:text-[#7dff00] dark:text-white">
+              <h3 className="text-xl font-medium mb-2 text-zinc-900 group-hover:text-[#7dff00] dark:text:white">
                 Auth Service
               </h3>
               <p className="text-zinc-600 mb-4 dark:text-zinc-400">
@@ -177,7 +196,7 @@ export default function CreateBackend() {
           </div>
 
           <div className="mt-12 rounded-lg border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900">
-            <h2 className="text-2xl font-bold mb-4 text-zinc-900 dark:text-white">Create Custom Backend</h2>
+            <h2 className="text-2xl font-bold mb-4 text-zinc-900 dark:text:white">Create Custom Backend</h2>
             <p className="text-zinc-600 mb-6 dark:text-zinc-400">
               Describe your backend requirements in natural language and our AI will generate the perfect backend for
               you.
@@ -191,10 +210,12 @@ export default function CreateBackend() {
             </div>
             <Button 
               className="bg-[#7dff00] text-black hover:bg-[#9aff33] dark:bg-[#7dff00] dark:text-black dark:hover:bg-[#9aff33]"
+              disabled={!projectName || !urlFriendlyName}
               onClick={() => {
+                if (!projectName || !urlFriendlyName) return;
                 const customRequirementsElement = document.getElementById("custom-requirements");
                 const customRequirements = customRequirementsElement ? (customRequirementsElement as HTMLTextAreaElement).value : "";
-                router.push(`/create-backend/backend-editor?name=${projectName}&url=${urlFriendlyName}&template=custom&requirements=${encodeURIComponent(customRequirements)}`);
+                router.push(`/create-backend/backend-editor?name=${projectName}&url=${urlFriendlyName}&template=custom&requirements=${encodeURIComponent(customRequirements)}&language=${projectLanguage}&framework=${projectFramework}`);
               }}
             >
               Generate Backend

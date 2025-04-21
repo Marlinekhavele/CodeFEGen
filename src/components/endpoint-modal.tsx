@@ -171,9 +171,9 @@ export function EndpointModal({ isOpen, onClose, onSubmit }: EndpointModalProps)
             <Button 
               type="submit" 
               className="bg-[#7dff00] text-black hover:bg-[#9aff33]"
-              disabled={!endpointPath.trim() || !description.trim()}
+              disabled={!endpointPath.trim()}
             >
-              Generate
+              Create
             </Button>
           </DialogFooter>
         </form>
