@@ -16,12 +16,16 @@ interface BackendEditorClientProps {
   projectName: string
   urlFriendlyName?: string
   templateId?: string
+  projectLanguage?: string
+  projectFramework?: string
 }
 
 export default function BackendEditorClient({
   projectName,
   urlFriendlyName = "",
   templateId = "",
+  projectLanguage = "python",
+  projectFramework = "flask",
 }: BackendEditorClientProps) {
   const [files, setFiles] = useState<FileType[]>([])
   const [selectedFile, setSelectedFile] = useState<string | null>(null)
@@ -49,7 +53,7 @@ export default function BackendEditorClient({
             result.map(async (ep: EndpointListContent) => {
               try {
                 const resp = await axios.get(
-                  `https://codebegen.canadacentral.cloudapp.azure.com/api/v1/generate/stream`,
+                  `https://codebegen.canadacentral.cloudapp.azure.com/api/v1/endpoint/`,
                   {
                     params: {
                       project_id: urlFriendlyName,
@@ -254,9 +258,7 @@ export default function BackendEditorClient({
         if (["endpoint", "model", "schema", "migration", "helpers", "config"].includes(file.type)) {
           setFiles(prev => {
             // Check if file already exists
-            const existingFileIndex = prev.findIndex(f => 
-              f.id === file.id || (f.type === file.type && f.path === file.path)
-            );
+            const existingFileIndex = prev.findIndex(f => f.id === file.id);
             
             if (existingFileIndex >= 0) {
               // Update existing file
@@ -575,12 +577,74 @@ export default function BackendEditorClient({
               onEndpointDetailsSubmit={handleEndpointDetailsSubmit}
               isGenerating={isGenerating}
               onCreateEndpoint={async ({ endpointPath, httpMethod, description }) => {
-                toast({
-                  title: "Create Endpoint",
-                  description: `Endpoint created with path: ${endpointPath}, method: ${httpMethod}, and description: ${description}.`,
-                });
+                console.log("onCreateEndpoint called", { endpointPath, httpMethod, description });
+                try {
+                  const endpointService = new EndPointService();
+                  const res = await endpointService.newEndpointCreation(urlFriendlyName, endpointPath, httpMethod, description);
+                  console.log("newEndpointCreation response", res);
+                  if (!res || res.success === false) {
+                    throw new Error(res?.message || "Failed to create endpoint");
+                  }
+                  toast({
+                    title: "Endpoint created",
+                    description: `Endpoint created with path: ${endpointPath}, method: ${httpMethod}.`,
+                  });
+                  // Always fetch the latest endpoint list from backend
+                  const endpoints = await endpointService.getEndpointList(urlFriendlyName);
+                  console.log("getEndpointList after create", endpoints);
+                  // Fetch code for each endpoint (content_base64)
+                  const endpointFiles = await Promise.all(
+                    endpoints.map(async (ep) => {
+                      try {
+                        const resp = await axios.get(
+                          `https://codebegen.canadacentral.cloudapp.azure.com/api/v1/endpoint/`,
+                          {
+                            params: {
+                              project_id: urlFriendlyName,
+                              endpoint_path: ep.path,
+                              method: ep.method,
+                            },
+                          }
+                        );
+                        const fileResult = resp.data?.data;
+                        const code = fileResult?.content_base64 ? atob(fileResult.content_base64) : "";
+                        let fileName = ep.path.split("/").pop() || ep.path;
+                        fileName = fileName.replace(/^(GET|POST|PUT|DELETE)_/i, "");
+                        return {
+                          id: `endpoint-${ep.path}`,
+                          name: fileName,
+                          path: ep.path,
+                          type: "endpoint" as const,
+                          code,
+                          method: ep.method as MethodType,
+                        };
+                      } catch (error) {
+                        let fileName = ep.path.split("/").pop() || ep.path;
+                        fileName = fileName.replace(/^(GET|POST|PUT|DELETE)_/i, "");
+                        return {
+                          id: `endpoint-${ep.path}`,
+                          name: fileName,
+                          path: ep.path,
+                          type: "endpoint" as const,
+                          code: "",
+                          method: ep.method as MethodType,
+                        };
+                      }
+                    })
+                  );
+                  setFiles(endpointFiles);
+                } catch (error) {
+                  console.error("Error in onCreateEndpoint", error);
+                  toast({
+                    title: "Error creating endpoint",
+                    description: error instanceof Error ? error.message : "Failed to create endpoint",
+                    variant: "destructive",
+                  });
+                }
                 return Promise.resolve();
               }}
+              projectLanguage={projectLanguage}
+              projectFramework={projectFramework}
             />
 
             {/* File Content */}
