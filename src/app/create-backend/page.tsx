@@ -27,7 +27,17 @@ export default function CreateBackend() {
     const frameworkFromUrl = searchParams.get("framework")
     const templateFromUrl = searchParams.get("template")
 
+    // Debug info to help troubleshoot
+    console.log("URL Parameters:", { 
+      nameFromUrl, 
+      urlFromUrl, 
+      languageFromUrl, 
+      frameworkFromUrl, 
+      templateFromUrl 
+    });
+
     if (nameFromUrl && urlFromUrl && templateFromUrl) {
+      // First condition with template - proceed to editor
       setProjectName(nameFromUrl)
       setUrlFriendlyName(urlFromUrl)
       setProjectLanguage(languageFromUrl || "python")
@@ -35,10 +45,17 @@ export default function CreateBackend() {
       setLoading(false)
       setShowInitForm(false)
     } else if (nameFromUrl && urlFromUrl) {
-      // Always preserve language and framework in the redirect
-      router.push(`/create-backend?name=${nameFromUrl}&url=${urlFromUrl}&language=${languageFromUrl || "python"}&framework=${frameworkFromUrl || "flask"}`)
-      return
+
+      setProjectName(nameFromUrl)
+      setUrlFriendlyName(urlFromUrl)
+      setProjectLanguage(languageFromUrl || "python")
+      setProjectFramework(frameworkFromUrl || "flask")
+      setLoading(false)
+      setShowInitForm(false)
+      
+
     } else {
+      // No parameters, show init form
       setLoading(false)
       setShowInitForm(true)
     }
