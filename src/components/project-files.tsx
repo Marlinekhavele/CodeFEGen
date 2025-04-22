@@ -68,13 +68,102 @@ export function ProjectFiles({
     }));
   };
 
+  // Helper to get file extension based on type
+  const getFileExtension = (fileType: string, code: string | undefined): string => {
+    // Default extensions by file type
+    const typeExtensions: Record<string, string> = {
+      "endpoint": ".py",
+      "model": ".py",
+      "schema": ".py", 
+      "migration": ".py",
+      "helpers": ".py",
+      "config": ".py"
+    };
+    
+    // Detect language from code if available
+    if (code) {
+      if (code.includes("import React") || code.includes("from 'react'") || code.includes('from "react"')) {
+        return ".jsx";
+      } else if (code.includes("const ") || code.includes("function ") || code.includes("=>")) {
+        return ".js";
+      } else if (code.includes("import ") && code.includes("from ") && code.includes("def ")) {
+        return ".py";
+      }
+    }
+    
+    return typeExtensions[fileType] || ".txt";
+  };
+
+  // Function to normalize/clean filename
+  const normalizeFileName = (file: FileType): string => {
+    // Extract base name (without path or method)
+    let baseName = "";
+    
+    if (file.name) {
+      // Remove any path components
+      baseName = file.name.split('/').pop() || file.name;
+      // Remove HTTP method from filename (e.g., "login.get.py" → "login")
+      baseName = baseName.replace(/\.(get|post|put|delete)\./i, ".");
+      // Strip extension if present
+      baseName = baseName.replace(/\.[^/.]+$/, "");
+    } else if (file.path) {
+      // Extract filename from path
+      baseName = file.path.split('/').pop() || "";
+      // Remove HTTP method and extension
+      baseName = baseName.replace(/\.(get|post|put|delete)\./i, ".");
+      baseName = baseName.replace(/\.[^/.]+$/, "");
+    } else {
+      // Fallback to generic name based on type
+      baseName = file.type || "file";
+    }
+    
+    // Remove any special characters, spaces, etc.
+    baseName = baseName.replace(/[^a-zA-Z0-9_-]/g, "_");
+    
+    // Add appropriate extension based on file type and content
+    const extension = getFileExtension(file.type, file.code);
+    
+    return baseName + extension;
+  };
+
+  // Enhanced deduplication function that also handles naming
+  const getUniqueFilesByName = (files: FileType[]): FileType[] => {
+    const uniqueFiles = new Map<string, FileType>();
+    const normalizedFiles: FileType[] = [];
+    
+    // First pass: normalize filenames
+    for (const file of files) {
+      const normalizedName = normalizeFileName(file);
+      
+      // Create a new file object with the normalized name
+      const normalizedFile = {
+        ...file,
+        name: normalizedName,
+        displayName: normalizedName // Optional: add a displayName property
+      };
+      
+      normalizedFiles.push(normalizedFile);
+    }
+    
+    // Second pass: deduplicate
+    for (const file of normalizedFiles) {
+      const key = file.type + ":" + file.name;
+      
+      if (!uniqueFiles.has(key)) {
+        uniqueFiles.set(key, file);
+      }
+    }
+    
+    return Array.from(uniqueFiles.values());
+  };
+
   // Group files by type
-  const endpoints = files.filter((file) => file.type === "endpoint")
-  const models = files.filter((file) => file.type === "model")
-  const schemas = files.filter((file) => file.type === "schema")
-  const migrations = files.filter((file) => file.type === "migration")
-  const helpers = files.filter((file) => file.type === "helpers")
-  const configFiles = files.filter((file) => file.type === "config")
+  const endpoints = getUniqueFilesByName(files.filter((file) => file.type === "endpoint"))
+  const models = getUniqueFilesByName(files.filter((file) => file.type === "model"))
+  const schemas = getUniqueFilesByName(files.filter((file) => file.type === "schema"))
+  const migrations = getUniqueFilesByName(files.filter((file) => file.type === "migration"))
+  const helpers = getUniqueFilesByName(files.filter((file) => file.type === "helpers"))
+  const configFiles = getUniqueFilesByName(files.filter((file) => file.type === "config"))
 
   // Get method color and badge
   const getMethodBadge = (method: string) => {
@@ -105,6 +194,15 @@ export function ProjectFiles({
           <FolderTree className="h-5 w-5 text-[#7dff00]" />
           <span className="font-medium text-zinc-900 dark:text-zinc-100">Project Files</span>
         </div>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-7 w-7 text-zinc-600 hover:text-[#7dff00] dark:text-zinc-400 dark:hover:text-[#7dff00] p-0"
+          onClick={() => setIsModalOpen(true)}
+          disabled={isGenerating}
+        >
+          <Plus className="h-5 w-5" />
+        </Button>
       </div>
       
       <div className="p-2 overflow-auto" style={{ height: "calc(100vh)", width: "100%" }}>
@@ -120,7 +218,7 @@ export function ProjectFiles({
           </div>
         ) : (
           <div className="space-y-2">
-            {/* Endpoints Section with Plus Button */}
+            {/* Endpoints Section without Plus Button */}
             <div
               className={`p-2 ${expandedSections.endpoints ? "bg-zinc-100/50 dark:bg-zinc-800/50" : ""} rounded-md mb-2`}
             >
@@ -132,18 +230,6 @@ export function ProjectFiles({
                   <Server className="h-4 w-4" />
                   <span>Endpoints</span>
                 </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-6 w-6 text-zinc-600 hover:text-[#7dff00] dark:text-zinc-400 dark:hover:text-[#7dff00] p-0"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setIsModalOpen(true);
-                  }}
-                  disabled={isGenerating}
-                >
-                  <Plus className="h-4 w-4" />
-                </Button>
               </div>
 
               {expandedSections.endpoints && (
@@ -160,7 +246,7 @@ export function ProjectFiles({
                     >
                       <div className="flex items-center gap-2">
                         {getMethodBadge(file.method || "UNKNOWN")}
-                        <span>{file.path ? file.path : `${file.name ?? "endpoint"}`}</span>
+                        <span>{file.name}</span>
                       </div>
                     </div>
                   ))}
@@ -172,8 +258,7 @@ export function ProjectFiles({
             </div>
 
             {/* Models Section */}
-            {models.length > 0 && (
-              <div
+            <div
                 className={`p-2 ${expandedSections.models ? "bg-zinc-100/50 dark:bg-zinc-800/50" : ""} rounded-md mb-2 cursor-pointer`}
                 onClick={() => toggleSection("models")}
               >
@@ -199,18 +284,19 @@ export function ProjectFiles({
                       >
                         <div className="flex items-center gap-2">
                           <Database className="h-3 w-3" />
-                          <span>{file.name ?? "model"}</span>
+                          <span>{file.name}</span>
                         </div>
                       </div>
                     ))}
+                    {models.length === 0 && (
+                      <div className="text-xs text-zinc-500 italic">No models yet</div>
+                    )}
                   </div>
                 )}
               </div>
-            )}
 
             {/* Schemas Section */}
-            {schemas.length > 0 && (
-              <div
+            <div
                 className={`p-2 ${expandedSections.schemas ? "bg-zinc-100/50 dark:bg-zinc-800/50" : ""} rounded-md mb-2 cursor-pointer`}
                 onClick={() => toggleSection("schemas")}
               >
@@ -236,18 +322,19 @@ export function ProjectFiles({
                       >
                         <div className="flex items-center gap-2">
                           <FileJson className="h-3 w-3" />
-                          <span>{file.name ?? "schema"}</span>
+                          <span>{file.name}</span>
                         </div>
                       </div>
                     ))}
+                    {schemas.length === 0 && (
+                      <div className="text-xs text-zinc-500 italic">No schemas yet</div>
+                    )}
                   </div>
                 )}
               </div>
-            )}
 
             {/* Configuration Section */}
-            {configFiles.length > 0 && (
-              <div
+            <div
                 className={`p-2 ${expandedSections.config ? "bg-zinc-100/50 dark:bg-zinc-800/50" : ""} rounded-md mb-2 cursor-pointer`}
                 onClick={() => toggleSection("config")}
               >
@@ -273,18 +360,19 @@ export function ProjectFiles({
                       >
                         <div className="flex items-center gap-2">
                           <FileCode className="h-3 w-3" />
-                          <span>{file.name ?? "config"}</span>
+                          <span>{file.name}</span>
                         </div>
                       </div>
                     ))}
+                    {configFiles.length === 0 && (
+                      <div className="text-xs text-zinc-500 italic">No configuration files yet</div>
+                    )}
                   </div>
                 )}
               </div>
-            )}
 
             {/* Migrations Section */}
-            {migrations.length > 0 && (
-              <div
+            <div
                 className={`p-2 ${expandedSections.migrations ? "bg-zinc-100/50 dark:bg-zinc-800/50" : ""} rounded-md mb-2 cursor-pointer`}
                 onClick={() => toggleSection("migrations")}
               >
@@ -310,18 +398,19 @@ export function ProjectFiles({
                       >
                         <div className="flex items-center gap-2">
                           <FileCode className="h-3 w-3" />
-                          <span>{file.name ?? "migration"}</span>
+                          <span>{file.name}</span>
                         </div>
                       </div>
                     ))}
+                    {migrations.length === 0 && (
+                      <div className="text-xs text-zinc-500 italic">No migrations yet</div>
+                    )}
                   </div>
                 )}
               </div>
-            )}
 
             {/* Helpers Section */}
-            {helpers.length > 0 && (
-              <div
+            <div
                 className={`p-2 ${expandedSections.helpers ? "bg-zinc-100/50 dark:bg-zinc-800/50" : ""} rounded-md mb-2 cursor-pointer`}
                 onClick={() => toggleSection("helpers")}
               >
@@ -347,14 +436,16 @@ export function ProjectFiles({
                       >
                         <div className="flex items-center gap-2">
                           <FileCode className="h-3 w-3" />
-                          <span>{file.name ?? "helper"}</span>
+                          <span>{file.name}</span>
                         </div>
                       </div>
                     ))}
+                    {helpers.length === 0 && (
+                      <div className="text-xs text-zinc-500 italic">No helpers yet</div>
+                    )}
                   </div>
                 )}
               </div>
-            )}
           </div>
         )}
 
@@ -376,5 +467,4 @@ export function ProjectFiles({
       />
     </div>
   )
-
 }

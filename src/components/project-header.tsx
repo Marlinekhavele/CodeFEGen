@@ -91,7 +91,7 @@ export function ProjectHeader({
                 <Button
                   variant="outline"
                   size="sm"
-                  className="border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
+                  className="border-zinc-300 bg-white text-zinc-700 hover:bg-[#7dff00] hover:text-black dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-[#7dff00] dark:hover:text-black"
                   onClick={onCopyCode}
                 >
                   <Copy className="h-4 w-4 mr-2" />
@@ -108,7 +108,7 @@ export function ProjectHeader({
                 <Button
                   variant="outline"
                   size="sm"
-                  className="border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
+                  className="border-zinc-300 bg-white text-zinc-700 hover:bg-[#7dff00] hover:text-black dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-[#7dff00] dark:hover:text-black"
                   onClick={onDeleteFile}
                 >
                   <Trash2 className="h-4 w-4 mr-2" />
@@ -125,7 +125,7 @@ export function ProjectHeader({
                 <Button
                   variant="outline"
                   size="sm"
-                  className="border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
+                  className="border-zinc-300 bg-white text-zinc-700 hover:bg-[#7dff00] hover:text-black dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-[#7dff00] dark:hover:text-black"
                   onClick={onDownloadFile}
                 >
                   <Play className="h-4 w-4 mr-2" />
@@ -141,7 +141,7 @@ export function ProjectHeader({
               <TooltipTrigger asChild>
                 <Button
                   size="sm"
-                  className="bg-[#7dff00] text-black hover:bg-[#9aff33] dark:bg-[#7dff00] dark:text-black dark:hover:bg-[#9aff33]"
+                  className="border-zinc-300 bg-white text-zinc-700 hover:bg-[#7dff00] hover:text-black dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-[#7dff00] dark:hover:text-black"
                   onClick={onSaveFile}
                 >
                   <Save className="h-4 w-4 mr-2" />
@@ -167,7 +167,7 @@ export function ProjectHeader({
         <Button
           variant="ghost"
           size="sm"
-          className="text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-300"
+          className="text-zinc-500 hover:bg-[#7dff00] hover:text-black dark:text-zinc-400 dark:hover:bg-[#7dff00] dark:hover:text-black"
           onClick={() => {
             navigator.clipboard.writeText(`https://api.codebegen.com/${urlFriendlyName}`)
             toast({
