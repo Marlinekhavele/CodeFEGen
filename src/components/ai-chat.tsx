@@ -7,8 +7,6 @@ import { ThumbsUp, ThumbsDown, Copy, CornerUpRight, Paperclip, Maximize2, Triang
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Label } from "@/components/ui/label"
 import type { FileType } from "@/types"
 import { useCodeStore } from "@/stores/code-store"
 
