@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react"
 import AIChat from "@/components/ai-chat"
 import { toast } from "@/components/ui/use-toast"
-import CodeGenService from "@/app/api/services/code-gen-service"
 import { GeneratedFileType, FileType, GeneratedDataType, EndpointListContent, MethodType, EndpointDetails } from "@/types"
 import { ProjectHeader } from "@/components/project-header"
 import { ProjectFiles } from "@/components/project-files"
@@ -169,7 +168,7 @@ export default function BackendEditorClient({
         if (newFiles.length > 0) {
           setFiles(prev => {
             // Create a merged array
-            let merged = [...prev];
+            const merged = [...prev];
             
             // Process each new file
             newFiles.forEach(newFile => {
