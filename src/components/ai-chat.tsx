@@ -36,6 +36,8 @@ type AIChartProps = {
     method: string
     description: string
   } | null
+  projectLanguage?: string
+  projectFramework?: string
 }
 
 // Constants for configuration
@@ -48,7 +50,7 @@ const cleanFileName = (fileName: string): string => {
   return fileName.replace(/\.(get|post|put|delete)\./i, ".");
 }
 
-export default function AIChat({ projectId, onFileGenerated, endpointDetails }: AIChartProps) {
+export default function AIChat({ projectId, onFileGenerated, endpointDetails, projectLanguage = "python", projectFramework = "fastapi"}: AIChartProps) {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState("")
   const [isLoading, setIsLoading] = useState(false)
@@ -67,8 +69,13 @@ export default function AIChat({ projectId, onFileGenerated, endpointDetails }: 
   // Listen for new endpoint details and generate code when they're provided
   useEffect(() => {
     if (endpointDetails && !isLoading && codeGenStatus !== "generating") {
-      const { language, framework, endpointPath, method, description } = endpointDetails;
-      const prompt = `Create a ${method} endpoint at ${endpointPath} that ${description}`;
+      // Use provided language/framework from endpointDetails or fallback to props
+      const language = projectLanguage;
+      const framework = projectFramework;
+      const { endpointPath, method, description } = endpointDetails;
+      
+      // Create a more detailed prompt that includes language and framework
+      const prompt = `Create a ${method} endpoint at ${endpointPath} using ${language} with ${framework} that ${description}`;
       
       // Set input and trigger submission
       setInput(prompt);
@@ -78,7 +85,7 @@ export default function AIChat({ projectId, onFileGenerated, endpointDetails }: 
         handleSubmitWithDetails(prompt, language, framework, endpointPath, method);
       }, 100);
     }
-  }, [endpointDetails]);
+  }, [endpointDetails, projectLanguage, projectFramework]);
 
   useEffect(() => {
     // Scroll to bottom when messages change
@@ -691,11 +698,11 @@ export default function AIChat({ projectId, onFileGenerated, endpointDetails }: 
     e?.preventDefault();
     if (!input.trim() || isLoading) return;
     
-    // Call the detailed handler with default values
-    handleSubmitWithDetails(
+     // Call the detailed handler with project language and framework from props
+     handleSubmitWithDetails(
       input, 
-      "python", // default language
-      "fastapi", // default framework
+      projectLanguage, // Use project language from props
+      projectFramework, // Use project framework from props
       "/api/example", // default endpoint path
       "GET" // default method
     );
@@ -718,8 +725,13 @@ export default function AIChat({ projectId, onFileGenerated, endpointDetails }: 
   return (
     <div className="flex flex-col h-full border border-zinc-200 rounded-lg overflow-hidden dark:border-zinc-800">
       <div className="p-3 border-b border-zinc-200 bg-white dark:bg-zinc-900 dark:border-zinc-800 flex items-center justify-between">
-        <div>
+        <div className="flex items-center space-x-2">
           <Image src="/codeBE-logo.png" alt="CodeBEgen Logo" width={30} height={30} />
+          <div className="flex items-center space-x-1">
+            <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">{projectLanguage}</span>
+            <span className="text-xs text-zinc-400 dark:text-zinc-500">/</span>
+            <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">{projectFramework}</span>
+          </div>
         </div>
         <div className="flex items-center gap-1">
           <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full">
