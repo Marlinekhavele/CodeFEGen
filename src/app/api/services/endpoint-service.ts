@@ -10,7 +10,8 @@ class EndPointService extends BaseService {
   public async newEndpointCreation(
     projectId: string,
     endpointPath: string,
-    httpMethod: string
+    httpMethod: string,
+    description: string 
   ): Promise<any> {
     // Use the correct backend API for endpoint creation
     const res = await axios.post(

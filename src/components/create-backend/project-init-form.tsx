@@ -15,7 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { languages, frameworks } from "./options"
 
 interface ProjectInitFormProps {
-  onProjectInitialized?: (projectName: string, urlFriendlyName: string) => void
+  onProjectInitialized?: (projectName: string, urlFriendlyName: string, language: string, framework: string) => void
 }
 
 export function ProjectInitForm({ onProjectInitialized }: ProjectInitFormProps) {
@@ -52,10 +52,10 @@ export function ProjectInitForm({ onProjectInitialized }: ProjectInitFormProps) 
         const projectId = response.project_id
 
         if (onProjectInitialized) {
-          onProjectInitialized(values.project_name, projectId)
+          onProjectInitialized(values.project_name, projectId, values.language, values.framework)
         } else {
           router.push(
-            `/create-backend?name=${encodeURIComponent(values.project_name)}&url=${encodeURIComponent(projectId)}`,
+            `/create-backend?name=${encodeURIComponent(values.project_name)}&url=${encodeURIComponent(projectId)}&language=${encodeURIComponent(values.language)}&framework=${encodeURIComponent(values.framework)}`,
           )
         }
       }
