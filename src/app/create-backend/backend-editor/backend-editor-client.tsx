@@ -15,12 +15,16 @@ interface BackendEditorClientProps {
   projectName: string
   urlFriendlyName?: string
   templateId?: string
+  projectLanguage?: string
+  projectFramework?: string
 }
 
 export default function BackendEditorClient({
   projectName,
   urlFriendlyName = "",
   templateId = "",
+  projectLanguage = "python",
+  projectFramework = "flask",
 }: BackendEditorClientProps) {
   const [files, setFiles] = useState<FileType[]>([])
   const [selectedFile, setSelectedFile] = useState<string | null>(null)
@@ -48,7 +52,7 @@ export default function BackendEditorClient({
             result.map(async (ep: EndpointListContent) => {
               try {
                 const resp = await axios.get(
-                  `https://codebegen.canadacentral.cloudapp.azure.com/api/v1/generate/stream`,
+                  `https://codebegen.canadacentral.cloudapp.azure.com/api/v1/endpoint/`,
                   {
                     params: {
                       project_id: urlFriendlyName,
@@ -253,9 +257,7 @@ export default function BackendEditorClient({
         if (["endpoint", "model", "schema", "migration", "helpers", "config"].includes(file.type)) {
           setFiles(prev => {
             // Check if file already exists
-            const existingFileIndex = prev.findIndex(f => 
-              f.id === file.id || (f.type === file.type && f.path === file.path)
-            );
+            const existingFileIndex = prev.findIndex(f => f.id === file.id);
             
             if (existingFileIndex >= 0) {
               // Update existing file
@@ -502,13 +504,20 @@ export default function BackendEditorClient({
     // Set the generation state
     setIsGenerating(true);
     
-    // Set endpoint details to trigger the AIChat useEffect
-    setEndpointDetails(details);
+    // Update endpoint details to include language and framework from project settings
+    const enhancedDetails: EndpointDetails = {
+      ...details,
+      language: projectLanguage || "python",
+      framework: projectFramework || "FastAPI"
+    };
+    
+    // Set enhanced endpoint details to trigger the AIChat useEffect
+    setEndpointDetails(enhancedDetails);
     
     // Show a toast message
     toast({
       title: "Generating endpoint",
-      description: `Creating a ${details.method} endpoint at ${details.endpointPath}`,
+      description: `Creating a ${details.method} endpoint at ${details.endpointPath} using ${projectLanguage}/${projectFramework}`,
     });
   };
 
@@ -574,12 +583,15 @@ export default function BackendEditorClient({
               onEndpointDetailsSubmit={handleEndpointDetailsSubmit}
               isGenerating={isGenerating}
               onCreateEndpoint={async ({ endpointPath, httpMethod, description }) => {
+                // Create endpoint with proper language/framework
                 toast({
                   title: "Create Endpoint",
-                  description: `Endpoint created with path: ${endpointPath}, method: ${httpMethod}, and description: ${description}.`,
+                  description: `Endpoint created with path: ${endpointPath}, method: ${httpMethod}, using ${projectLanguage}/${projectFramework}, and description: ${description}.`,
                 });
                 return Promise.resolve();
               }}
+              projectLanguage={projectLanguage}
+              projectFramework={projectFramework}
             />
 
             {/* File Content */}
@@ -598,6 +610,8 @@ export default function BackendEditorClient({
                 projectId={urlFriendlyName || projectName} 
                 onFileGenerated={handleFileGenerated}
                 endpointDetails={endpointDetails}
+                projectLanguage={projectLanguage}
+                projectFramework={projectFramework}
               />
             </div>
           </div>
