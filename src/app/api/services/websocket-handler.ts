@@ -1,5 +1,5 @@
 import { EventEmitter } from 'events';
-import type { CodeGenData, GeneratedDataType } from '@/types';
+import type { CodeGenData } from '@/types';
 
 // Define event types to match backend status messages
 export enum CodeStreamEventType {

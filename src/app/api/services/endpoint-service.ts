@@ -1,4 +1,4 @@
-import { type EndpointListData, type NewEndpointResponse } from '@/types'
+import { type EndpointListData } from '@/types'
 import { BaseService } from './base-service'
 import axios from "axios"
 
