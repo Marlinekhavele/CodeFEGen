@@ -15,7 +15,7 @@ class EndPointService extends BaseService {
   ): Promise<any> {
     // Use the correct backend API for endpoint creation
     const res = await axios.post(
-      "https://codebegen.canadacentral.cloudapp.azure.com/api/v1/endpoint/",
+      "https://codebegen.canadacentral.cloudapp.azure.com/api/v1/projects/",
       {
         project_id: projectId,
         endpoint_path: endpointPath,
