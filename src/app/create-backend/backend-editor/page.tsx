@@ -70,5 +70,7 @@ export default function CreateBackendPage() {
     projectName={projectName} 
     urlFriendlyName={urlFriendlyName} 
     templateId={searchParams.get("template") || ""} 
+    projectLanguage={searchParams.get("language") || "python"}
+    projectFramework={searchParams.get("framework") || "flask"}
   />
 }

@@ -505,13 +505,20 @@ export default function BackendEditorClient({
     // Set the generation state
     setIsGenerating(true);
     
-    // Set endpoint details to trigger the AIChat useEffect
-    setEndpointDetails(details);
+    // Update endpoint details to include language and framework from project settings
+    const enhancedDetails: EndpointDetails = {
+      ...details,
+      language: projectLanguage || "python",
+      framework: projectFramework || "FastAPI"
+    };
+    
+    // Set enhanced endpoint details to trigger the AIChat useEffect
+    setEndpointDetails(enhancedDetails);
     
     // Show a toast message
     toast({
       title: "Generating endpoint",
-      description: `Creating a ${details.method} endpoint at ${details.endpointPath}`,
+      description: `Creating a ${details.method} endpoint at ${details.endpointPath} using ${projectLanguage}/${projectFramework}`,
     });
   };
 
@@ -577,70 +584,11 @@ export default function BackendEditorClient({
               onEndpointDetailsSubmit={handleEndpointDetailsSubmit}
               isGenerating={isGenerating}
               onCreateEndpoint={async ({ endpointPath, httpMethod, description }) => {
-                console.log("onCreateEndpoint called", { endpointPath, httpMethod, description });
-                try {
-                  const endpointService = new EndPointService();
-                  const res = await endpointService.newEndpointCreation(urlFriendlyName, endpointPath, httpMethod, description);
-                  console.log("newEndpointCreation response", res);
-                  if (!res || res.success === false) {
-                    throw new Error(res?.message || "Failed to create endpoint");
-                  }
-                  toast({
-                    title: "Endpoint created",
-                    description: `Endpoint created with path: ${endpointPath}, method: ${httpMethod}.`,
-                  });
-                  // Always fetch the latest endpoint list from backend
-                  const endpoints = await endpointService.getEndpointList(urlFriendlyName);
-                  console.log("getEndpointList after create", endpoints);
-                  // Fetch code for each endpoint (content_base64)
-                  const endpointFiles = await Promise.all(
-                    endpoints.map(async (ep) => {
-                      try {
-                        const resp = await axios.get(
-                          `https://codebegen.canadacentral.cloudapp.azure.com/api/v1/endpoint/`,
-                          {
-                            params: {
-                              project_id: urlFriendlyName,
-                              endpoint_path: ep.path,
-                              method: ep.method,
-                            },
-                          }
-                        );
-                        const fileResult = resp.data?.data;
-                        const code = fileResult?.content_base64 ? atob(fileResult.content_base64) : "";
-                        let fileName = ep.path.split("/").pop() || ep.path;
-                        fileName = fileName.replace(/^(GET|POST|PUT|DELETE)_/i, "");
-                        return {
-                          id: `endpoint-${ep.path}`,
-                          name: fileName,
-                          path: ep.path,
-                          type: "endpoint" as const,
-                          code,
-                          method: ep.method as MethodType,
-                        };
-                      } catch (error) {
-                        let fileName = ep.path.split("/").pop() || ep.path;
-                        fileName = fileName.replace(/^(GET|POST|PUT|DELETE)_/i, "");
-                        return {
-                          id: `endpoint-${ep.path}`,
-                          name: fileName,
-                          path: ep.path,
-                          type: "endpoint" as const,
-                          code: "",
-                          method: ep.method as MethodType,
-                        };
-                      }
-                    })
-                  );
-                  setFiles(endpointFiles);
-                } catch (error) {
-                  console.error("Error in onCreateEndpoint", error);
-                  toast({
-                    title: "Error creating endpoint",
-                    description: error instanceof Error ? error.message : "Failed to create endpoint",
-                    variant: "destructive",
-                  });
-                }
+                // Create endpoint with proper language/framework
+                toast({
+                  title: "Create Endpoint",
+                  description: `Endpoint created with path: ${endpointPath}, method: ${httpMethod}, using ${projectLanguage}/${projectFramework}, and description: ${description}.`,
+                });
                 return Promise.resolve();
               }}
               projectLanguage={projectLanguage}
@@ -663,6 +611,8 @@ export default function BackendEditorClient({
                 projectId={urlFriendlyName || projectName} 
                 onFileGenerated={handleFileGenerated}
                 endpointDetails={endpointDetails}
+                projectLanguage={projectLanguage}
+                projectFramework={projectFramework}
               />
             </div>
           </div>

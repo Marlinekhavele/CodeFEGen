@@ -95,12 +95,7 @@ export function ProjectFiles({
   // Added modal submit handler
   const handleModalSubmit = (details: any) => {
     setIsModalOpen(false);
-    // Only call onCreateEndpoint for creation, not onEndpointDetailsSubmit
-    onCreateEndpoint({
-      endpointPath: details.endpointPath,
-      httpMethod: details.method,
-      description: details.description,
-    });
+    onEndpointDetailsSubmit(details);
   };
 
   return (
@@ -376,6 +371,8 @@ export function ProjectFiles({
         isOpen={isModalOpen} 
         onClose={() => setIsModalOpen(false)}
         onSubmit={handleModalSubmit}
+        projectLanguage={projectLanguage}
+        projectFramework={projectFramework}  
       />
     </div>
   )
