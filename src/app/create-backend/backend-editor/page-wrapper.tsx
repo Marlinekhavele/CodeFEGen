@@ -1,6 +1,6 @@
-// app/create-backend/backend-editor/page.tsx
 import { Suspense } from "react"
 import CreateBackendPage from "./page"
+import CreateBackend from "../page"
 
 export default function BackendEditorPage() {
   return (
@@ -12,6 +12,7 @@ export default function BackendEditorPage() {
         </div>
       </div>
     }>
+      <CreateBackend />
       <CreateBackendPage />
     </Suspense>
   )
