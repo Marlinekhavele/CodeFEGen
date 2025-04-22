@@ -1,7 +1,7 @@
 import { Suspense } from "react"
-import CreateBackendPage from "./page"
+import CreateBackend from "./page"
 
-export default function BackendEditorPage() {
+export default function CreateBackendWrapper() {
   return (
     <Suspense fallback={
       <div className="flex items-center justify-center min-h-screen bg-zinc-900">
@@ -12,7 +12,7 @@ export default function BackendEditorPage() {
       </div>
     }>
     
-      <CreateBackendPage />
+      <CreateBackend />
     </Suspense>
   )
 }
