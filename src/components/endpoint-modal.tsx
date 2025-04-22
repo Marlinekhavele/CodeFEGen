@@ -28,11 +28,13 @@ interface EndpointModalProps {
   isOpen: boolean
   onClose: () => void
   onSubmit: (details: EndpointDetails) => void
+  projectLanguage?: string  
+  projectFramework?: string
 }
 
-export function EndpointModal({ isOpen, onClose, onSubmit }: EndpointModalProps) {
-  const [language, setLanguage] = useState<string>("python")
-  const [framework, setFramework] = useState<string>("flask")
+export function EndpointModal({ isOpen, onClose, onSubmit, projectLanguage = "python", projectFramework = "FastAPI" }: EndpointModalProps) {
+  const [language, setLanguage] = useState<string>(projectLanguage)
+  const [framework, setFramework] = useState<string>(projectFramework)
   const [endpointPath, setEndpointPath] = useState<string>("/api/")
   const [method, setMethod] = useState<string>("GET")
   const [description, setDescription] = useState<string>("")
@@ -50,10 +52,10 @@ export function EndpointModal({ isOpen, onClose, onSubmit }: EndpointModalProps)
   }
 
   const resetForm = () => {
-    setLanguage("python")
-    setFramework("flask")
-    setEndpointPath("login")
-    setMethod("GET")
+    setLanguage(projectLanguage)
+    setFramework(projectFramework)
+    setEndpointPath("users")
+    setMethod("POST")
     setDescription("")
   }
 
@@ -171,9 +173,9 @@ export function EndpointModal({ isOpen, onClose, onSubmit }: EndpointModalProps)
             <Button 
               type="submit" 
               className="bg-[#7dff00] text-black hover:bg-[#9aff33]"
-              disabled={!endpointPath.trim()}
+              disabled={!endpointPath.trim() || !description.trim()}
             >
-              Create
+              Generate
             </Button>
           </DialogFooter>
         </form>
