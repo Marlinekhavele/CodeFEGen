@@ -9,7 +9,7 @@ import { ProjectFiles } from "@/components/project-files"
 import { FileContent } from "@/components/file-content"
 import { useTheme } from "@/components/theme-provider"
 import EndPointService from "@/app/api/services/endpoint-service"
-import axios from "axios"
+import createAxiosInstance from "@/app/api/services/axiosInstance"
 
 interface BackendEditorClientProps {
   projectName: string
@@ -41,32 +41,47 @@ export default function BackendEditorClient({
   useEffect(() => {
     const fetchEndpoints = async () => {
       const endpointService = new EndPointService()
+      const axiosInstance = createAxiosInstance('', 'v1')
+      
       try {
         console.log("Fetching endpoints for project:", urlFriendlyName)
-        const result = await endpointService.getEndpointList(urlFriendlyName)
-        console.log("Endpoint list response:", result)
+        
+        // Fetch endpoints
+        const endpointResult = await endpointService.getEndpointList(urlFriendlyName)
+        console.log("Endpoint list response:", endpointResult)
 
-        if (result && result.length > 0) {
+        // Fetch models
+        const modelResult = await endpointService.getModelList(urlFriendlyName)
+        console.log("Model list response:", modelResult)
 
+        // Fetch schemas
+        const schemaResult = await endpointService.getSchemaList(urlFriendlyName)
+        console.log("Schema list response:", schemaResult)
+
+        // Fetch helpers
+        const helperResult = await endpointService.getHelperList(urlFriendlyName)
+        console.log("Helper list response:", helperResult)
+
+        let allFiles: FileType[] = []
+
+        // Process endpoints
+        if (endpointResult && endpointResult.length > 0) {
           const endpointFiles = await Promise.all(
-            result.map(async (ep: EndpointListContent) => {
+            endpointResult.map(async (ep: EndpointListContent) => {
               try {
-                const resp = await axios.get(
-                  `https://codebegen.canadacentral.cloudapp.azure.com/api/v1/endpoint/`,
-                  {
-                    params: {
-                      project_id: urlFriendlyName,
-                      endpoint_path: ep.path,
-                      method: ep.method,
-                    },
-                  }
-                )
+                const endpointAxios = createAxiosInstance('/endpoint', 'v1')
+                const resp = await endpointAxios.get('', {
+                  params: {
+                    project_id: urlFriendlyName,
+                    endpoint_path: ep.path,
+                    method: ep.method,
+                  },
+                })
                 const fileResult = resp.data?.data
                 const code = fileResult?.content_base64
                   ? atob(fileResult.content_base64)
                   : ""
                   
-                // Extract filename without HTTP method prefix
                 let fileName = ep.path.split("/").pop() || ep.path;
                 fileName = fileName.replace(/^(GET|POST|PUT|DELETE)_/i, "");
                 
@@ -80,11 +95,8 @@ export default function BackendEditorClient({
                 }
               } catch (error) {
                 console.error(`Error fetching code for endpoint ${ep.path}:`, error)
-                
-                // Extract filename without HTTP method prefix
                 let fileName = ep.path.split("/").pop() || ep.path;
                 fileName = fileName.replace(/^(GET|POST|PUT|DELETE)_/i, "");
-                
                 return {
                   id: `endpoint-${ep.path}`,
                   name: fileName,
@@ -96,26 +108,130 @@ export default function BackendEditorClient({
               }
             })
           )
+          allFiles = [...allFiles, ...endpointFiles]
+        }
 
-          console.log("Processed endpoint files:", endpointFiles)
-          setFiles(endpointFiles)
-          if (endpointFiles.length > 0) {
-            setSelectedFile(endpointFiles[0].id)
-            setCurrentCode(endpointFiles[0].code)
-          }
+        // Process models
+        if (modelResult && modelResult.length > 0) {
+          const modelFiles = await Promise.all(
+            modelResult.map(async (model: any) => {
+              try {
+                const modelAxios = createAxiosInstance(`/projects/${urlFriendlyName}/models/${model.name}/content`, 'v1')
+                const resp = await modelAxios.get('')
+                const fileResult = resp.data?.data
+                const code = fileResult?.content_base64
+                  ? atob(fileResult.content_base64)
+                  : ""
+                
+                return {
+                  id: `model-${model.name}`,
+                  name: model.name,
+                  path: model.path || `/models/${model.name}`,
+                  type: "model" as const,
+                  code,
+                }
+              } catch (error) {
+                console.error(`Error fetching code for model ${model.name}:`, error)
+                return {
+                  id: `model-${model.name}`,
+                  name: model.name,
+                  path: model.path || `/models/${model.name}`,
+                  type: "model" as const,
+                  code: "",
+                }
+              }
+            })
+          )
+          allFiles = [...allFiles, ...modelFiles]
+        }
+
+        // Process schemas
+        if (schemaResult && schemaResult.length > 0) {
+          const schemaFiles = await Promise.all(
+            schemaResult.map(async (schema: any) => {
+              try {
+                const schemaAxios = createAxiosInstance(`/projects/${urlFriendlyName}/schemas/${schema.name}/content`, 'v1')
+                const resp = await schemaAxios.get('')
+                const fileResult = resp.data?.data
+                const code = fileResult?.content_base64
+                  ? atob(fileResult.content_base64)
+                  : ""
+                
+                return {
+                  id: `schema-${schema.name}`,
+                  name: schema.name,
+                  path: schema.path || `/schemas/${schema.name}`,
+                  type: "schema" as const,
+                  code,
+                }
+              } catch (error) {
+                console.error(`Error fetching code for schema ${schema.name}:`, error)
+                return {
+                  id: `schema-${schema.name}`,
+                  name: schema.name,
+                  path: schema.path || `/schemas/${schema.name}`,
+                  type: "schema" as const,
+                  code: "",
+                }
+              }
+            })
+          )
+          allFiles = [...allFiles, ...schemaFiles]
+        }
+
+        // Process helpers
+        if (helperResult && helperResult.length > 0) {
+          const helperFiles = await Promise.all(
+            helperResult.map(async (helper: any) => {
+              try {
+                const helperAxios = createAxiosInstance(`/projects/${urlFriendlyName}/helpers/${helper.name}/content`, 'v1')
+                const resp = await helperAxios.get('')
+                const fileResult = resp.data?.data
+                const code = fileResult?.content_base64
+                  ? atob(fileResult.content_base64)
+                  : ""
+                
+                return {
+                  id: `helper-${helper.name}`,
+                  name: helper.name,
+                  path: helper.path || `/helpers/${helper.name}`,
+                  type: "helpers" as const,
+                  code,
+                }
+              } catch (error) {
+                console.error(`Error fetching code for helper ${helper.name}:`, error)
+                return {
+                  id: `helper-${helper.name}`,
+                  name: helper.name,
+                  path: helper.path || `/helpers/${helper.name}`,
+                  type: "helpers" as const,
+                  code: "",
+                }
+              }
+            })
+          )
+          allFiles = [...allFiles, ...helperFiles]
+        }
+
+        console.log("All processed files:", allFiles)
+        setFiles(allFiles)
+        
+        if (allFiles.length > 0) {
+          setSelectedFile(allFiles[0].id)
+          setCurrentCode(allFiles[0].code)
         } else {
-          console.log("No endpoints found for project")
+          console.log("No files found for project")
           toast({
-            title: "No endpoints found",
-            description: "This project doesn't have any endpoints yet. Try creating one!",
+            title: "No files found",
+            description: "This project doesn't have any files yet. Try creating one!",
             variant: "default"
           })
         }
       } catch (error) {
-        console.error("Error fetching endpoints:", error)
+        console.error("Error fetching files:", error)
         toast({
-          title: "Error fetching endpoints",
-          description: error instanceof Error ? error.message : "Failed to fetch endpoints",
+          title: "Error fetching files",
+          description: error instanceof Error ? error.message : "Failed to fetch files",
           variant: "destructive"
         })
       }
@@ -583,11 +699,27 @@ export default function BackendEditorClient({
               onEndpointDetailsSubmit={handleEndpointDetailsSubmit}
               isGenerating={isGenerating}
               onCreateEndpoint={async ({ endpointPath, httpMethod, description }) => {
-                // Create endpoint with proper language/framework
-                toast({
-                  title: "Create Endpoint",
-                  description: `Endpoint created with path: ${endpointPath}, method: ${httpMethod}, using ${projectLanguage}/${projectFramework}, and description: ${description}.`,
-                });
+                const endpointService = new EndPointService();
+                try {
+                  await endpointService.newEndpointCreation(
+                    urlFriendlyName,
+                    endpointPath,
+                    httpMethod,
+                    description
+                  );
+                  
+                  toast({
+                    title: "Endpoint Created",
+                    description: `Endpoint ${httpMethod} ${endpointPath} created successfully.`,
+                  });
+                } catch (error) {
+                  console.error("Error creating endpoint:", error);
+                  toast({
+                    title: "Error creating endpoint",
+                    description: error instanceof Error ? error.message : "Failed to create endpoint",
+                    variant: "destructive"
+                  });
+                }
                 return Promise.resolve();
               }}
               projectLanguage={projectLanguage}
