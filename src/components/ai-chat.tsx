@@ -69,10 +69,8 @@ export default function AIChat({ projectId, onFileGenerated, endpointDetails, pr
   // Listen for new endpoint details and generate code when they're provided
   useEffect(() => {
     if (endpointDetails && !isLoading && codeGenStatus !== "generating") {
-      // Use provided language/framework from endpointDetails or fallback to props
-      const language = projectLanguage;
-      const framework = projectFramework;
-      const { endpointPath, method, description } = endpointDetails;
+      // Use provided language/framework from endpointDetails
+      const { language, framework, endpointPath, method, description } = endpointDetails;
       
       // Create a more detailed prompt that includes language and framework
       const prompt = `Create a ${method} endpoint at ${endpointPath} using ${language} with ${framework} that ${description}`;
@@ -85,7 +83,7 @@ export default function AIChat({ projectId, onFileGenerated, endpointDetails, pr
         handleSubmitWithDetails(prompt, language, framework, endpointPath, method);
       }, 100);
     }
-  }, [endpointDetails, projectLanguage, projectFramework]);
+  }, [endpointDetails]);
 
   useEffect(() => {
     // Scroll to bottom when messages change
@@ -693,19 +691,55 @@ export default function AIChat({ projectId, onFileGenerated, endpointDetails, pr
     }
   };
 
-  // Regular submit handler now calls handleSubmitWithDetails with current input
+  // Regular submit handler now calls handleSubmitWithDetails with values from endpointDetails if available
   const handleSubmit = (e?: React.FormEvent) => {
     e?.preventDefault();
     if (!input.trim() || isLoading) return;
     
-     // Call the detailed handler with project language and framework from props
-     handleSubmitWithDetails(
-      input, 
-      projectLanguage, // Use project language from props
-      projectFramework, // Use project framework from props
-      "/api/example", // default endpoint path
-      "GET" // default method
-    );
+    if (endpointDetails) {
+      // Use values from endpointDetails
+      const { language, framework, endpointPath, method } = endpointDetails;
+      handleSubmitWithDetails(input, language, framework, endpointPath, method);
+    } else {
+      // Extract method and path from input if possible, or use better defaults
+      let method = "GET";
+      let endpointPath = "user";
+      
+      // Try to extract method from input (look for common HTTP verbs)
+      const methodMatch = input.match(/\b(GET|POST|PUT|DELETE|PATCH)\b/i);
+      if (methodMatch) {
+        method = methodMatch[0].toUpperCase();
+      }
+      
+      // Try to extract a path-like pattern
+      const pathMatch = input.match(/\/[a-zA-Z0-9_\-\/{}]+/);
+      if (pathMatch) {
+        endpointPath = pathMatch[0];
+      } else if (input.toLowerCase().includes("endpoint") || input.toLowerCase().includes("api")) {
+        // If input mentions "endpoint" or "api", try to construct a reasonable path
+        const words = input.toLowerCase()
+        .replace(/[^\w\s]/gi, '')
+        .split(/\s+/)
+        .filter(word =>
+          word.length > 3 &&
+          !["that", "with", "this", "from", "what", "when", "where", "which", "endpoint", "create", "build", "make"].includes(word)
+        );
+        
+        if (words.length > 0) {
+          // Use the first significant word as the endpoint name
+          endpointPath = `/api/${words[0]}`;
+        }
+      }
+      
+      // Use the extracted or default values
+      handleSubmitWithDetails(
+        input,
+        projectLanguage,
+        projectFramework,
+        endpointPath,
+        method
+      );
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -722,15 +756,19 @@ export default function AIChat({ projectId, onFileGenerated, endpointDetails, pr
     }
   }
 
+  // Get display language and framework (from endpointDetails if available, otherwise from props)
+  const displayLanguage = endpointDetails?.language || projectLanguage;
+  const displayFramework = endpointDetails?.framework || projectFramework;
+  
   return (
     <div className="flex flex-col h-full border border-zinc-200 rounded-lg overflow-hidden dark:border-zinc-800">
       <div className="p-3 border-b border-zinc-200 bg-white dark:bg-zinc-900 dark:border-zinc-800 flex items-center justify-between">
         <div className="flex items-center space-x-2">
           <Image src="/codeBE-logo.png" alt="CodeBEgen Logo" width={30} height={30} />
           <div className="flex items-center space-x-1">
-            <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">{projectLanguage}</span>
+            <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">{displayLanguage}</span>
             <span className="text-xs text-zinc-400 dark:text-zinc-500">/</span>
-            <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">{projectFramework}</span>
+            <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">{displayFramework}</span>
           </div>
         </div>
         <div className="flex items-center gap-1">
@@ -755,7 +793,7 @@ export default function AIChat({ projectId, onFileGenerated, endpointDetails, pr
                   "flex flex-col max-w-[80%] rounded-lg p-3",
                   message.role === "user"
                     ? "ml-auto bg-[#F8F8F8] text-black dark:bg-neutral-900 dark:text-white"
-                    : "bg-white border border-zinc-200 dark:bg-zinc-900 dark:border-zinc-800 dark:text-zinc-100",
+                    : "bg-white border border-zinc-200 dark:bg-zinc-900 dark:border-zinc-800 dark:text-zinc-100"
                 )}
               >
                 <div className="text-sm">{message.content}</div>
