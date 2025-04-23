@@ -1,14 +1,14 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react"
-import { useRouter, useSearchParams } from "next/navigation"
-import Image from 'next/image'
-import { ProjectInitForm } from "@/components/create-backend/project-init-form"
-import { ArrowLeft, Loader2, Database, Server, Code, Zap, Globe, Lock } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import Link from "next/link"
-import { ThemeToggle } from "@/components/theme-toggle"
-import { Footer } from "@/components/footer"
+import { Suspense, useEffect, useState, useCallback } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import Image from "next/image";
+import { ProjectInitForm } from "@/components/create-backend/project-init-form";
+import { ArrowLeft, Loader2, Database, Server, Code, Zap, Globe, Lock } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import Link from "next/link";
+import { ThemeToggle } from "@/components/theme-toggle";
+import { Footer } from "@/components/footer";
 
 interface SanitizedParams {
   [key: string]: string;
@@ -16,61 +16,98 @@ interface SanitizedParams {
 
 interface Props {}
 
-const CreateBackendPage: React.FC<Props> = () => {
+const CreateBackend: React.FC<Props> = () => {
   const [projectName, setProjectName] = useState<string>("");
   const [urlFriendlyName, setUrlFriendlyName] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(true);
   const [showInitForm, setShowInitForm] = useState<boolean>(false);
-  const searchParams = useSearchParams();
   const router = useRouter();
-  const [projectLanguage, setProjectLanguage] = useState<string>("python"); 
+  const [projectLanguage, setProjectLanguage] = useState<string>("python");
   const [projectFramework, setProjectFramework] = useState<string>("flask");
 
-  //Sanitize params from URL
   const sanitizeParams = useCallback((params: { [key: string]: string | undefined }): SanitizedParams => {
     const sanitizedParams: SanitizedParams = {};
     for (const [key, value] of Object.entries(params)) {
       if (value) {
-        sanitizedParams[key] = String(value).replace(/[^a-zA-Z0-9]/g, '');
+        sanitizedParams[key] = String(value).replace(/[^a-zA-Z0-9]/g, "");
       }
     }
     return sanitizedParams;
   }, []);
 
-    const selectTemplate = useCallback(
-        (templateId: string) => {
-            // Construct the URL using URLSearchParams for safe URL construction
-            const params = new URLSearchParams({
-                name: projectName,
-                url: urlFriendlyName,
-                language: projectLanguage,
-                framework: projectFramework,
-                template: templateId,
-            });
-            // Sanitize parameters to prevent XSS and other vulnerabilities
-            const sanitizedParams = sanitizeParams(Object.fromEntries(params));
-            const url = `/create-backend/backend-editor?${new URLSearchParams(sanitizedParams).toString()}`;
-            router.push(url);
-        },
-        [projectName, urlFriendlyName, router, sanitizeParams, projectLanguage, projectFramework]
-    );
+  const selectTemplate = useCallback(
+    (templateId: string) => {
+      const params = new URLSearchParams({
+        name: projectName,
+        url: urlFriendlyName,
+        language: projectLanguage,
+        framework: projectFramework,
+        template: templateId,
+      });
+      const sanitizedParams = sanitizeParams(Object.fromEntries(params));
+      const url = `/create-backend/backend-editor?${new URLSearchParams(sanitizedParams).toString()}`;
+      router.push(url);
+    },
+    [projectName, urlFriendlyName, router, sanitizeParams, projectLanguage, projectFramework]
+  );
 
   const handleProjectInitialized = useCallback(
     (name: string, url: string, language: string, framework: string) => {
-        // Sanitize the parameters before pushing to the router
-       const sanitizedParams = sanitizeParams({
-            name: name,
-            url: url,
-            language: language,
-            framework: framework,
-        });
+      const sanitizedParams = sanitizeParams({
+        name: name,
+        url: url,
+        language: language,
+        framework: framework,
+      });
 
-        const urlParams = new URLSearchParams(sanitizedParams);
-        // After project initialization, redirect to template selection with sanitized parameters
-        router.push(`/create-backend?${urlParams.toString()}`);
+      const urlParams = new URLSearchParams(sanitizedParams);
+      router.push(`/create-backend?${urlParams.toString()}`);
     },
     [router, sanitizeParams]
   );
+
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <CreateBackendContent
+        projectName={projectName}
+        setProjectName={setProjectName}
+        urlFriendlyName={urlFriendlyName}
+        setUrlFriendlyName={setUrlFriendlyName}
+        loading={loading}
+        setLoading={setLoading}
+        showInitForm={showInitForm}
+        setShowInitForm={setShowInitForm}
+        projectLanguage={projectLanguage}
+        setProjectLanguage={setProjectLanguage}
+        projectFramework={projectFramework}
+        setProjectFramework={setProjectFramework}
+        sanitizeParams={sanitizeParams}
+        selectTemplate={selectTemplate}
+        handleProjectInitialized={handleProjectInitialized}
+      />
+    </Suspense>
+  );
+};
+
+const CreateBackendContent: React.FC<any> = ({
+  projectName,
+  setProjectName,
+  urlFriendlyName,
+  setUrlFriendlyName,
+  loading,
+  setLoading,
+  showInitForm,
+  setShowInitForm,
+  projectLanguage,
+  setProjectLanguage,
+  projectFramework,
+  setProjectFramework,
+  sanitizeParams,
+  selectTemplate,
+  handleProjectInitialized,
+}) => {
+  const searchParams = useSearchParams();
+  const router = useRouter();
 
   useEffect(() => {
     const initialize = async () => {
@@ -91,9 +128,8 @@ const CreateBackendPage: React.FC<Props> = () => {
           setProjectName(nameFromUrl);
           setUrlFriendlyName(urlFromUrl);
           setShowInitForm(false);
-          setProjectLanguage(languageFromUrl);  
+          setProjectLanguage(languageFromUrl);
           setProjectFramework(frameworkFromUrl);
-
         } else {
           setShowInitForm(true);
         }
@@ -107,7 +143,7 @@ const CreateBackendPage: React.FC<Props> = () => {
     if (searchParams) {
       initialize();
     }
-  }, [searchParams, router, sanitizeParams]);
+  }, [searchParams, router, sanitizeParams, setLoading, setShowInitForm, setProjectName, setUrlFriendlyName, setProjectLanguage, setProjectFramework]);
 
   if (loading) {
     return (
@@ -302,7 +338,7 @@ const CreateBackendPage: React.FC<Props> = () => {
       </main>
       <Footer />
     </div>
-  )
-}
+  );
+};
 
-export default CreateBackendPage;
+export default CreateBackend;
