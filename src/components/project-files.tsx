@@ -334,7 +334,8 @@ export function ProjectFiles({
               </div>
 
             {/* Configuration Section */}
-            <div
+            {projectLanguage === "javascript" && (
+              <div
                 className={`p-2 ${expandedSections.config ? "bg-zinc-100/50 dark:bg-zinc-800/50" : ""} rounded-md mb-2 cursor-pointer`}
                 onClick={() => toggleSection("config")}
               >
@@ -370,6 +371,7 @@ export function ProjectFiles({
                   </div>
                 )}
               </div>
+            )}
 
             {/* Migrations Section */}
             <div

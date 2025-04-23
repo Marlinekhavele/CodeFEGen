@@ -95,7 +95,7 @@ export default function AIChat({ projectId, onFileGenerated, endpointDetails, pr
       const { endpointPath, method, description } = endpointDetails;
       
       // Create a more detailed prompt that includes language and framework
-      const prompt = `Create a ${method} endpoint at ${endpointPath} using ${language} with ${framework} that ${description}`;
+      const prompt = description;
       
       // Set input and trigger submission
       setInput(prompt);
@@ -393,7 +393,7 @@ export default function AIChat({ projectId, onFileGenerated, endpointDetails, pr
     }
     
     // Create a message that includes the endpoint details
-    const userMessageContent = `Generate a ${method} endpoint at ${endpointPath} that ${promptText.trim()}`;
+    const userMessageContent = `${promptText.trim()}`;
 
     const userMessage: Message = {
       id: Date.now().toString(),

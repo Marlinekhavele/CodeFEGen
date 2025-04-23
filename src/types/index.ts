@@ -194,13 +194,13 @@ export interface EditorFileData {
   }
   
   export interface GetSchemasResponse {
-    status_code: boolean
+    status_code: number
     message: string
     data: SchemaListContent[]
   }
   
   export interface GetHelpersResponse {
-    status_code: boolean
+    status_code: number
     message: string
     data: HelperListContent[]
   }
