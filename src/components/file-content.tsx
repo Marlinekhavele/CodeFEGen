@@ -24,7 +24,6 @@ export function FileContent({
   // Find the selected file
   const file = files.find(f => f.id === selectedFile)
   
-  // Get clean file name from path - more aggressive cleaning
   const getCleanFileName = (file: FileType | undefined) => {
     if (!file) return "Untitled";
     
@@ -36,7 +35,6 @@ export function FileContent({
       fileName = file.path.split('/').pop() || file.path;
     }
     
-    // More aggressive method pattern removal
     fileName = fileName.replace(/\.(get|post|put|delete)\./i, ".");
     
     // For endpoints, create a clean name
@@ -185,7 +183,7 @@ export function FileContent({
                 automaticLayout: true,
                 tabSize: 2,
                 wordWrap: "on",
-                readOnly: !selectedFile && !!streamingCode // Read-only for streaming preview
+                readOnly: !selectedFile && !!streamingCode
               }}
             />
           ) : (
