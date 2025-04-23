@@ -1,73 +1,133 @@
-"use client"
+"use client";
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useCallback } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
-import Image from "next/image"
-import Link from "next/link"
-import { ArrowLeft, Database, Server, Code, Zap, Globe, Lock } from "lucide-react"
+import Image from 'next/image'
+import { ProjectInitForm } from "@/components/create-backend/project-init-form"
+import { ArrowLeft, Loader2, Database, Server, Code, Zap, Globe, Lock } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import Link from "next/link"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { Footer } from "@/components/footer"
 
-export default function CreateBackend() {
-  const [projectName, setProjectName] = useState("")
-  const [urlFriendlyName, setUrlFriendlyName] = useState("")
-  const [projectLanguage, setProjectLanguage] = useState<string>("python")
-  const [projectFramework, setProjectFramework] = useState<string>("flask")
-  const [loading, setLoading] = useState(true);
-  const [showInitForm, setShowInitForm] = useState(false);
-  const searchParams = useSearchParams()
-  const router = useRouter()
+interface SanitizedParams {
+  [key: string]: string;
+}
+
+interface Props {}
+
+const CreateBackendPage: React.FC<Props> = () => {
+  const [projectName, setProjectName] = useState<string>("");
+  const [urlFriendlyName, setUrlFriendlyName] = useState<string>("");
+  const [loading, setLoading] = useState<boolean>(true);
+  const [showInitForm, setShowInitForm] = useState<boolean>(false);
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const [projectLanguage, setProjectLanguage] = useState<string>("python"); 
+  const [projectFramework, setProjectFramework] = useState<string>("flask");
+
+  //Sanitize params from URL
+  const sanitizeParams = useCallback((params: { [key: string]: string | undefined }): SanitizedParams => {
+    const sanitizedParams: SanitizedParams = {};
+    for (const [key, value] of Object.entries(params)) {
+      if (value) {
+        sanitizedParams[key] = String(value).replace(/[^a-zA-Z0-9]/g, '');
+      }
+    }
+    return sanitizedParams;
+  }, []);
+
+    const selectTemplate = useCallback(
+        (templateId: string) => {
+            // Construct the URL using URLSearchParams for safe URL construction
+            const params = new URLSearchParams({
+                name: projectName,
+                url: urlFriendlyName,
+                language: projectLanguage,
+                framework: projectFramework,
+                template: templateId,
+            });
+            // Sanitize parameters to prevent XSS and other vulnerabilities
+            const sanitizedParams = sanitizeParams(Object.fromEntries(params));
+            const url = `/create-backend/backend-editor?${new URLSearchParams(sanitizedParams).toString()}`;
+            router.push(url);
+        },
+        [projectName, urlFriendlyName, router, sanitizeParams, projectLanguage, projectFramework]
+    );
+
+  const handleProjectInitialized = useCallback(
+    (name: string, url: string, language: string, framework: string) => {
+        // Sanitize the parameters before pushing to the router
+       const sanitizedParams = sanitizeParams({
+            name: name,
+            url: url,
+            language: language,
+            framework: framework,
+        });
+
+        const urlParams = new URLSearchParams(sanitizedParams);
+        // After project initialization, redirect to template selection with sanitized parameters
+        router.push(`/create-backend?${urlParams.toString()}`);
+    },
+    [router, sanitizeParams]
+  );
 
   useEffect(() => {
-    // Get project details from URL parameters
-    const nameFromUrl = searchParams.get("name")
-    const urlFromUrl = searchParams.get("url")
-    const languageFromUrl = searchParams.get("language")
-    const frameworkFromUrl = searchParams.get("framework")
-    const templateFromUrl = searchParams.get("template")
+    const initialize = async () => {
+      setLoading(true);
+      try {
+        if (!searchParams) {
+          console.warn("searchParams not available");
+          setShowInitForm(true);
+          return;
+        }
 
-    // Debug info to help troubleshoot
-    console.log("URL Parameters:", { 
-      nameFromUrl, 
-      urlFromUrl, 
-      languageFromUrl, 
-      frameworkFromUrl, 
-      templateFromUrl 
-    });
+        const nameFromUrl = searchParams.get("name") || "";
+        const urlFromUrl = searchParams.get("url") || "";
+        const languageFromUrl = searchParams.get("language") || "python";
+        const frameworkFromUrl = searchParams.get("framework") || "flask";
 
-    if (nameFromUrl && urlFromUrl && templateFromUrl) {
-      // First condition with template - proceed to editor
-      setProjectName(nameFromUrl)
-      setUrlFriendlyName(urlFromUrl)
-      setProjectLanguage(languageFromUrl || "python")
-      setProjectFramework(frameworkFromUrl || "flask")
-      setLoading(false)
-      setShowInitForm(false)
-    } else if (nameFromUrl && urlFromUrl) {
+        if (nameFromUrl && urlFromUrl) {
+          setProjectName(nameFromUrl);
+          setUrlFriendlyName(urlFromUrl);
+          setShowInitForm(false);
+          setProjectLanguage(languageFromUrl);  
+          setProjectFramework(frameworkFromUrl);
 
-      setProjectName(nameFromUrl)
-      setUrlFriendlyName(urlFromUrl)
-      setProjectLanguage(languageFromUrl || "python")
-      setProjectFramework(frameworkFromUrl || "flask")
-      setLoading(false)
-      setShowInitForm(false)
-      
+        } else {
+          setShowInitForm(true);
+        }
+      } catch (error) {
+        console.error("Error initializing component:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-    } else {
-      // No parameters, show init form
-      setLoading(false)
-      setShowInitForm(true)
+    if (searchParams) {
+      initialize();
     }
-  }, [searchParams, router])
+  }, [searchParams, router, sanitizeParams]);
 
-  // Template selection handler
-  const selectTemplate = (templateId: string) => {
-    router.push(`/create-backend/backend-editor?name=${projectName}&url=${urlFriendlyName}&template=${templateId}&language=${projectLanguage}&framework=${projectFramework}`)
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-zinc-900">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="h-12 w-12 text-[#7dff00] animate-spin" />
+          <p className="text-zinc-400">Loading project...</p>
+        </div>
+      </div>
+    );
   }
 
-  const handleProjectInitialized = (name: string, url: string, language: string, framework: string) => {
-    router.push(`/create-backend?name=${name}&url=${url}&language=${language}&framework=${framework}`)
+  if (showInitForm) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-zinc-900 p-4">
+        <div className="w-full max-w-md">
+          <ProjectInitForm onProjectInitialized={handleProjectInitialized} />
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -244,3 +304,5 @@ export default function CreateBackend() {
     </div>
   )
 }
+
+export default CreateBackendPage;
