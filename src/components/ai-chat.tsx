@@ -3,12 +3,21 @@
 import type React from "react"
 import Image from "next/image"
 import { useState, useRef, useEffect } from "react"
-import { ThumbsUp, ThumbsDown, Copy, CornerUpRight, Paperclip, Maximize2, TriangleAlert, ArrowUp } from "lucide-react"
+import { ThumbsUp, ThumbsDown, Copy, CornerUpRight, Paperclip, Maximize2, TriangleAlert, ArrowUp, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
+import { Input } from "@/components/ui/input" // Added Input for the popup
 import { cn } from "@/lib/utils"
 import type { FileType } from "@/types"
 import { useCodeStore } from "@/stores/code-store"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogClose,
+} from "@/components/ui/dialog" // Added Dialog components
 
 // Add this near the top of the file, after the imports
 declare global {
@@ -46,9 +55,12 @@ const HEARTBEAT_INTERVAL = 30000; // 30 seconds in milliseconds
 
 // Helper function to clean filenames
 const cleanFileName = (fileName: string): string => {
-  // Remove HTTP method from extension pattern (e.g., "login.get.py" to "login.py")
-  return fileName.replace(/\.(get|post|put|delete)\./i, ".");
+  // Just return the filename as is, without any filtering
+  return fileName;
 }
+
+// HTTP methods for dropdown
+const HTTP_METHODS = ["GET", "POST", "PUT", "DELETE"];
 
 export default function AIChat({ projectId, onFileGenerated, endpointDetails, projectLanguage = "python", projectFramework = "fastapi"}: AIChartProps) {
   const [messages, setMessages] = useState<Message[]>([])
@@ -58,8 +70,16 @@ export default function AIChat({ projectId, onFileGenerated, endpointDetails, pr
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
   const [lastMessage, setLastMessage] = useState<string | null>(null)
   const [generatedFiles, setGeneratedFiles] = useState<Record<string, any> | null>(null)
+
+  // New state for the endpoint collection popup
+  const [showEndpointPopup, setShowEndpointPopup] = useState(false)
+  const [endpointPath, setEndpointPath] = useState("/api/")
+  const [httpMethod, setHttpMethod] = useState("GET")
+  const [promptText, setPromptText] = useState("")
+
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
+  const endpointInputRef = useRef<HTMLInputElement>(null)
   const wsRef = useRef<WebSocket | null>(null)
   const timeoutRef = useRef<NodeJS.Timeout | null>(null)
 
@@ -69,8 +89,10 @@ export default function AIChat({ projectId, onFileGenerated, endpointDetails, pr
   // Listen for new endpoint details and generate code when they're provided
   useEffect(() => {
     if (endpointDetails && !isLoading && codeGenStatus !== "generating") {
-      // Use provided language/framework from endpointDetails
-      const { language, framework, endpointPath, method, description } = endpointDetails;
+      // Use provided language/framework from endpointDetails or fallback to props
+      const language = projectLanguage;
+      const framework = projectFramework;
+      const { endpointPath, method, description } = endpointDetails;
       
       // Create a more detailed prompt that includes language and framework
       const prompt = `Create a ${method} endpoint at ${endpointPath} using ${language} with ${framework} that ${description}`;
@@ -83,12 +105,21 @@ export default function AIChat({ projectId, onFileGenerated, endpointDetails, pr
         handleSubmitWithDetails(prompt, language, framework, endpointPath, method);
       }, 100);
     }
-  }, [endpointDetails]);
+  }, [endpointDetails, projectLanguage, projectFramework]);
 
   useEffect(() => {
     // Scroll to bottom when messages change
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
   }, [messages])
+
+  // Focus on the endpoint input field when the popup opens
+  useEffect(() => {
+    if (showEndpointPopup && endpointInputRef.current) {
+      setTimeout(() => {
+        endpointInputRef.current?.focus();
+      }, 100);
+    }
+  }, [showEndpointPopup]);
 
   // Clean up WebSocket connection and timeouts on unmount
   useEffect(() => {
@@ -338,6 +369,8 @@ export default function AIChat({ projectId, onFileGenerated, endpointDetails, pr
     }
   }
 
+  // Remove the resource name extraction function as we're letting the backend handle it
+  
   const handleSubmitWithDetails = (
     promptText: string, 
     language: string, 
@@ -358,11 +391,14 @@ export default function AIChat({ projectId, onFileGenerated, endpointDetails, pr
       clearTimeout(timeoutRef.current);
       timeoutRef.current = null;
     }
+    
+    // Create a message that includes the endpoint details
+    const userMessageContent = `Generate a ${method} endpoint at ${endpointPath} that ${promptText.trim()}`;
 
     const userMessage: Message = {
       id: Date.now().toString(),
       role: "user",
-      content: promptText.trim(),
+      content: userMessageContent,
       timestamp: new Date(),
     };
 
@@ -380,6 +416,7 @@ export default function AIChat({ projectId, onFileGenerated, endpointDetails, pr
     }
 
     try {
+      // Pass the raw prompt without any resource name extraction
       // Only use WebSocket for code generation
       const codeGenData = {
         project_id: projectId,
@@ -691,55 +728,42 @@ export default function AIChat({ projectId, onFileGenerated, endpointDetails, pr
     }
   };
 
-  // Regular submit handler now calls handleSubmitWithDetails with values from endpointDetails if available
-  const handleSubmit = (e?: React.FormEvent) => {
-    e?.preventDefault();
+  // New function to open the endpoint collection popup
+  const openEndpointPopup = () => {
     if (!input.trim() || isLoading) return;
     
-    if (endpointDetails) {
-      // Use values from endpointDetails
-      const { language, framework, endpointPath, method } = endpointDetails;
-      handleSubmitWithDetails(input, language, framework, endpointPath, method);
-    } else {
-      // Extract method and path from input if possible, or use better defaults
-      let method = "GET";
-      let endpointPath = "user";
-      
-      // Try to extract method from input (look for common HTTP verbs)
-      const methodMatch = input.match(/\b(GET|POST|PUT|DELETE|PATCH)\b/i);
-      if (methodMatch) {
-        method = methodMatch[0].toUpperCase();
-      }
-      
-      // Try to extract a path-like pattern
-      const pathMatch = input.match(/\/[a-zA-Z0-9_\-\/{}]+/);
-      if (pathMatch) {
-        endpointPath = pathMatch[0];
-      } else if (input.toLowerCase().includes("endpoint") || input.toLowerCase().includes("api")) {
-        // If input mentions "endpoint" or "api", try to construct a reasonable path
-        const words = input.toLowerCase()
-        .replace(/[^\w\s]/gi, '')
-        .split(/\s+/)
-        .filter(word =>
-          word.length > 3 &&
-          !["that", "with", "this", "from", "what", "when", "where", "which", "endpoint", "create", "build", "make"].includes(word)
-        );
-        
-        if (words.length > 0) {
-          // Use the first significant word as the endpoint name
-          endpointPath = `/api/${words[0]}`;
-        }
-      }
-      
-      // Use the extracted or default values
-      handleSubmitWithDetails(
-        input,
-        projectLanguage,
-        projectFramework,
-        endpointPath,
-        method
-      );
-    }
+    // Save the prompt text for later use
+    setPromptText(input.trim());
+    
+    // Set default endpoint path
+    setEndpointPath("/api/");
+    setHttpMethod("GET");
+    
+    // Show the popup
+    setShowEndpointPopup(true);
+  };
+
+  // Function to handle the submission from the popup
+  const handleEndpointPopupSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    // Close the popup
+    setShowEndpointPopup(false);
+    
+    // Call the detailed handler with collected information
+    handleSubmitWithDetails(
+      promptText, 
+      projectLanguage,
+      projectFramework,
+      endpointPath,
+      httpMethod
+    );
+  };
+
+  // Regular submit handler now opens the popup instead
+  const handleSubmit = (e?: React.FormEvent) => {
+    e?.preventDefault();
+    openEndpointPopup();
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -756,19 +780,15 @@ export default function AIChat({ projectId, onFileGenerated, endpointDetails, pr
     }
   }
 
-  // Get display language and framework (from endpointDetails if available, otherwise from props)
-  const displayLanguage = endpointDetails?.language || projectLanguage;
-  const displayFramework = endpointDetails?.framework || projectFramework;
-  
   return (
     <div className="flex flex-col h-full border border-zinc-200 rounded-lg overflow-hidden dark:border-zinc-800">
       <div className="p-3 border-b border-zinc-200 bg-white dark:bg-zinc-900 dark:border-zinc-800 flex items-center justify-between">
         <div className="flex items-center space-x-2">
           <Image src="/codeBE-logo.png" alt="CodeBEgen Logo" width={30} height={30} />
           <div className="flex items-center space-x-1">
-            <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">{displayLanguage}</span>
+            <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">{projectLanguage}</span>
             <span className="text-xs text-zinc-400 dark:text-zinc-500">/</span>
-            <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">{displayFramework}</span>
+            <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">{projectFramework}</span>
           </div>
         </div>
         <div className="flex items-center gap-1">
@@ -793,7 +813,7 @@ export default function AIChat({ projectId, onFileGenerated, endpointDetails, pr
                   "flex flex-col max-w-[80%] rounded-lg p-3",
                   message.role === "user"
                     ? "ml-auto bg-[#F8F8F8] text-black dark:bg-neutral-900 dark:text-white"
-                    : "bg-white border border-zinc-200 dark:bg-zinc-900 dark:border-zinc-800 dark:text-zinc-100"
+                    : "bg-white border border-zinc-200 dark:bg-zinc-900 dark:border-zinc-800 dark:text-zinc-100",
                 )}
               >
                 <div className="text-sm">{message.content}</div>
@@ -882,6 +902,76 @@ export default function AIChat({ projectId, onFileGenerated, endpointDetails, pr
           </Button>
         </form>
       </div>
+
+      {/* Endpoint Collection Popup */}
+      <Dialog open={showEndpointPopup} onOpenChange={setShowEndpointPopup}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Configure API Endpoint</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleEndpointPopupSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <label htmlFor="endpointPath" className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                Endpoint Path
+              </label>
+              <Input
+                id="endpointPath"
+                ref={endpointInputRef}
+                value={endpointPath}
+                onChange={(e) => setEndpointPath(e.target.value)}
+                placeholder="/api/your-endpoint"
+                className="w-full bg-zinc-50 dark:bg-zinc-800"
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <label htmlFor="httpMethod" className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                HTTP Method
+              </label>
+              <div className="grid grid-cols-4 gap-2">
+                {HTTP_METHODS.map((method) => (
+                  <button
+                    key={method}
+                    type="button"
+                    onClick={() => setHttpMethod(method)}
+                    className={`rounded-md px-3 py-2 text-sm font-medium ${
+                      httpMethod === method
+                        ? 'bg-[#7dff00] text-black'
+                        : 'bg-zinc-200 text-zinc-700 dark:bg-zinc-700 dark:text-zinc-300'
+                    }`}
+                  >
+                    {method}
+                  </button>
+                ))}
+              </div>
+              <div className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
+                {httpMethod === "GET" && "For retrieving resources without modifying data"}
+                {httpMethod === "POST" && "For creating new resources"}
+                {httpMethod === "PUT" && "For updating existing resources"}
+                {httpMethod === "DELETE" && "For removing resources"}
+              </div>
+            </div>
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                Your prompt
+              </label>
+              <div className="rounded-md bg-zinc-100 p-2 text-sm dark:bg-zinc-800">
+                {promptText}
+              </div>
+            </div>
+            <DialogFooter className="flex justify-end gap-2 sm:justify-end">
+              <DialogClose asChild>
+                <Button type="button" variant="outline">
+                  Cancel
+                </Button>
+              </DialogClose>
+              <Button type="submit" className="bg-[#7dff00] text-black hover:bg-[#9aff33]">
+                Generate Code
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
