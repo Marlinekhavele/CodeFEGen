@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import AIChat from "@/components/ai-chat"
+import  AIChat  from "@/components/ai-chat"
 import { toast } from "@/components/ui/use-toast"
 import { GeneratedFileType, FileType, GeneratedDataType, EndpointListContent, MethodType, EndpointDetails } from "@/types"
 import { ProjectHeader } from "@/components/project-header"
