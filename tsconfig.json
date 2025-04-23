@@ -25,7 +25,7 @@
       "@/*": [
         "./src/*"
       ],
-      "~ui/*": [
+      "@ui/*": [
         "./src/components/ui/*"
       ]
     },
@@ -39,6 +39,6 @@
   ],
   "exclude": [
     "node_modules",
-    ".next",
+    ".next"
   ]
 }
