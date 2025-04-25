@@ -103,6 +103,9 @@ export default function EditorPage() {
     }
   }
 
+  // Placeholder for docs content
+  const docs = "# Documentation content goes here"
+
   // Inform parent when tab changes
   const handleTabChange = (tab: "code" | "test" | "docs") => {
     setActiveTab(tab)
@@ -137,11 +140,16 @@ export default function EditorPage() {
         )
       case "docs":
         return (
-          <div className="w-full h-full flex items-center justify-center">
-            <p className="text-zinc-500 dark:text-zinc-400 text-sm">
-              Documentation will be displayed here
-            </p>
-          </div>
+          <MonacoEditor
+            code=""
+            docs={docs}
+            language="markdown"
+            onChange={handleCodeChange} 
+            theme={editorTheme} 
+          />
+
+         
+         
         )
     }
   }
