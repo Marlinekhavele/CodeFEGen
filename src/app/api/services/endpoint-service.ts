@@ -5,7 +5,9 @@ import {
   type SingleModelResponse,
   type SingleSchemaResponse,
   type GetHelpersResponse,
-  type SingleHelperResponse
+  type SingleHelperResponse,
+  type SingleDocResponse,
+  type GetDocsResponse
 } from '@/types'
 import { BaseService } from './base-service'
 import createAxiosInstance from './axiosInstance'
@@ -144,6 +146,34 @@ class EndpointService extends BaseService {
       return res.data;
     } catch (error) {
       console.error('Error fetching helper:', error);
+      throw error;
+    }
+  }
+  
+  
+
+  // Doc management method
+  public async getDocList(projectId: string) {
+    try {
+      console.log(`Fetching doc list for project: ${projectId}`);
+      const res = await this.get<GetDocsResponse>(`/${projectId}/docs/`)
+      console.log('Doc list response:', res);
+      return res.data;
+    } catch (error) {
+      console.error('Error fetching doc list:', error);
+      throw error;
+    }
+  }
+  public async getDoc(projectId: string, docName: string) {
+    try {
+      console.log(`Fetching doc ${docName} for project: ${projectId}`);
+      const res = await this.get<SingleDocResponse>(
+        `/${projectId}/docs/${docName}/content`
+      )
+      console.log('Doc content response:', res);
+      return res.data;
+    } catch (error) {
+      console.error('Error fetching doc:', error);
       throw error;
     }
   }

@@ -81,6 +81,7 @@ export function FileContent({
     if (file.type === "model" || file.type === "schema" || file.type === "endpoint") {
       return "python" 
     }
+    if (file.type === "docs" as FileType["type"]) return "markdown"; // Use markdown for docs
     
     return "python" // Default
   }
@@ -200,11 +201,19 @@ export function FileContent({
         </TabsContent>
 
         <TabsContent value="docs" className="flex-1 h-[calc(100%-48px)]">
-          <div className="flex items-center justify-center h-full p-4 text-zinc-500 dark:text-zinc-400">
-            <p>Documentation will be displayed here</p>
-          </div>
+          {file?.type === "docs" ? (
+            <div className="p-4 overflow-auto text-zinc-800 dark:text-zinc-200">
+              <h2 className="text-lg font-semibold mb-4">{getCleanFileName(file)}</h2>
+              <pre className="whitespace-pre-wrap break-words">{file.code || "No content available."}</pre>
+            </div>
+          ) : (
+            <div className="flex items-center justify-center h-full p-4 text-zinc-500 dark:text-zinc-400">
+              <p>No documentation selected or available.</p>
+            </div>
+          )}
         </TabsContent>
       </Tabs>
     </div>
   )
+  
 }
