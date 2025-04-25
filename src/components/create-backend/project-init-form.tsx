@@ -27,8 +27,8 @@ export function ProjectInitForm({ onProjectInitialized }: ProjectInitFormProps) 
     resolver: zodResolver(CreateBackendFormSchema),
     defaultValues: {
       project_name: "",
-      language: "python", // Default language
-      framework: "flask", // Default framework
+      language: "python",
+      framework: "flask",
     },
   })
 
@@ -68,10 +68,10 @@ export function ProjectInitForm({ onProjectInitialized }: ProjectInitFormProps) 
   }
 
   return (
-    <div className="space-y-8 rounded-lg border border-zinc-800 bg-zinc-950 p-6 shadow-lg">
+    <div className="space-y-8 rounded-lg border border-border bg-background p-6 shadow-lg">
       <div className="text-center">
-        <h1 className="text-2xl font-bold text-white">Create Backend Project</h1>
-        <p className="mt-2 text-sm text-zinc-400">Fill in the details below to initialize your backend project.</p>
+        <h1 className="text-2xl font-bold text-foreground">Create Backend Project</h1>
+        <p className="mt-2 text-sm text-muted-foreground">Fill in the details below to initialize your backend project.</p>
       </div>
 
       <Form {...form}>
@@ -81,13 +81,13 @@ export function ProjectInitForm({ onProjectInitialized }: ProjectInitFormProps) 
             control={form.control}
             render={({ field }) => (
               <FormItem className="space-y-2">
-                <FormLabel className="text-zinc-200">Project Name</FormLabel>
+                <FormLabel>Project Name</FormLabel>
                 <FormControl>
                   <Input
                     {...field}
                     type="text"
                     placeholder="Enter Project Name"
-                    className="bg-zinc-800 border-zinc-700 text-zinc-200 focus:border-[#7dff00] focus:ring-[#7dff00]/20"
+                    className="focus:border-[#7dff00] focus:ring-[#7dff00]/20"
                   />
                 </FormControl>
                 <FormMessage />
@@ -100,14 +100,14 @@ export function ProjectInitForm({ onProjectInitialized }: ProjectInitFormProps) 
             control={form.control}
             render={({ field }) => (
               <FormItem className="space-y-2">
-                <FormLabel className="text-zinc-200">Language</FormLabel>
+                <FormLabel>Language</FormLabel>
                 <Select onValueChange={field.onChange} defaultValue={field.value}>
                   <FormControl>
-                    <SelectTrigger className="bg-zinc-800 border-zinc-700 text-zinc-200 focus:border-[#7dff00] focus:ring-[#7dff00]/20">
+                    <SelectTrigger className="focus:border-[#7dff00] focus:ring-[#7dff00]/20">
                       <SelectValue placeholder="Select a language" />
                     </SelectTrigger>
                   </FormControl>
-                  <SelectContent className="bg-zinc-800 border-zinc-700 text-zinc-200">
+                  <SelectContent>
                     {languages.map((language) => (
                       <SelectItem key={language.value} value={language.value}>
                         {language.label}
@@ -125,18 +125,18 @@ export function ProjectInitForm({ onProjectInitialized }: ProjectInitFormProps) 
             control={form.control}
             render={({ field }) => (
               <FormItem className="space-y-2">
-                <FormLabel className="text-zinc-200">Framework</FormLabel>
+                <FormLabel>Framework</FormLabel>
                 <Select 
                   onValueChange={field.onChange} 
                   defaultValue={field.value}
                   disabled={!selectedLanguage}
                 >
                   <FormControl>
-                    <SelectTrigger className="bg-zinc-800 border-zinc-700 text-zinc-200 focus:border-[#7dff00] focus:ring-[#7dff00]/20">
+                    <SelectTrigger className="focus:border-[#7dff00] focus:ring-[#7dff00]/20">
                       <SelectValue placeholder="Select a framework" />
                     </SelectTrigger>
                   </FormControl>
-                  <SelectContent className="bg-zinc-800 border-zinc-700 text-zinc-200">
+                  <SelectContent>
                     {selectedLanguage && frameworks[selectedLanguage as keyof typeof frameworks].map((framework) => (
                       <SelectItem key={framework.value} value={framework.value}>
                         {framework.label}
@@ -150,7 +150,7 @@ export function ProjectInitForm({ onProjectInitialized }: ProjectInitFormProps) 
           />
 
           <div className="space-y-2">
-            {error && <p className="text-xs text-red-400">{error}</p>}
+            {error && <p className="text-xs text-destructive">{error}</p>}
             <Button
               type="submit"
               className="w-full bg-[#7dff00] text-black hover:bg-[#9aff33]"
