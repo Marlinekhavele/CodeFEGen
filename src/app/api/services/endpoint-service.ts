@@ -7,7 +7,9 @@ import {
   type GetHelpersResponse,
   type SingleHelperResponse,
   type SingleDocResponse,
-  type GetDocsResponse
+  type GetDocsResponse,
+  type GetMigrationsResponse,
+  type SingleMigrationResponse
 } from '@/types'
 import { BaseService } from './base-service'
 import createAxiosInstance from './axiosInstance'
@@ -177,6 +179,34 @@ class EndpointService extends BaseService {
       throw error;
     }
   }
+  // Migration management methods
+  public async getMigrationList(projectId: string) {
+    try {
+      console.log(`Fetching migration list for project: ${projectId}`);
+      const res = await this.get<GetMigrationsResponse>(`/${projectId}/alembic/versions/`)
+      console.log('migration list response:', res);
+      return res.data;
+    } catch (error) {
+      console.error('Error fetching migration list:', error);
+      throw error;
+    }
+  }
+
+  public async getMigration(projectId: string, version_name: string) {
+    try {
+      console.log(`Fetching migration ${version_name} for project: ${projectId}`);
+      const res = await this.get<SingleMigrationResponse>(
+        `/${projectId}/alembic/versions/${version_name}/content`
+      )
+      console.log('Migration content response:', res);
+      return res.data;
+    } catch (error) {
+      console.error('Error fetching migration:', error);
+      throw error;
+    }
+  }
 }
+
+
 
 export default EndpointService
