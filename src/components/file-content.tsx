@@ -170,7 +170,6 @@ export function FileContent({
     if (file.type === "model" || file.type === "schema" || file.type === "endpoint") {
       return "python"
     }
-
     return "python" // Default
   }
 

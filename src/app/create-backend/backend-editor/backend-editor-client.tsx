@@ -10,6 +10,7 @@ import { FileContent } from "@/components/file-content"
 import { useTheme } from "@/components/theme-provider"
 import EndPointService from "@/app/api/services/endpoint-service"
 import createAxiosInstance from "@/app/api/services/axiosInstance"
+import path from "path"
 
 interface BackendEditorClientProps {
   projectName: string
@@ -61,6 +62,14 @@ export default function BackendEditorClient({
         // Fetch helpers
         const helperResult = await endpointService.getHelperList(urlFriendlyName)
         console.log("Helper list response:", helperResult)
+
+        // fetch docs
+        const docsResult = await endpointService.getDocList(urlFriendlyName)
+        console.log("Docs list response:", docsResult)
+
+        // Fetch migrations
+        const migrationResult = await endpointService.getMigrationList(urlFriendlyName)
+        console.log("Migration list response:", migrationResult)
 
         let allFiles: FileType[] = []
 
@@ -212,6 +221,74 @@ export default function BackendEditorClient({
           )
           allFiles = [...allFiles, ...helperFiles]
         }
+        // Process docs
+        if (docsResult && docsResult.length > 0) {
+          const docsFiles = await Promise.all(
+            docsResult.map(async (doc: any) => {
+              try {
+                const docsAxios = createAxiosInstance(`/projects/${urlFriendlyName}/docs/${doc.name}/content`, 'v1')
+                const resp = await docsAxios.get('')
+                const fileResult = resp.data?.data
+                const code = fileResult?.content_base64
+                  ? atob(fileResult.content_base64)
+                  : ""
+                return {
+                  id: `docs-${doc.name}`,
+                  name: doc.name, 
+                  path: doc.path || `/docs/${doc.name}`,
+                  type: "docs" as const,
+                  code,
+                }
+              } catch (error) {
+                console.error(`Error fetching code for docs ${doc.name}:`, error)
+                return {
+                  id: `docs-${doc.name}`,
+                  name: doc.name,
+                  path: doc.path || `/docs/${doc.name}`,
+                  type: "docs" as const,
+                  code: "",
+                }
+              }
+            })
+          )
+          allFiles = [...allFiles, ...docsFiles]
+        }
+
+        // Process migrations
+        if (migrationResult && migrationResult.length > 0) {
+          const migrationFiles = await Promise.all(
+            migrationResult.map(async (migration: any) => {
+              try {
+                const migrationAxios = createAxiosInstance(`/projects/${urlFriendlyName}/alembic/versions/${migration.name}/content`, 'v1')
+                const resp = await migrationAxios.get('')
+                const fileResult = resp.data?.data
+                const code = fileResult?.content_base64
+                  ? atob(fileResult.content_base64)
+                  : ""
+                
+                return {
+                  id: `migration-${migration.name}`,
+                  name: migration.name,
+                  path: migration.path || `/alembic/versions/${migration.name}`,
+                  type: "migration" as const,
+                  code,
+                }
+              } catch (error) {
+                console.error(`Error fetching code for migration ${migration.name}:`, error)
+                return {
+                  id: `migration-${migration.name}`,
+                  name: migration.name,
+                  path: migration.path || `/alembic/versions/${migration.name}`,
+                  type: "migration" as const,
+                  code: "",
+                }
+              }
+            })
+          )
+          allFiles = [...allFiles, ...migrationFiles]
+        }
+        
+
 
         console.log("All processed files:", allFiles)
         setFiles(allFiles)

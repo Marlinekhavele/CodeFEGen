@@ -12,10 +12,12 @@ interface MonacoEditorProps {
   theme?: string
   streaming?: boolean
   streamingCode?: string
+  docs?: string
 }
 
 export function MonacoEditor({
   code,
+  docs,
   language = "python",
   onChange,
   readOnly = false,

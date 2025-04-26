@@ -140,6 +140,9 @@ export default function EditorPage() {
     }
   }
 
+  // Placeholder for docs content
+  const docs = "# Documentation content goes here"
+
   // Inform parent when tab changes
   const handleTabChange = (tab: "code" | "test" | "docs") => {
     setActiveTab(tab)
