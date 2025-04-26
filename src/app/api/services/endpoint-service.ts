@@ -154,31 +154,77 @@ class EndpointService extends BaseService {
   
   
 
-  // Doc management method
-  public async getDocList(projectId: string) {
+  public async getDoc(projectId: string, docName: string): Promise<string> {
     try {
-      console.log(`Fetching doc list for project: ${projectId}`);
+      if (!projectId) {
+        console.error("Missing required parameter: projectId")
+        return "# Error\n\nMissing required project ID to fetch documentation."
+      }
+
+      console.log(`Fetching doc ${docName} for project: ${projectId}`)
+
+      // First try to fetch the specific documentation
+      try {
+        const res = await this.get<SingleDocResponse>(`/${projectId}/docs/${docName}/content`)
+
+        if (res.status_code === 200 && res.data?.content) {
+          return res.data.content
+        }
+      } catch (error) {
+        console.error(`Error fetching specific doc '${docName}':`, error)
+      }
+
+      // If that fails, try to fetch the api.md file directly
+      try {
+        const apiDocRes = await this.get<SingleDocResponse>(`/${projectId}/docs/api.md/content`)
+
+        if (apiDocRes.status_code === 200 && apiDocRes.data?.content) {
+          return apiDocRes.data.content
+        }
+      } catch (error) {
+        console.error("Error fetching api.md:", error)
+      }
+
+      // If that fails too, try to get all docs and find the first one
+      try {
+        const allDocs = await this.getDocList(projectId)
+
+        if (allDocs && allDocs.length > 0) {
+          // Try to get the first available doc
+          const firstDoc = allDocs[0]
+          const firstDocRes = await this.get<SingleDocResponse>(`/${projectId}/docs/${firstDoc.name}/content`)
+
+          if (firstDocRes.status_code === 200 && firstDocRes.data?.content) {
+            return firstDocRes.data.content
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching all docs:", error)
+      }
+
+      return `# Documentation Not Found\n\nNo documentation was found for this project.\n\nThe documentation may not have been generated yet or might be using a different naming convention.`
+    } catch (error) {
+      console.error("Documentation fetch failed:", error)
+      throw error
+    }
+  }
+
+  // Method to get all available docs
+  public async getDocList(projectId: string): Promise<{ name: string; type: string }[]> {
+    try {
       const res = await this.get<GetDocsResponse>(`/${projectId}/docs/`)
-      console.log('Doc list response:', res);
-      return res.data;
+
+      if (res.status_code === 200 && Array.isArray(res.data)) {
+        return res.data
+      }
+
+      return []
     } catch (error) {
-      console.error('Error fetching doc list:', error);
-      throw error;
+      console.error("Failed to fetch all docs:", error)
+      return []
     }
   }
-  public async getDoc(projectId: string, docName: string) {
-    try {
-      console.log(`Fetching doc ${docName} for project: ${projectId}`);
-      const res = await this.get<SingleDocResponse>(
-        `/${projectId}/docs/${docName}/content`
-      )
-      console.log('Doc content response:', res);
-      return res.data;
-    } catch (error) {
-      console.error('Error fetching doc:', error);
-      throw error;
-    }
-  }
+
   // Migration management methods
   public async getMigrationList(projectId: string) {
     try {

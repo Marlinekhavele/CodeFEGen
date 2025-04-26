@@ -811,6 +811,7 @@ export default function BackendEditorClient({
               onCodeChange={setCurrentCode}
               theme={theme}
               streamingCode={streamingCode}
+              projectId={urlFriendlyName}
             />
 
             {/* AI Chat Panel */}
