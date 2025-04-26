@@ -230,6 +230,17 @@ export interface EditorFileData {
     message: string
     data: DocListContent[]
   }
+
+  export interface MigrationListContent {
+    name: string
+    description: string
+    type: string
+  }
+  export interface GetMigrationsResponse {
+    status_code: number
+    message: string
+    data: MigrationListContent[]
+  }
   
   export interface SingleModelResponse {
     status_code: number
@@ -268,6 +279,19 @@ export interface EditorFileData {
     }
   }
   export interface SingleDocResponse {
+    status_code: number
+    success: boolean
+    message: string
+    data: {
+      name: string
+      format: string
+      content: string
+      content_base64: string
+      type: string
+    }
+  }
+
+  export interface SingleMigrationResponse {
     status_code: number
     success: boolean
     message: string
