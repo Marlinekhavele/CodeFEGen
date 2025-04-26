@@ -5,7 +5,11 @@ import {
   type SingleModelResponse,
   type SingleSchemaResponse,
   type GetHelpersResponse,
-  type SingleHelperResponse
+  type SingleHelperResponse,
+  type SingleDocResponse,
+  type GetDocsResponse,
+  type GetMigrationsResponse,
+  type SingleMigrationResponse
 } from '@/types'
 import { BaseService } from './base-service'
 import createAxiosInstance from './axiosInstance'
@@ -147,6 +151,108 @@ class EndpointService extends BaseService {
       throw error;
     }
   }
+  
+  
+
+  public async getDoc(projectId: string, docName: string): Promise<string> {
+    try {
+      if (!projectId) {
+        console.error("Missing required parameter: projectId")
+        return "# Error\n\nMissing required project ID to fetch documentation."
+      }
+
+      console.log(`Fetching doc ${docName} for project: ${projectId}`)
+
+      // First try to fetch the specific documentation
+      try {
+        const res = await this.get<SingleDocResponse>(`/${projectId}/docs/${docName}/content`)
+
+        if (res.status_code === 200 && res.data?.content) {
+          return res.data.content
+        }
+      } catch (error) {
+        console.error(`Error fetching specific doc '${docName}':`, error)
+      }
+
+      // If that fails, try to fetch the api.md file directly
+      try {
+        const apiDocRes = await this.get<SingleDocResponse>(`/${projectId}/docs/api.md/content`)
+
+        if (apiDocRes.status_code === 200 && apiDocRes.data?.content) {
+          return apiDocRes.data.content
+        }
+      } catch (error) {
+        console.error("Error fetching api.md:", error)
+      }
+
+      // If that fails too, try to get all docs and find the first one
+      try {
+        const allDocs = await this.getDocList(projectId)
+
+        if (allDocs && allDocs.length > 0) {
+          // Try to get the first available doc
+          const firstDoc = allDocs[0]
+          const firstDocRes = await this.get<SingleDocResponse>(`/${projectId}/docs/${firstDoc.name}/content`)
+
+          if (firstDocRes.status_code === 200 && firstDocRes.data?.content) {
+            return firstDocRes.data.content
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching all docs:", error)
+      }
+
+      return `# Documentation Not Found\n\nNo documentation was found for this project.\n\nThe documentation may not have been generated yet or might be using a different naming convention.`
+    } catch (error) {
+      console.error("Documentation fetch failed:", error)
+      throw error
+    }
+  }
+
+  // Method to get all available docs
+  public async getDocList(projectId: string): Promise<{ name: string; type: string }[]> {
+    try {
+      const res = await this.get<GetDocsResponse>(`/${projectId}/docs/`)
+
+      if (res.status_code === 200 && Array.isArray(res.data)) {
+        return res.data
+      }
+
+      return []
+    } catch (error) {
+      console.error("Failed to fetch all docs:", error)
+      return []
+    }
+  }
+
+  // Migration management methods
+  public async getMigrationList(projectId: string) {
+    try {
+      console.log(`Fetching migration list for project: ${projectId}`);
+      const res = await this.get<GetMigrationsResponse>(`/${projectId}/alembic/versions/`)
+      console.log('migration list response:', res);
+      return res.data;
+    } catch (error) {
+      console.error('Error fetching migration list:', error);
+      throw error;
+    }
+  }
+
+  public async getMigration(projectId: string, version_name: string) {
+    try {
+      console.log(`Fetching migration ${version_name} for project: ${projectId}`);
+      const res = await this.get<SingleMigrationResponse>(
+        `/${projectId}/alembic/versions/${version_name}/content`
+      )
+      console.log('Migration content response:', res);
+      return res.data;
+    } catch (error) {
+      console.error('Error fetching migration:', error);
+      throw error;
+    }
+  }
 }
+
+
 
 export default EndpointService

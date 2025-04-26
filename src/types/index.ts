@@ -219,6 +219,28 @@ export interface EditorFileData {
     description: string
     type: string
   }
+
+  export interface DocListContent {
+    name: string
+    description: string
+    type: string
+  }
+  export interface GetDocsResponse {
+    status_code: number
+    message: string
+    data: DocListContent[]
+  }
+
+  export interface MigrationListContent {
+    name: string
+    description: string
+    type: string
+  }
+  export interface GetMigrationsResponse {
+    status_code: number
+    message: string
+    data: MigrationListContent[]
+  }
   
   export interface SingleModelResponse {
     status_code: number
@@ -245,6 +267,31 @@ export interface EditorFileData {
   }
   
   export interface SingleHelperResponse {
+    status_code: number
+    success: boolean
+    message: string
+    data: {
+      name: string
+      format: string
+      content: string
+      content_base64: string
+      type: string
+    }
+  }
+  export interface SingleDocResponse {
+    status_code: number
+    success: boolean
+    message: string
+    data: {
+      name: string
+      format: string
+      content: string
+      content_base64: string
+      type: string
+    }
+  }
+
+  export interface SingleMigrationResponse {
     status_code: number
     success: boolean
     message: string
@@ -297,7 +344,7 @@ export type FileType = {
   id: string
   name: string
   path: string
-  type: "endpoint" | "model" | "schema" | "config" | "migration" | "helpers"
+  type: "endpoint" | "model" | "schema" | "config" | "migration" | "helpers" | "docs" | "api_docs"
   code: string
   method?: MethodType
 }
@@ -341,6 +388,14 @@ export interface MigrationType {
 }
 
 export type HelpersType = {
+  file_path: string
+  generated_code: string
+  content_base64: string
+  file_hash: string
+  entity_name?: string
+  exists?: boolean
+}
+export type DocsType = {
   file_path: string
   generated_code: string
   content_base64: string
