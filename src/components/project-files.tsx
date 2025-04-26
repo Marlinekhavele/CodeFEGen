@@ -13,7 +13,6 @@ import {
   CodeIcon
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { cn } from "@/lib/utils"
 import { EndpointModal } from "@/components/endpoint-modal"
 
 interface ProjectFilesProps {

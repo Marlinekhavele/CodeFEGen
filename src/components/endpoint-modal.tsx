@@ -88,10 +88,10 @@ export function EndpointModal({ isOpen, onClose, onSubmit, projectLanguage = "py
               <div className="space-y-2">
                 <Label htmlFor="language">Language</Label>
                 <Select value={language} onValueChange={handleLanguageChange}>
-                  <SelectTrigger id="language" className="bg-zinc-800 border-zinc-700 text-zinc-200">
+                  <SelectTrigger id="language">
                     <SelectValue placeholder="Select language" />
                   </SelectTrigger>
-                  <SelectContent className="bg-zinc-800 border-zinc-700 text-zinc-200">
+                  <SelectContent>
                     {languages.map((lang) => (
                       <SelectItem key={lang.value} value={lang.value}>
                         {lang.label}
@@ -107,10 +107,10 @@ export function EndpointModal({ isOpen, onClose, onSubmit, projectLanguage = "py
                   onValueChange={setFramework}
                   disabled={!language}
                 >
-                  <SelectTrigger id="framework" className="bg-zinc-800 border-zinc-700 text-zinc-200">
+                  <SelectTrigger id="framework">
                     <SelectValue placeholder="Select framework" />
                   </SelectTrigger>
-                  <SelectContent className="bg-zinc-800 border-zinc-700 text-zinc-200">
+                  <SelectContent>
                     {language && frameworks[language as keyof typeof frameworks]?.map((fw) => (
                       <SelectItem key={fw.value} value={fw.value}>
                         {fw.label}
@@ -124,10 +124,10 @@ export function EndpointModal({ isOpen, onClose, onSubmit, projectLanguage = "py
               <div className="space-y-2">
                 <Label htmlFor="method">Method</Label>
                 <Select value={method} onValueChange={setMethod}>
-                  <SelectTrigger id="method" className="bg-zinc-800 border-zinc-700 text-zinc-200">
+                  <SelectTrigger id="method">
                     <SelectValue placeholder="Select method" />
                   </SelectTrigger>
-                  <SelectContent className="bg-zinc-800 border-zinc-700 text-zinc-200">
+                  <SelectContent>
                     <SelectItem value="GET">GET</SelectItem>
                     <SelectItem value="POST">POST</SelectItem>
                     <SelectItem value="PUT">PUT</SelectItem>
@@ -143,7 +143,6 @@ export function EndpointModal({ isOpen, onClose, onSubmit, projectLanguage = "py
                   value={endpointPath}
                   onChange={(e) => setEndpointPath(e.target.value)}
                   placeholder="eg. login"
-                  className="bg-zinc-800 border-zinc-700 text-zinc-200"
                 />
               </div>
             </div>
@@ -154,7 +153,7 @@ export function EndpointModal({ isOpen, onClose, onSubmit, projectLanguage = "py
                 placeholder="Describe what this endpoint should do..."
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                className="resize-none h-20 bg-zinc-800 border-zinc-700 text-zinc-200"
+                className="resize-none h-20"
               />
             </div>
           </div>
@@ -166,7 +165,6 @@ export function EndpointModal({ isOpen, onClose, onSubmit, projectLanguage = "py
                 onClose()
                 resetForm()
               }}
-              className="text-zinc-200 border-zinc-700 hover:bg-zinc-800"
             >
               Cancel
             </Button>

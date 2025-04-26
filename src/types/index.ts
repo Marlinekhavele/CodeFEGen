@@ -344,7 +344,7 @@ export type FileType = {
   id: string
   name: string
   path: string
-  type: "endpoint" | "model" | "schema" | "config" | "migration" | "helpers" |"docs"
+  type: "endpoint" | "model" | "schema" | "config" | "migration" | "helpers" | "docs" | "api_docs"
   code: string
   method?: MethodType
 }
