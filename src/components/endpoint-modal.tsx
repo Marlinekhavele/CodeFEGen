@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState } from "react"
+import React, { useState, useEffect } from "react"
 import { 
   Dialog, 
   DialogContent, 
@@ -32,12 +32,30 @@ interface EndpointModalProps {
   projectFramework?: string
 }
 
-export function EndpointModal({ isOpen, onClose, onSubmit, projectLanguage = "python", projectFramework = "FastAPI" }: EndpointModalProps) {
+export function EndpointModal({ 
+  isOpen, 
+  onClose, 
+  onSubmit, 
+  projectLanguage = "python", 
+  projectFramework = "FastAPI",
+}: EndpointModalProps) {
   const [language, setLanguage] = useState<string>(projectLanguage)
   const [framework, setFramework] = useState<string>(projectFramework)
   const [endpointPath, setEndpointPath] = useState<string>("/api/")
   const [method, setMethod] = useState<string>("GET")
   const [description, setDescription] = useState<string>("")
+
+  // Reset fields when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      setLanguage(projectLanguage)
+      setFramework(projectFramework)
+      setEndpointPath("/api/")
+      setMethod("GET")
+      setDescription("")
+    }
+  }, [isOpen, projectLanguage, projectFramework])
+
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -79,7 +97,7 @@ export function EndpointModal({ isOpen, onClose, onSubmit, projectLanguage = "py
         <DialogHeader>
           <DialogTitle>Create New Endpoint</DialogTitle>
           <DialogDescription>
-            Enter the details for your new endpoint. The AI will generate code based on these specifications.
+            Enter the technical details for your new endpoint. You will be able to describe its functionality in the AI chat afterwards.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit}>
@@ -142,7 +160,7 @@ export function EndpointModal({ isOpen, onClose, onSubmit, projectLanguage = "py
                   id="endpoint-path" 
                   value={endpointPath}
                   onChange={(e) => setEndpointPath(e.target.value)}
-                  placeholder="eg. login"
+                  placeholder="eg. /api/users"
                 />
               </div>
             </div>
@@ -150,11 +168,14 @@ export function EndpointModal({ isOpen, onClose, onSubmit, projectLanguage = "py
               <Label htmlFor="description">Description</Label>
               <Textarea
                 id="description"
-                placeholder="Describe what this endpoint should do..."
+                placeholder="A brief description of what this endpoint does"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 className="resize-none h-20"
               />
+              <p className="text-xs text-zinc-500 mt-1">
+                This is for documentation purposes only.
+              </p>
             </div>
           </div>
           <DialogFooter>
@@ -171,9 +192,9 @@ export function EndpointModal({ isOpen, onClose, onSubmit, projectLanguage = "py
             <Button 
               type="submit" 
               className="bg-[#7dff00] text-black hover:bg-[#9aff33]"
-              disabled={!endpointPath.trim() || !description.trim()}
+              disabled={!endpointPath.trim()}
             >
-              Generate
+              Create
             </Button>
           </DialogFooter>
         </form>
