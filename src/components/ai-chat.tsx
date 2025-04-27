@@ -47,6 +47,7 @@ type AIChartProps = {
   } | null
   projectLanguage?: string
   projectFramework?: string
+  selectedFile?: FileType | null // Add selected file to props
 }
 
 // Constants for configuration
@@ -62,7 +63,7 @@ const cleanFileName = (fileName: string): string => {
 // HTTP methods for dropdown
 const HTTP_METHODS = ["GET", "POST", "PUT", "DELETE"];
 
-export default function AIChat({ projectId, onFileGenerated, endpointDetails, projectLanguage = "python", projectFramework = "fastapi"}: AIChartProps) {
+export default function AIChat({ projectId, onFileGenerated, endpointDetails, projectLanguage = "python", projectFramework = "fastapi", selectedFile = null}: AIChartProps) {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState("")
   const [isLoading, setIsLoading] = useState(false)
@@ -93,8 +94,6 @@ export default function AIChat({ projectId, onFileGenerated, endpointDetails, pr
       const language = projectLanguage;
       const framework = projectFramework;
       const { endpointPath, method, description } = endpointDetails;
-      
-      // Create a more detailed prompt that includes language and framework
       const prompt = description;
       
       // Set input and trigger submission
@@ -369,7 +368,76 @@ export default function AIChat({ projectId, onFileGenerated, endpointDetails, pr
     }
   }
 
-  // Remove the resource name extraction function as we're letting the backend handle it
+ // Handle the submission of text prompt from the chat input
+ const handleSubmit = (e?: React.FormEvent) => {
+  e?.preventDefault();
+  
+  if (!input.trim() || isLoading) return;
+  
+  // Check if there's a selected file that's an endpoint
+  if (selectedFile && selectedFile.type === "endpoint") {
+    // For existing endpoints, use the prompt directly with the endpoint's details
+    handleSubmitWithDetails(
+      input.trim(),  // The prompt is just what the user typed in the chat
+      projectLanguage,
+      projectFramework,
+      selectedFile.path || "/api/",
+      selectedFile.method || "GET"
+    );
+  } else {
+    // For non-endpoints or when no file is selected,
+    // we'll use the general prompt without endpoint details
+    handleSubmitWithDetails(
+      input.trim(),
+      projectLanguage,
+      projectFramework,
+      "", // No endpoint path
+      ""  // No method
+    );
+  }
+};
+
+// Handle endpoint details from the CreateEndpoint modal
+useEffect(() => {
+  if (endpointDetails && !isLoading && codeGenStatus !== "generating") {
+    // When endpoint details are received from the modal, we need a separate interaction
+    const { language, framework, endpointPath, method } = endpointDetails;
+    
+    // Focus the input field so user can describe what the endpoint should do
+    if (inputRef.current) {
+      inputRef.current.focus();
+      
+      // Optional: Update placeholder to guide the user
+      inputRef.current.placeholder = `Describe what the ${method} endpoint at ${endpointPath} should do...`;
+    }
+    
+    // If there was already text in the input, use it as the prompt
+    if (input.trim()) {
+      handleSubmitWithDetails(
+        input.trim(),
+        language,
+        framework,
+        endpointPath,
+        method
+      );
+    } else {
+      // Just save the endpoint details for later use when the user types a prompt
+      // You could add state for this if needed
+      // For example: setCurrentEndpointContext({ endpointPath, method });
+      
+      // Or simply show a message guiding the user
+      setMessages(prev => [
+        ...prev,
+        {
+          id: Date.now().toString(),
+          role: "assistant",
+          content: `I'll help you create a ${method} endpoint at ${endpointPath}. Please describe what this endpoint should do.`,
+          timestamp: new Date()
+        }
+      ]);
+    }
+  }
+}, [endpointDetails, projectLanguage, projectFramework]);
   
   const handleSubmitWithDetails = (
     promptText: string, 
@@ -561,7 +629,7 @@ export default function AIChat({ projectId, onFileGenerated, endpointDetails, pr
                 const files: Record<string, any> = {};
                 
                 // Process all components in the result
-                ["endpoint", "model", "schema", "migration", "helpers", "config"].forEach(component => {
+                ["endpoint", "model", "schema", "migration", "helpers", "config", "api_docs"].forEach(component => {
                   if (data.result[component]) {
                     files[component] = data.result[component];
                   }
@@ -728,43 +796,7 @@ export default function AIChat({ projectId, onFileGenerated, endpointDetails, pr
     }
   };
 
-  // New function to open the endpoint collection popup
-  const openEndpointPopup = () => {
-    if (!input.trim() || isLoading) return;
-    
-    // Save the prompt text for later use
-    setPromptText(input.trim());
-    
-    // Set default endpoint path
-    setEndpointPath("/api/");
-    setHttpMethod("GET");
-    
-    // Show the popup
-    setShowEndpointPopup(true);
-  };
-
-  // Function to handle the submission from the popup
-  const handleEndpointPopupSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    // Close the popup
-    setShowEndpointPopup(false);
-    
-    // Call the detailed handler with collected information
-    handleSubmitWithDetails(
-      promptText, 
-      projectLanguage,
-      projectFramework,
-      endpointPath,
-      httpMethod
-    );
-  };
-
-  // Regular submit handler now opens the popup instead
-  const handleSubmit = (e?: React.FormEvent) => {
-    e?.preventDefault();
-    openEndpointPopup();
-  };
+  
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -780,6 +812,16 @@ export default function AIChat({ projectId, onFileGenerated, endpointDetails, pr
     }
   }
 
+   // Get dynamic placeholder based on selected file
+   const getPlaceholderText = () => {
+    if (selectedFile && selectedFile.type === "endpoint") {
+      const method = selectedFile.method || "GET";
+      const path = selectedFile.path || "/api";
+      return `How would you like to improve the ${method} endpoint at ${path}?`;
+    }
+    return "Ask me to create an endpoint or describe what you want to build...";
+  };
+
   return (
     <div className="flex flex-col h-full border border-zinc-200 rounded-lg overflow-hidden dark:border-zinc-800">
       <div className="p-3 border-b border-zinc-200 bg-white dark:bg-zinc-900 dark:border-zinc-800 flex items-center justify-between">
@@ -791,6 +833,12 @@ export default function AIChat({ projectId, onFileGenerated, endpointDetails, pr
             <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">{projectFramework}</span>
           </div>
         </div>
+        {/* Show current endpoint context if available */}
+        {selectedFile && selectedFile.type === "endpoint" && (
+          <div className="text-xs py-1 px-2 bg-zinc-100 dark:bg-zinc-800 rounded-full">
+            {selectedFile.method} {selectedFile.path}
+          </div>
+        )}
         <div className="flex items-center gap-1">
           <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full">
             <Maximize2 className="h-4 w-4 text-zinc-500 dark:text-zinc-400" />
@@ -801,9 +849,11 @@ export default function AIChat({ projectId, onFileGenerated, endpointDetails, pr
 
       <div className="flex-1 overflow-y-auto p-4 bg-zinc-50 dark:bg-zinc-950">
         {messages.length === 0 ? (
-          <div className="flex items-center justify-center h-full text-zinc-500 dark:text-zinc-400 text-sm">
-            Ask the AI assistant about your code or for help with your backend.
-          </div>
+           <div className="flex items-center justify-center h-full text-zinc-500 dark:text-zinc-400 text-sm">
+           {selectedFile && selectedFile.type === "endpoint" 
+             ? `Ask the AI assistant to help improve or modify the ${selectedFile.method} endpoint at ${selectedFile.path}`
+             : "Ask the AI assistant about your code or for help with your backend."}
+         </div>
         ) : (
           <div className="space-y-4">
             {messages.map((message) => (
@@ -873,105 +923,42 @@ export default function AIChat({ projectId, onFileGenerated, endpointDetails, pr
       </div>
 
       <div className="p-3 border-t border-zinc-200 bg-white dark:bg-zinc-900 dark:border-zinc-800">
-        <form onSubmit={handleSubmit} className="flex items-end gap-2">
+        <form onSubmit={handleSubmit} className="flex items-end">
           <div className="relative flex-1">
             <Textarea
               ref={inputRef}
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Describe the next API you want to build."
-              className="ai-chat-input min-h-[44px] max-h-[200px] py-3 pr-10 resize-none bg-zinc-50 border-zinc-200 text-zinc-800 placeholder:text-zinc-500 focus:border-[#7dff00] focus:ring-[#7dff00]/20 dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-200 dark:placeholder:text-zinc-500"
+              placeholder={getPlaceholderText()}
+              className="ai-chat-input min-h-[44px] max-h-[200px] py-3  resize-none bg-zinc-50 border-zinc-200 text-zinc-800 placeholder:text-xs placeholder:text-zinc-500 focus:border-[#7dff00] focus:ring-[#7dff00]/20 dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-200 dark:placeholder:text-zinc-500"
               disabled={isLoading}
             />
-            <div className="absolute right-2 bottom-2 flex items-center gap-1">
-              <Button type="button" variant="ghost" size="icon" className="h-6 w-6 rounded-full">
-                <Paperclip className="h-4 w-4 text-zinc-500 dark:text-zinc-400" />
-                <span className="sr-only">Attach</span>
-              </Button>
-            </div>
+            
+            {/* Attach button */}
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="absolute right-10 bottom-2 h-7 w-7 rounded-full"
+            >
+              <Paperclip className="h-4 w-4 text-zinc-500 dark:text-zinc-400" />
+              <span className="sr-only">Attach</span>
+            </Button>
+
+            {/* Send button */}
+            <Button
+              type="submit"
+              size="icon"
+              className="absolute right-2 bottom-2 h-7 w-7 rounded-full bg-[#7dff00] text-black hover:bg-[#9aff33]"
+              disabled={!input.trim() || isLoading}
+            >
+              <ArrowUp className="h-4 w-4" />
+              <span className="sr-only">Send</span>
+            </Button>
           </div>
-          <Button
-            type="submit"
-            size="icon"
-            className="h-9 w-9 rounded-full bg-[#7dff00] text-black hover:bg-[#9aff33]"
-            disabled={!input.trim() || isLoading}
-          >
-            <ArrowUp className="h-4 w-4" />
-            <span className="sr-only">Send</span>
-          </Button>
         </form>
       </div>
-
-      {/* Endpoint Collection Popup */}
-      <Dialog open={showEndpointPopup} onOpenChange={setShowEndpointPopup}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Configure API Endpoint</DialogTitle>
-          </DialogHeader>
-          <form onSubmit={handleEndpointPopupSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <label htmlFor="endpointPath" className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-                Endpoint Path
-              </label>
-              <Input
-                id="endpointPath"
-                ref={endpointInputRef}
-                value={endpointPath}
-                onChange={(e) => setEndpointPath(e.target.value)}
-                placeholder="/api/your-endpoint"
-                className="w-full bg-zinc-50 dark:bg-zinc-800"
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <label htmlFor="httpMethod" className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-                HTTP Method
-              </label>
-              <div className="grid grid-cols-4 gap-2">
-                {HTTP_METHODS.map((method) => (
-                  <button
-                    key={method}
-                    type="button"
-                    onClick={() => setHttpMethod(method)}
-                    className={`rounded-md px-3 py-2 text-sm font-medium ${
-                      httpMethod === method
-                        ? 'bg-[#7dff00] text-black'
-                        : 'bg-zinc-200 text-zinc-700 dark:bg-zinc-700 dark:text-zinc-300'
-                    }`}
-                  >
-                    {method}
-                  </button>
-                ))}
-              </div>
-              <div className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
-                {httpMethod === "GET" && "For retrieving resources without modifying data"}
-                {httpMethod === "POST" && "For creating new resources"}
-                {httpMethod === "PUT" && "For updating existing resources"}
-                {httpMethod === "DELETE" && "For removing resources"}
-              </div>
-            </div>
-            <div className="space-y-2">
-              <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-                Your prompt
-              </label>
-              <div className="rounded-md bg-zinc-100 p-2 text-sm dark:bg-zinc-800">
-                {promptText}
-              </div>
-            </div>
-            <DialogFooter className="flex justify-end gap-2 sm:justify-end">
-              <DialogClose asChild>
-                <Button type="button" variant="outline">
-                  Cancel
-                </Button>
-              </DialogClose>
-              <Button type="submit" className="bg-[#7dff00] text-black hover:bg-[#9aff33]">
-                Generate Code
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
     </div>
-  )
+  );
 }

@@ -10,6 +10,7 @@ import { FileContent } from "@/components/file-content"
 import { useTheme } from "@/components/theme-provider"
 import EndPointService from "@/app/api/services/endpoint-service"
 import createAxiosInstance from "@/app/api/services/axiosInstance"
+import { EndpointModal } from "@/components/endpoint-modal"
 import path from "path"
 
 interface BackendEditorClientProps {
@@ -31,13 +32,25 @@ export default function BackendEditorClient({
   const [selectedFile, setSelectedFile] = useState<string | null>(null)
   const [currentCode, setCurrentCode] = useState("")
   const [isGenerating, setIsGenerating] = useState(false)
+  const [isEndpointCreating, setIsEndpointCreating] = useState(false)
+  const [isPageLoading, setIsPageLoading] = useState(false)
   const [generatedData, setGeneratedData] = useState<GeneratedDataType | null>(null)
   const { theme } = useTheme()
-  
+  const isAnyLoading = isGenerating || isEndpointCreating || isPageLoading
   // Add a state to track streaming code
   const [streamingCode, setStreamingCode] = useState("")
-
+  const [isEndpointModalOpen, setIsEndpointModalOpen] = useState(false);
   const [endpointDetails, setEndpointDetails] = useState<EndpointDetails | null>(null)
+  const [activeTab, setActiveTab] = useState("code");
+
+  const handleOpenEndpointModal = async ({ endpointPath, httpMethod, description }: { 
+    endpointPath: string; 
+    httpMethod: string; 
+    description: string; 
+  }) => {
+    setIsEndpointModalOpen(true);
+    return Promise.resolve();
+  };
 
   useEffect(() => {
     const fetchEndpoints = async () => {
@@ -568,10 +581,21 @@ export default function BackendEditorClient({
   // Ensure currentCode updates when selectedFile changes
   useEffect(() => {
     if (selectedFile) {
-      const file = files.find(f => f.id === selectedFile)
-      if (file) setCurrentCode(file.code)
+      const file = files.find(f => f.id === selectedFile);
+      if (file) {
+        // Set current code
+        setCurrentCode(file.code);
+        
+        // Automatically switch tabs based on file type
+        if (file.type === "docs") {
+          setActiveTab("docs");
+        } else {
+          setActiveTab("code");
+        }
+      }
     }
-  }, [selectedFile, files])
+  }, [selectedFile, files]);
+  
 
   const handleSaveFile = () => {
     if (!selectedFile) return
@@ -695,24 +719,84 @@ export default function BackendEditorClient({
   // Handler for endpoint details submission from modal
   const handleEndpointDetailsSubmit = (details: EndpointDetails) => {
     // Set the generation state
-    setIsGenerating(true);
+    setIsEndpointCreating(true);
     
-    // Update endpoint details to include language and framework from project settings
-    const enhancedDetails: EndpointDetails = {
-      ...details,
-      language: projectLanguage || "python",
-      framework: projectFramework || "FastAPI"
-    };
-    
-    // Set enhanced endpoint details to trigger the AIChat useEffect
-    setEndpointDetails(enhancedDetails);
-    
-    // Show a toast message
-    toast({
-      title: "Generating endpoint",
-      description: `Creating a ${details.method} endpoint at ${details.endpointPath} using ${projectLanguage}/${projectFramework}`,
+    // First, create the endpoint structure using the API service
+    const endpointService = new EndPointService();
+    endpointService.newEndpointCreation(
+      urlFriendlyName,
+      details.endpointPath,
+      details.method,
+      details.description // This is used purely for documentation
+    )
+    .then(() => {
+      // Show a toast notification that endpoint is being created
+      toast({
+        title: "Creating endpoint...",
+        description: `Setting up ${details.method} endpoint at ${details.endpointPath}`,
+      })
+      // After creating the endpoint structure, refresh the file list
+      return endpointService.getEndpointList(urlFriendlyName);
+    })
+    .then((endpointResult) => {
+      // Find the newly created endpoint
+      const newEndpoint = endpointResult.find(ep => 
+        ep.path === details.endpointPath && 
+        ep.method === details.method
+      );
+      
+      if (newEndpoint) {
+        // Process the new endpoint for our file list
+        const fileName = newEndpoint.path.split("/").pop() || newEndpoint.path;
+        
+        // Create the file object
+        const newFile: FileType = {
+          id: `endpoint-${newEndpoint.path}`,
+          name: fileName,
+          path: newEndpoint.path,
+          type: "endpoint" as const,
+          code: "",
+          method: newEndpoint.method as "GET" | "POST" | "PUT" | "DELETE",
+        };
+        
+        // Add to files list and select it
+        setFiles(prev => [...prev, newFile]);
+        setSelectedFile(newFile.id);
+        
+        // Show success notification
+        toast({
+          title: "Endpoint Created",
+          description: `${details.method} endpoint at ${details.endpointPath} created successfully. Now describe its functionality in the chat.`,
+        })
+      } else {
+        // Show a warning if the endpoint wasn't found in the response
+        toast({
+          title: "Endpoint Created",
+          description: "Endpoint was created but couldn't be loaded automatically. Please refresh the file list.",
+        })
+      }
+      
+      // End the generation state
+      setIsGenerating(false);
+      
+      // Focus the AI chat input if possible
+      const aiChatInput = document.querySelector('.ai-chat-input') as HTMLTextAreaElement;
+      if (aiChatInput) {
+        aiChatInput.focus();
+        aiChatInput.placeholder = `Describe what this ${details.method} endpoint at ${details.endpointPath} should do...`;
+      }
+    })
+    .catch((error) => {
+      console.error("Error creating endpoint:", error);
+      toast({
+        title: "Error creating endpoint",
+        description: error instanceof Error ? error.message : "Failed to create endpoint",
+        variant: "destructive"
+      });
+      setIsEndpointCreating(false);
     });
   };
+
 
   // Function to generate additional code using WebSocket
   const handleGenerateAdditionalCode = async () => {
@@ -775,30 +859,7 @@ export default function BackendEditorClient({
               onSelectGeneratedFile={handleSelectGeneratedFile}
               onEndpointDetailsSubmit={handleEndpointDetailsSubmit}
               isGenerating={isGenerating}
-              onCreateEndpoint={async ({ endpointPath, httpMethod, description }) => {
-                const endpointService = new EndPointService();
-                try {
-                  await endpointService.newEndpointCreation(
-                    urlFriendlyName,
-                    endpointPath,
-                    httpMethod,
-                    description
-                  );
-                  
-                  toast({
-                    title: "Endpoint Created",
-                    description: `Endpoint ${httpMethod} ${endpointPath} created successfully.`,
-                  });
-                } catch (error) {
-                  console.error("Error creating endpoint:", error);
-                  toast({
-                    title: "Error creating endpoint",
-                    description: error instanceof Error ? error.message : "Failed to create endpoint",
-                    variant: "destructive"
-                  });
-                }
-                return Promise.resolve();
-              }}
+              onCreateEndpoint={handleOpenEndpointModal}
               projectLanguage={projectLanguage}
               projectFramework={projectFramework}
             />
@@ -812,6 +873,8 @@ export default function BackendEditorClient({
               theme={theme}
               streamingCode={streamingCode}
               projectId={urlFriendlyName}
+              activeTab={activeTab}
+              setActiveTab={setActiveTab}
             />
 
             {/* AI Chat Panel */}
@@ -820,6 +883,14 @@ export default function BackendEditorClient({
                 projectId={urlFriendlyName || projectName} 
                 onFileGenerated={handleFileGenerated}
                 endpointDetails={endpointDetails}
+                projectLanguage={projectLanguage}
+                projectFramework={projectFramework}
+                selectedFile={selectedFile ? files.find(f => f.id === selectedFile) : null}
+              />
+              <EndpointModal
+                isOpen={isEndpointModalOpen}
+                onClose={() => setIsEndpointModalOpen(false)}
+                onSubmit={handleEndpointDetailsSubmit}
                 projectLanguage={projectLanguage}
                 projectFramework={projectFramework}
               />
