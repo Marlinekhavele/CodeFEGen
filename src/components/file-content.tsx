@@ -40,57 +40,161 @@ export function FileContent({
   // State for documentation content
   const [documentation, setDocumentation] = useState<string>("# Select a file to view its documentation")
   const [isLoadingDocs, setIsLoadingDocs] = useState(false)
-  // Remove this duplicate state definition - we're using the prop instead
-  // const [activeTab, setActiveTab] = useState("code")
   const [refreshKey, setRefreshKey] = useState(0) // Used to force refresh documentation
   const [docFetchError, setDocFetchError] = useState<string | null>(null)
   const [viewMode, setViewMode] = useState<"rendered" | "source">("rendered")
   
-  // Find API documentation file in the files array
-  const apiDocFile = files.find((f) => f.type === "api_docs" && f.path?.includes("docs/api.md"))
+  // Get entity name from the file
+  const getEntityName = (file: FileType | undefined) => {
+    if (!file) return null
+    
+    // Try to extract entity name from file path or name
+    const fileName = file.name || file.path?.split("/").pop() || ""
+    
+    // For endpoints, try to extract entity name from the path or filename
+    if (file.type === "endpoint") {
+      // Handle different file naming patterns:
+      // 1. order.get.py -> order
+      // 2. get_order.py -> order
+      // 3. order.py -> order
+      
+      // First, remove the extension
+      const withoutExtension = fileName.replace(/\.[^/.]+$/, "")
+      
+      // Check if it follows pattern "resource.method.py" (like order.get.py)
+      const resourceMethodPattern = withoutExtension.match(/^(.+)\.(get|post|put|delete)$/i)
+      if (resourceMethodPattern) {
+        return resourceMethodPattern[1] // Return the resource name part
+      }
+      
+      // Check if it follows pattern "method_resource.py" (like get_order.py)
+      const methodResourcePattern = withoutExtension.match(/^(get|post|put|delete)[_-](.+)$/i)
+      if (methodResourcePattern) {
+        return methodResourcePattern[2] // Return the resource name part
+      }
+      
+      // If no special pattern, just return the name without extension
+      // Remove any HTTP method prefix if it exists
+      return withoutExtension.replace(/^(get|post|put|delete)[_-]?/i, "")
+    }
+    
+    return null
+  }
+  
+  // Find relevant documentation file for the selected file
+  const findDocumentationForFile = () => {
+    if (!file) return null
+    
+    const entityName = getEntityName(file)
+    
+    if (entityName) {
+      // Look for different possible documentation file naming patterns
+      const possibleDocFiles = files.filter(f => 
+        f.type === "api_docs" && (
+          // Check for exact entity name match
+          f.path?.includes(`${entityName}.md`) || 
+          // Check for HTTP method + entity name
+          (file.method && f.path?.includes(`${entityName}.${file.method?.toLowerCase()}.md`)) ||
+          // Check for full filename match (without extension)
+          (file.name && f.path?.includes(`${file.name.replace(/\.[^/.]+$/, "")}.md`))
+        )
+      )
+      
+      // If we found any matching doc files, use the first one
+      if (possibleDocFiles.length > 0) {
+        console.log(`Found documentation file for ${entityName}:`, possibleDocFiles[0].path)
+        return possibleDocFiles[0]
+      }
+      
+      // Log when we can't find a matching doc file
+      console.log(`No documentation file found for entity: ${entityName}, looking for generic API docs`)
+    }
+    
+    // If no entity-specific doc found and this is an endpoint, try using api.md as fallback
+    if (file.type === "endpoint") {
+      const apiDoc = files.find(f => f.type === "api_docs" && f.path?.includes("api.md"))
+      if (apiDoc) {
+        console.log("Using api.md as fallback documentation")
+        return apiDoc
+      }
+    }
+    
+    return null
+  }
 
   // Debug logs to help identify issues
   useEffect(() => {
-    if (activeTab === "docs") {
-      console.log("FileContent component props:", {
+    // Add debug logging for code tab too
+    if (selectedFile) {
+      console.log("FileContent component - selected file:", {
         selectedFile,
-        projectId,
-        activeTab,
         fileExists: !!file,
         fileName: file?.name,
         filePath: file?.path,
-        apiDocExists: !!apiDocFile,
+        fileType: file?.type,
+        codeLength: currentCode?.length,
+        hasCode: !!currentCode,
+        activeTab
       })
     }
-  }, [selectedFile, projectId, activeTab, file, apiDocFile])
+  }, [selectedFile, file, currentCode, activeTab])
 
-  // Fetch documentation when tab changes to docs
+  // Fetch documentation when tab changes to docs or selected file changes
   useEffect(() => {
     if (activeTab === "docs") {
       setIsLoadingDocs(true)
       setDocumentation("# Loading documentation...")
       setDocFetchError(null)
 
-      // First try to use the API docs file if it exists in the files array
-      if (apiDocFile && apiDocFile.code) {
-        console.log("Using API docs from files array:", apiDocFile.name)
-        setDocumentation(apiDocFile.code)
+      const docFile = findDocumentationForFile()
+      const entityName = getEntityName(file)
+
+      // First try to use the specific doc file if it exists in the files array
+      if (docFile && docFile.code) {
+        console.log(`Using documentation for ${entityName || 'API'}:`, docFile.name || docFile.path)
+        setDocumentation(docFile.code)
         setIsLoadingDocs(false)
         return
       }
 
-      // If no API docs file exists, try to fetch from backend
+      // If no specific doc file exists, try to fetch from backend
       const fetchDocumentation = async () => {
         try {
           // Try to fetch documentation using the endpoint service
           const endpointService = new EndPointService()
-          const docContent = await endpointService.getDoc(projectId || "", "api.md")
+          
+          // First try to fetch entity-specific doc
+          let docContent = ""
+          if (entityName) {
+            try {
+              // Try with original entity name
+              docContent = await endpointService.getDoc(projectId || "", `${entityName}.md`)
+              console.log(`Found ${entityName}.md on server`)
+            } catch (entityError) {
+              console.log(`No doc for ${entityName}.md, trying other variations`)
+              
+              // If HTTP method is available, try with method suffix
+              if (file?.method) {
+                try {
+                  docContent = await endpointService.getDoc(projectId || "", `${entityName}.${file.method.toLowerCase()}.md`)
+                  console.log(`Found ${entityName}.${file.method.toLowerCase()}.md on server`)
+                } catch (methodError) {
+                  console.log(`No doc with method suffix found, falling back to api.md`)
+                }
+              }
+            }
+          }
+          
+          // If no entity-specific doc, fall back to api.md
+          if (!docContent || !docContent.trim()) {
+            docContent = await endpointService.getDoc(projectId || "", "api.md")
+          }
 
           if (docContent && docContent.trim()) {
             setDocumentation(docContent)
           } else {
             setDocumentation(
-              `# Documentation Not Found\n\nNo documentation was found for this project.\n\n` +
+              `# Documentation Not Found\n\nNo documentation was found for this ${file?.type || 'file'}.\n\n` +
                 `The documentation may not have been generated yet.`,
             )
           }
@@ -101,7 +205,7 @@ export function FileContent({
           // If we have any API docs file in the files array, use it as fallback
           const anyApiDoc = files.find((f) => f.type === "api_docs")
           if (anyApiDoc && anyApiDoc.code) {
-            console.log("Using fallback API docs:", anyApiDoc.name)
+            console.log("Using fallback API docs:", anyApiDoc.name || anyApiDoc.path)
             setDocumentation(anyApiDoc.code)
           } else {
             setDocumentation(
@@ -116,7 +220,7 @@ export function FileContent({
 
       fetchDocumentation()
     }
-  }, [activeTab, projectId, apiDocFile, files, refreshKey])
+  }, [activeTab, projectId, files, refreshKey, selectedFile, file])
 
   const getCleanFileName = (file: FileType | undefined) => {
     if (!file) return "Untitled"
@@ -159,6 +263,13 @@ export function FileContent({
       }
       return "python" // Default
     }
+
+    // Add debug logging for language detection
+    console.log("Detecting language for:", {
+      fileName: file.name,
+      filePath: file.path,
+      fileType: file.type
+    })
 
     const filePath = file.path || ""
 
@@ -204,6 +315,18 @@ export function FileContent({
     }
 
     return <span className={badgeClass}>{method}</span>
+  }
+
+  // Get documentation title based on selected file
+  const getDocumentationTitle = () => {
+    if (!file) return "API Documentation"
+    
+    const entityName = getEntityName(file)
+    if (entityName) {
+      return `${entityName} Documentation`
+    }
+    
+    return file.type === "endpoint" ? "Endpoint Documentation" : "API Documentation"
   }
 
   return (
@@ -256,22 +379,30 @@ export function FileContent({
 
         <TabsContent value="code" className="flex-1 h-[calc(100%-48px)] data-[state=active]:h-[calc(100%-48px)]">
           {selectedFile || streamingCode ? (
-            <Editor
-              language={getLanguage()}
-              value={selectedFile ? currentCode : streamingCode}
-              onChange={(value) => value !== undefined && onCodeChange(value)}
-              theme={theme === "dark" ? "vs-dark" : "light"}
-              options={{
-                minimap: { enabled: false },
-                fontSize: 14,
-                lineNumbers: "on",
-                scrollBeyondLastLine: false,
-                automaticLayout: true,
-                tabSize: 2,
-                wordWrap: "on",
-                readOnly: !selectedFile && !!streamingCode,
-              }}
-            />
+            <>
+              {console.log("Rendering editor with:", { 
+                language: getLanguage(),
+                codeLength: selectedFile ? currentCode?.length : streamingCode?.length,
+                isSelectedFile: !!selectedFile,
+                selectedFileId: selectedFile
+              })}
+              <Editor
+                language={getLanguage()}
+                value={selectedFile ? currentCode : streamingCode}
+                onChange={(value) => value !== undefined && onCodeChange(value)}
+                theme={theme === "dark" ? "vs-dark" : "light"}
+                options={{
+                  minimap: { enabled: false },
+                  fontSize: 14,
+                  lineNumbers: "on",
+                  scrollBeyondLastLine: false,
+                  automaticLayout: true,
+                  tabSize: 2,
+                  wordWrap: "on",
+                  readOnly: !selectedFile && !!streamingCode,
+                }}
+              />
+            </>
           ) : (
             <div className="flex items-center justify-center h-full text-zinc-500 dark:text-zinc-400">
               <p>Select a file to view or edit its content, or use the AI chat to generate code</p>
@@ -292,7 +423,7 @@ export function FileContent({
                 {docFetchError ? (
                   <span className="text-amber-500">Using locally generated documentation</span>
                 ) : (
-                  <span>API Documentation</span>
+                  <span>{getDocumentationTitle()}</span>
                 )}
               </div>
               <div className="flex items-center gap-2">
