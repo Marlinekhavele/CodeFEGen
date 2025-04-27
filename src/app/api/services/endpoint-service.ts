@@ -34,11 +34,12 @@ class EndpointService extends BaseService {
         description
       });
       // Use the axios instance for endpoint creation
-      const axiosInstance = createAxiosInstance('/projects', 'v1');
+      const axiosInstance = createAxiosInstance('/endpoint', 'v1');
       const res = await axiosInstance.post('', {
         project_id: projectId,
         endpoint_path: endpointPath,
         method: httpMethod,
+        description: description
       });
       console.log('Endpoint creation response:', res.data);
       return res.data;

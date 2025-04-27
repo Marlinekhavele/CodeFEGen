@@ -19,6 +19,8 @@ type FileContentProps = {
   theme?: string
   streamingCode?: string
   projectId?: string
+  activeTab?: string  // Prop for current active tab
+  setActiveTab?: (tab: string) => void  // Prop for setting active tab
 }
 
 export function FileContent({
@@ -29,6 +31,8 @@ export function FileContent({
   theme,
   streamingCode = "",
   projectId,
+  activeTab = "code",  // Default to code tab
+  setActiveTab = () => {},  // Default empty function
 }: FileContentProps) {
   // Find the selected file
   const file = files.find((f) => f.id === selectedFile)
@@ -36,11 +40,12 @@ export function FileContent({
   // State for documentation content
   const [documentation, setDocumentation] = useState<string>("# Select a file to view its documentation")
   const [isLoadingDocs, setIsLoadingDocs] = useState(false)
-  const [activeTab, setActiveTab] = useState("code")
+  // Remove this duplicate state definition - we're using the prop instead
+  // const [activeTab, setActiveTab] = useState("code")
   const [refreshKey, setRefreshKey] = useState(0) // Used to force refresh documentation
   const [docFetchError, setDocFetchError] = useState<string | null>(null)
   const [viewMode, setViewMode] = useState<"rendered" | "source">("rendered")
-
+  
   // Find API documentation file in the files array
   const apiDocFile = files.find((f) => f.type === "api_docs" && f.path?.includes("docs/api.md"))
 
