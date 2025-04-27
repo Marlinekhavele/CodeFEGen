@@ -386,15 +386,27 @@ export default function AIChat({ projectId, onFileGenerated, endpointDetails, pr
     );
   } else {
     // For non-endpoints or when no file is selected,
-    // we'll use the general prompt without endpoint details
-    handleSubmitWithDetails(
-      input.trim(),
-      projectLanguage,
-      projectFramework,
-      "", // No endpoint path
-      ""  // No method
-    );
+    // we'll show the endpoint collection popup
+    setPromptText(input.trim());
+    setShowEndpointPopup(true);
   }
+};
+
+// Handle form submission from the endpoint popup
+const handleEndpointPopupSubmit = (e: React.FormEvent) => {
+  e.preventDefault();
+  
+  // Close the popup
+  setShowEndpointPopup(false);
+  
+  // Now we can proceed with the actual submission
+  handleSubmitWithDetails(
+    promptText,
+    projectLanguage,
+    projectFramework,
+    endpointPath,
+    httpMethod
+  );
 };
 
 // Handle endpoint details from the CreateEndpoint modal
@@ -493,6 +505,8 @@ useEffect(() => {
         method: method,
         endpoint_path: endpointPath,
         additional_context: `Framework: ${framework}`,
+        file_id: selectedFile?.id || null,
+        update_existing: !!selectedFile
       };
 
       console.log("Connecting to WebSocket with data:", codeGenData);
@@ -584,15 +598,26 @@ useEffect(() => {
                 const stageData = data.result;
                 const fileType = data.stage as "endpoint" | "model" | "schema" | "migration" | "helpers" | "config";
                 
+                // Start with the data from the result
+                let fileId = stageData.endpoint_id || `${fileType}-${Date.now()}`;
+                let filePath = stageData.endpoint_path || stageData.file_path || `/${fileType}`;
+                
+                // If we have a selected file and it's an endpoint, use its ID and path instead
+                if (selectedFile && selectedFile.type === "endpoint" && fileType === "endpoint") {
+                  fileId = selectedFile.id;
+                  filePath = selectedFile.path;
+                  console.log("Updating existing endpoint:", selectedFile.path);
+                }
+                
                 // Get filename and clean it
-                let fileName = stageData.file_path?.split("/").pop() || fileType;
+                let fileName = filePath.split("/").pop() || fileType;
                 fileName = cleanFileName(fileName);
                 
                 // Create standardized file object
                 const file: FileType = {
-                  id: stageData.endpoint_id || `${fileType}-${Date.now()}`,
+                  id: fileId,
                   name: fileName,
-                  path: stageData.endpoint_path || stageData.file_path || `/${fileType}`,
+                  path: filePath,
                   type: fileType,
                   code: stageData.generated_code,
                   method: (stageData.method as "GET" | "POST" | "PUT" | "DELETE") || "GET",
@@ -824,6 +849,7 @@ useEffect(() => {
 
   return (
     <div className="flex flex-col h-full border border-zinc-200 rounded-lg overflow-hidden dark:border-zinc-800">
+      {/* Header with logo, language, and framework information */}
       <div className="p-3 border-b border-zinc-200 bg-white dark:bg-zinc-900 dark:border-zinc-800 flex items-center justify-between">
         <div className="flex items-center space-x-2">
           <Image src="/codeBE-logo.png" alt="CodeBEgen Logo" width={30} height={30} />
@@ -846,7 +872,8 @@ useEffect(() => {
           </Button>
         </div>
       </div>
-
+  
+      {/* Message display area showing conversation history */}
       <div className="flex-1 overflow-y-auto p-4 bg-zinc-50 dark:bg-zinc-950">
         {messages.length === 0 ? (
            <div className="flex items-center justify-center h-full text-zinc-500 dark:text-zinc-400 text-sm">
@@ -889,6 +916,8 @@ useEffect(() => {
                 )}
               </div>
             ))}
+  
+            {/* Status indicators (generating, success, failure) */}
             {codeGenStatus === "generating" && (
               <div className="animate-fade mt-3 flex items-center gap-2">
                 <div className="animate-spin h-4 w-4 border-2 border-zinc-500 border-t-transparent rounded-full"></div>
@@ -921,7 +950,8 @@ useEffect(() => {
           </div>
         )}
       </div>
-
+  
+      {/* Input area with textarea and send button */}
       <div className="p-3 border-t border-zinc-200 bg-white dark:bg-zinc-900 dark:border-zinc-800">
         <form onSubmit={handleSubmit} className="flex items-end">
           <div className="relative flex-1">
@@ -931,7 +961,7 @@ useEffect(() => {
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder={getPlaceholderText()}
-              className="ai-chat-input min-h-[44px] max-h-[200px] py-3  resize-none bg-zinc-50 border-zinc-200 text-zinc-800 placeholder:text-xs placeholder:text-zinc-500 focus:border-[#7dff00] focus:ring-[#7dff00]/20 dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-200 dark:placeholder:text-zinc-500"
+              className="ai-chat-input min-h-[44px] max-h-[200px] py-3 resize-none bg-zinc-50 border-zinc-200 text-zinc-800 placeholder:text-xs placeholder:text-zinc-500 focus:border-[#7dff00] focus:ring-[#7dff00]/20 dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-200 dark:placeholder:text-zinc-500"
               disabled={isLoading}
             />
             
@@ -945,7 +975,7 @@ useEffect(() => {
               <Paperclip className="h-4 w-4 text-zinc-500 dark:text-zinc-400" />
               <span className="sr-only">Attach</span>
             </Button>
-
+  
             {/* Send button */}
             <Button
               type="submit"
@@ -959,6 +989,75 @@ useEffect(() => {
           </div>
         </form>
       </div>
+      {/* Endpoint Collection Popup Dialog */}
+      <Dialog open={showEndpointPopup} onOpenChange={setShowEndpointPopup}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Configure API Endpoint</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleEndpointPopupSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <label htmlFor="endpointPath" className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                Endpoint Path
+              </label>
+              <Input
+                id="endpointPath"
+                ref={endpointInputRef}
+                value={endpointPath}
+                onChange={(e) => setEndpointPath(e.target.value)}
+                placeholder="/api/your-endpoint"
+                className="w-full bg-zinc-50 dark:bg-zinc-800"
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <label htmlFor="httpMethod" className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                HTTP Method
+              </label>
+              <div className="grid grid-cols-4 gap-2">
+                {HTTP_METHODS.map((method) => (
+                  <button
+                    key={method}
+                    type="button"
+                    onClick={() => setHttpMethod(method)}
+                    className={`rounded-md px-3 py-2 text-sm font-medium ${
+                      httpMethod === method
+                        ? 'bg-[#7dff00] text-black'
+                        : 'bg-zinc-200 text-zinc-700 dark:bg-zinc-700 dark:text-zinc-300'
+                    }`}
+                  >
+                    {method}
+                  </button>
+                ))}
+              </div>
+              <div className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
+                {httpMethod === "GET" && "For retrieving resources without modifying data"}
+                {httpMethod === "POST" && "For creating new resources"}
+                {httpMethod === "PUT" && "For updating existing resources"}
+                {httpMethod === "DELETE" && "For removing resources"}
+              </div>
+            </div>
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                Your prompt
+              </label>
+              <div className="rounded-md bg-zinc-100 p-2 text-sm dark:bg-zinc-800">
+                {promptText}
+              </div>
+            </div>
+            <DialogFooter className="flex justify-end gap-2 sm:justify-end">
+              <DialogClose asChild>
+                <Button type="button" variant="outline">
+                  Cancel
+                </Button>
+              </DialogClose>
+              <Button type="submit" className="bg-[#7dff00] text-black hover:bg-[#9aff33]">
+                Generate Code
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
