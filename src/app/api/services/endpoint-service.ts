@@ -252,7 +252,74 @@ class EndpointService extends BaseService {
       throw error;
     }
   }
+
+  // Database methods
+  public async getDatabaseFiles(projectId: string): Promise<any[]> {
+    try {
+      const res = await this.get(`/${projectId}/db/files`)
+
+      if (res.status_code === 200 && Array.isArray(res.data)) {
+        return res.data
+      }
+
+      return []
+    } catch (error) {
+      console.error("Error fetching database files:", error)
+      throw error
+    }
+  }
+
+  public async getDatabaseTables(projectId: string, dbFilename: string): Promise<any[]> {
+    try {
+      const res = await this.get(`/${projectId}/db/${dbFilename}/tables`)
+
+      if (res.status_code === 200 && Array.isArray(res.data)) {
+        // Enhance the table data with column information
+        return res.data.map((table) => ({
+          ...table,
+          columns: table.columns || [],
+          rowCount: table.row_count || 0,
+        }))
+      }
+
+      return []
+    } catch (error) {
+      console.error(`Error fetching tables for database ${dbFilename}:`, error)
+      throw error
+    }
+  }
+
+  public async getTableRows(projectId: string, dbFilename: string, tableName: string): Promise<any[]> {
+    try {
+      const res = await this.get(`/${projectId}/db/${dbFilename}/tables/${tableName}/rows`)
+
+      if (res.status_code === 200 && Array.isArray(res.data)) {
+        return res.data
+      }
+
+      return []
+    } catch (error) {
+      console.error(`Error fetching rows for table ${tableName}:`, error)
+      throw error
+    }
+  }
+
+  public async getFullDatabaseView(projectId: string): Promise<any> {
+    try {
+      const res = await this.get(`/${projectId}/db/full-view`)
+
+      if (res.status_code === 200) {
+        return res.data
+      }
+
+      return null
+    } catch (error) {
+      console.error("Error fetching full database view:", error)
+      throw error
+    }
+  }
 }
+
 
 
 
