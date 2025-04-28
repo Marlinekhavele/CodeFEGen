@@ -49,7 +49,7 @@ export function ProjectHeader({
 
   return (
     <>
-      <header className="sticky top-0 z-50 w-full border-b border-zinc-200 bg-zinc-100/80 backdrop-blur-sm dark:border-zinc-800 dark:bg-zinc-950/80">
+      <header className="sticky top-0 z-50 w-full border-b border-zinc-200 bg-zinc-100/80 backdrop-blur-sm dark:border-zinc-800 dark:bg-zinc-950/80 ">
         <div className="container flex h-16 items-center justify-between">
           <div className="flex items-center gap-3">
             <Link href="/" className="flex items-center gap-2">
@@ -68,7 +68,7 @@ export function ProjectHeader({
         </div>
       </header>
 
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between m-3">
         <div className="flex items-center gap-4">
           <Link
             href="/create-backend"

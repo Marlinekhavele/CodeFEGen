@@ -1,0 +1,58 @@
+#nprogress {
+    pointer-events: none;
+  }
+  
+
+  #nprogress .bar {
+    background: #7dff00; 
+    position: fixed;
+    z-index: 1031;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 3px;
+    opacity: 1;
+    transition: opacity 0.4s ease, transform 0.4s ease; 
+  }
+  
+  /* Peg (the glowing moving part) */
+  #nprogress .peg {
+    display: block;
+    position: absolute;
+    right: 0px;
+    width: 100px;
+    height: 100%;
+    box-shadow: 0 0 10px #7dff00, 0 0 5px #7dff00;
+    opacity: 1;
+    transform: rotate(3deg) translate(0px, -4px);
+  }
+  
+  /* When NProgress finishes and disappears */
+  #nprogress .bar[style*="display: none"] {
+    opacity: 0;
+    transform: translateY(-10px); 
+    transition: opacity 0.4s ease, transform 0.4s ease;
+  }
+  /* Optional subtle background behind loading bar */
+#nprogress::before {
+    content: "";
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: rgba(0, 0, 0, 0.1); 
+    backdrop-filter: blur(6px); 
+    z-index: 1030;
+  }
+  
+  
+  @media (prefers-color-scheme: dark) {
+    #nprogress .bar {
+      background: #7dff00;
+    }
+    #nprogress .peg {
+      box-shadow: 0 0 12px #7dff00, 0 0 6px #7dff00;
+    }
+  }
+  
