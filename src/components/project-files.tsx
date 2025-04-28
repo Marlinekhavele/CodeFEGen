@@ -212,13 +212,13 @@ export function ProjectFiles({
       
       <div className="p-2 overflow-auto" style={{ height: "calc(100vh)", width: "100%" }}>
         {files.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full py-6 px-2 text-center">
-            <div className="rounded-full bg-zinc-100 dark:bg-zinc-800 p-2.5 mb-3">
-              <FolderTree className="h-5 w-5 text-zinc-500 dark:text-zinc-400" />
+          <div className="flex flex-col items-center justify-center h-full py-6 px-2 text-center space-y-4 animate-pulse">
+            <div className="rounded-full bg-zinc-800/50 backdrop-blur-sm p-4">
+              <FolderTree className="h-8 w-8 text-zinc-400" />
             </div>
-            <div className="text-sm font-medium mb-1">No files yet</div>
-            <div className="text-xs text-zinc-500 dark:text-zinc-400 mb-4">
-              Use the AI chat to generate your first endpoint and related files.
+            <div className="flex flex-col items-center space-y-1">
+              <div className="h-4 w-32 bg-zinc-700/60 rounded" />
+              <div className="h-3 w-48 bg-zinc-700/50 rounded" />
             </div>
           </div>
         ) : (

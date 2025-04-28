@@ -15,6 +15,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { languages, frameworks } from "./create-backend/options"
+import { Loader2 } from "lucide-react"
 
 type EndpointDetails = {
   language: string
@@ -30,6 +31,7 @@ interface EndpointModalProps {
   onSubmit: (details: EndpointDetails) => void
   projectLanguage?: string  
   projectFramework?: string
+  isLoading?: boolean
 }
 
 export function EndpointModal({ 
@@ -38,6 +40,7 @@ export function EndpointModal({
   onSubmit, 
   projectLanguage = "python", 
   projectFramework = "FastAPI",
+  isLoading = false
 }: EndpointModalProps) {
   const [language, setLanguage] = useState<string>(projectLanguage)
   const [framework, setFramework] = useState<string>(projectFramework)
@@ -50,7 +53,7 @@ export function EndpointModal({
     if (isOpen) {
       setLanguage(projectLanguage)
       setFramework(projectFramework)
-      setEndpointPath("/api/")
+      setEndpointPath("")
       setMethod("GET")
       setDescription("")
     }
@@ -58,22 +61,24 @@ export function EndpointModal({
 
 
   const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
+    e.preventDefault();
+    
+    // Submit details but DON'T close or reset the form yet
+    // The parent component will control when to close the modal
     onSubmit({
       language,
       framework,
       endpointPath,
       method,
       description
-    })
-    resetForm()
+    });
   }
 
   const resetForm = () => {
     setLanguage(projectLanguage)
     setFramework(projectFramework)
-    setEndpointPath("users")
-    setMethod("POST")
+    setEndpointPath("")
+    setMethod("GET")
     setDescription("")
   }
 
@@ -87,25 +92,44 @@ export function EndpointModal({
   }
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => {
-      if (!open) {
-        onClose()
-        resetForm()
+    <Dialog open={isOpen || isLoading} onOpenChange={(open) => {
+      if (!open && !isLoading) {
+          onClose()
+          resetForm()
       }
     }}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-[425px] overflow-hidden">
+        {/* Loading Overlay */}
+        {isLoading && (
+          <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm rounded-md">
+            <div className="flex flex-col items-center space-y-4">
+              <Loader2 className="h-8 w-8 text-white animate-spin" />
+              <span>Creating Endpoint Path...</span>
+              <div className="w-32 h-4 bg-gray-300 rounded animate-pulse" />
+              <div className="w-24 h-4 bg-gray-300 rounded animate-pulse" />
+            </div>
+          </div>
+        )}
         <DialogHeader>
           <DialogTitle>Create New Endpoint</DialogTitle>
           <DialogDescription>
             Enter the technical details for your new endpoint. You will be able to describe its functionality in the AI chat afterwards.
           </DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleSubmit}>
+        <form 
+          onSubmit={handleSubmit} 
+          noValidate 
+          className={isLoading ? "opacity-30 pointer-events-none" : ""}
+        >
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="language">Language</Label>
-                <Select value={language} onValueChange={handleLanguageChange}>
+                <Select 
+                  value={language} 
+                  onValueChange={handleLanguageChange}
+                  disabled={isLoading}
+                >
                   <SelectTrigger id="language">
                     <SelectValue placeholder="Select language" />
                   </SelectTrigger>
@@ -123,7 +147,7 @@ export function EndpointModal({
                 <Select 
                   value={framework} 
                   onValueChange={setFramework}
-                  disabled={!language}
+                  disabled={!language || isLoading}
                 >
                   <SelectTrigger id="framework">
                     <SelectValue placeholder="Select framework" />
@@ -141,7 +165,11 @@ export function EndpointModal({
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="method">Method</Label>
-                <Select value={method} onValueChange={setMethod}>
+                <Select 
+                  value={method} 
+                  onValueChange={setMethod}
+                  disabled={isLoading}
+                >
                   <SelectTrigger id="method">
                     <SelectValue placeholder="Select method" />
                   </SelectTrigger>
@@ -161,6 +189,7 @@ export function EndpointModal({
                   value={endpointPath}
                   onChange={(e) => setEndpointPath(e.target.value)}
                   placeholder="eg. /api/users"
+                  disabled={isLoading}
                 />
               </div>
             </div>
@@ -172,6 +201,7 @@ export function EndpointModal({
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 className="resize-none h-20"
+                disabled={isLoading}
               />
               <p className="text-xs text-zinc-500 mt-1">
                 This is for documentation purposes only.
@@ -186,15 +216,24 @@ export function EndpointModal({
                 onClose()
                 resetForm()
               }}
+              disabled={isLoading}
             >
               Cancel
             </Button>
             <Button 
               type="submit" 
               className="bg-[#7dff00] text-black hover:bg-[#9aff33]"
-              disabled={!endpointPath.trim()}
+              disabled={!endpointPath.trim() || isLoading}
             >
-              Create
+              {isLoading ? (
+                <div className="flex items-center gap-2">
+                  {/* Adjust the color to make it more visible on green background */}
+                  <Loader2 className="h-4 w-4 text-black animate-spin" />
+                  <span>Creating...</span>
+                </div>
+              ) : (
+                "Create Endpoint"
+              )}
             </Button>
           </DialogFooter>
         </form>
