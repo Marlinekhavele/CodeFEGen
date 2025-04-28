@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Footer } from "@/components/footer";
+import ComingSoonOverlay from "@/components/coming-soon";
 
 interface SanitizedParams {
   [key: string]: string;
@@ -199,11 +200,35 @@ const CreateBackendContent: React.FC<any> = ({
 
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             {/* Backend Template Cards */}
-            <div className="group rounded-lg border border-zinc-200 bg-white p-6 transition-all hover:border-[#7dff00]/50 hover:shadow-[0_0_15px_rgba(125,255,0,0.15)] dark:border-zinc-800 dark:bg-zinc-900">
+            <div className="relative group rounded-lg border border-zinc-200 bg-white p-6 transition-all hover:border-[#7dff00]/50 hover:shadow-[0_0_15px_rgba(125,255,0,0.15)] dark:border-zinc-800 dark:bg-zinc-900 overflow-hidden">
               <div className="mb-4 rounded-full bg-[#7dff00]/10 p-3 w-fit">
                 <Database className="h-6 w-6 text-[#7dff00]" />
               </div>
-              <h3 className="text-xl font-medium mb-2 text-zinc-900 group-hover:text-[#7dff00] dark:text:white">
+              <h3 className="text-xl font-medium mb-2 text-zinc-900 group-hover:text-[#7dff00] dark:text-white">
+                Auth-Ready API Starter
+              </h3>
+              <p className="text-zinc-600 mb-4 dark:text-zinc-400">
+                Create a standard REST API with authentication (login and signup), database models, and CRUD operations.
+              </p>
+              <Button
+                className="w-full bg-zinc-100 hover:bg-zinc-200 text-zinc-900 dark:bg-zinc-800 dark:hover:bg-zinc-700 dark:text-zinc-100"
+                onClick={() => {
+                  if (!projectName || !urlFriendlyName) return;
+                  const customRequirementsElement = document.getElementById("custom-requirements");
+                  const customRequirements = customRequirementsElement ? (customRequirementsElement as HTMLTextAreaElement).value : "";
+                  router.push(`/create-backend/backend-editor?name=${projectName}&url=${urlFriendlyName}&template=default-api&requirements=${encodeURIComponent(customRequirements)}&language=${projectLanguage}&framework=${projectFramework}`);
+                }}
+              >
+                Select Template
+              </Button>
+            </div>
+
+            <div className="relative group rounded-lg border border-zinc-200 bg-white p-6 transition-all hover:border-[#7dff00]/50 hover:shadow-[0_0_15px_rgba(125,255,0,0.15)] dark:border-zinc-800 dark:bg-zinc-900 overflow-hidden">
+              <ComingSoonOverlay />
+              <div className="mb-4 rounded-full bg-[#7dff00]/10 p-3 w-fit">
+                <Database className="h-6 w-6 text-[#7dff00]" />
+              </div>
+              <h3 className="text-xl font-medium mb-2 text-zinc-900 group-hover:text-[#7dff00] dark:text-white">
                 REST API
               </h3>
               <p className="text-zinc-600 mb-4 dark:text-zinc-400">
@@ -217,11 +242,12 @@ const CreateBackendContent: React.FC<any> = ({
               </Button>
             </div>
 
-            <div className="group rounded-lg border border-zinc-200 bg-white p-6 transition-all hover:border-[#7dff00]/50 hover:shadow-[0_0_15px_rgba(125,255,0,0.15)] dark:border-zinc-800 dark:bg-zinc-900">
+            <div className="relative group rounded-lg border border-zinc-200 bg-white p-6 transition-all hover:border-[#7dff00]/50 hover:shadow-[0_0_15px_rgba(125,255,0,0.15)] dark:border-zinc-800 dark:bg-zinc-900 overflow-hidden">
+              <ComingSoonOverlay />
               <div className="mb-4 rounded-full bg-[#7dff00]/10 p-3 w-fit">
                 <Server className="h-6 w-6 text-[#7dff00]" />
               </div>
-              <h3 className="text-xl font-medium mb-2 text-zinc-900 group-hover:text-[#7dff00] dark:text:white">
+              <h3 className="text-xl font-medium mb-2 text-zinc-900 group-hover:text-[#7dff00] dark:text-white">
                 GraphQL API
               </h3>
               <p className="text-zinc-600 mb-4 dark:text-zinc-400">
@@ -235,11 +261,12 @@ const CreateBackendContent: React.FC<any> = ({
               </Button>
             </div>
 
-            <div className="group rounded-lg border border-zinc-200 bg-white p-6 transition-all hover:border-[#7dff00]/50 hover:shadow-[0_0_15px_rgba(125,255,0,0.15)] dark:border-zinc-800 dark:bg-zinc-900">
+            <div className="relative group rounded-lg border border-zinc-200 bg-white p-6 transition-all hover:border-[#7dff00]/50 hover:shadow-[0_0_15px_rgba(125,255,0,0.15)] dark:border-zinc-800 dark:bg-zinc-900 overflow-hidden">
+              <ComingSoonOverlay />
               <div className="mb-4 rounded-full bg-[#7dff00]/10 p-3 w-fit">
                 <Code className="h-6 w-6 text-[#7dff00]" />
               </div>
-              <h3 className="text-xl font-medium mb-2 text-zinc-900 group-hover:text-[#7dff00] dark:text:white">
+              <h3 className="text-xl font-medium mb-2 text-zinc-900 group-hover:text-[#7dff00] dark:text-white">
                 Serverless Functions
               </h3>
               <p className="text-zinc-600 mb-4 dark:text-zinc-400">
@@ -253,11 +280,12 @@ const CreateBackendContent: React.FC<any> = ({
               </Button>
             </div>
 
-            <div className="group rounded-lg border border-zinc-200 bg-white p-6 transition-all hover:border-[#7dff00]/50 hover:shadow-[0_0_15px_rgba(125,255,0,0.15)] dark:border-zinc-800 dark:bg-zinc-900">
+            <div className="relative relative group rounded-lg border border-zinc-200 bg-white p-6 transition-all hover:border-[#7dff00]/50 hover:shadow-[0_0_15px_rgba(125,255,0,0.15)] dark:border-zinc-800 dark:bg-zinc-900 overflow-hidden overflow-hidden">
+              <ComingSoonOverlay />
               <div className="mb-4 rounded-full bg-[#7dff00]/10 p-3 w-fit">
                 <Zap className="h-6 w-6 text-[#7dff00]" />
               </div>
-              <h3 className="text-xl font-medium mb-2 text-zinc-900 group-hover:text-[#7dff00] dark:text:white">
+              <h3 className="text-xl font-medium mb-2 text-zinc-900 group-hover:text-[#7dff00] dark:text-white">
                 Real-time API
               </h3>
               <p className="text-zinc-600 mb-4 dark:text-zinc-400">
@@ -271,11 +299,12 @@ const CreateBackendContent: React.FC<any> = ({
               </Button>
             </div>
 
-            <div className="group rounded-lg border border-zinc-200 bg-white p-6 transition-all hover:border-[#7dff00]/50 hover:shadow-[0_0_15px_rgba(125,255,0,0.15)] dark:border-zinc-800 dark:bg-zinc-900">
+            <div className="relative group rounded-lg border border-zinc-200 bg-white p-6 transition-all hover:border-[#7dff00]/50 hover:shadow-[0_0_15px_rgba(125,255,0,0.15)] dark:border-zinc-800 dark:bg-zinc-900 overflow-hidden">
+              <ComingSoonOverlay />
               <div className="mb-4 rounded-full bg-[#7dff00]/10 p-3 w-fit">
                 <Globe className="h-6 w-6 text-[#7dff00]" />
               </div>
-              <h3 className="text-xl font-medium mb-2 text-zinc-900 group-hover:text-[#7dff00] dark:text:white">
+              <h3 className="text-xl font-medium mb-2 text-zinc-900 group-hover:text-[#7dff00] dark:text-white">
                 E-commerce API
               </h3>
               <p className="text-zinc-600 mb-4 dark:text-zinc-400">
@@ -289,11 +318,12 @@ const CreateBackendContent: React.FC<any> = ({
               </Button>
             </div>
 
-            <div className="group rounded-lg border border-zinc-200 bg-white p-6 transition-all hover:border-[#7dff00]/50 hover:shadow-[0_0_15px_rgba(125,255,0,0.15)] dark:border-zinc-800 dark:bg-zinc-900">
+            <div className="relative group rounded-lg border border-zinc-200 bg-white p-6 transition-all hover:border-[#7dff00]/50 hover:shadow-[0_0_15px_rgba(125,255,0,0.15)] dark:border-zinc-800 dark:bg-zinc-900 overflow-hidden">
+              <ComingSoonOverlay />
               <div className="mb-4 rounded-full bg-[#7dff00]/10 p-3 w-fit">
                 <Lock className="h-6 w-6 text-[#7dff00]" />
               </div>
-              <h3 className="text-xl font-medium mb-2 text-zinc-900 group-hover:text-[#7dff00] dark:text:white">
+              <h3 className="text-xl font-medium mb-2 text-zinc-900 group-hover:text-[#7dff00] dark:text-white">
                 Auth Service
               </h3>
               <p className="text-zinc-600 mb-4 dark:text-zinc-400">
@@ -308,7 +338,7 @@ const CreateBackendContent: React.FC<any> = ({
             </div>
           </div>
 
-          <div className="mt-12 rounded-lg border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900">
+          {/* <div className="mt-12 rounded-lg border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900">
             <h2 className="text-2xl font-bold mb-4 text-zinc-900 dark:text:white">Create Custom Backend</h2>
             <p className="text-zinc-600 mb-6 dark:text-zinc-400">
               Describe your backend requirements in natural language and our AI will generate the perfect backend for
@@ -333,7 +363,7 @@ const CreateBackendContent: React.FC<any> = ({
             >
               Generate Backend
             </Button>
-          </div>
+          </div> */}
         </div>
       </main>
       <Footer />

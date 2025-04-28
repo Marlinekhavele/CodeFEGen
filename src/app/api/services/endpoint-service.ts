@@ -252,6 +252,32 @@ class EndpointService extends BaseService {
       throw error;
     }
   }
+
+  // Method to test an endpoint
+  public async testEndpoint(url: string, method: string, headers: Record<string, string>, body?: string): Promise<any> {
+    try {
+      const options: RequestInit = {
+        method,
+        headers,
+      }
+      
+      if (["POST", "PUT", "PATCH"].includes(method) && body) {
+        options.body = body
+      }
+      
+      const response = await fetch(url, options)
+      const contentType = response.headers.get("content-type") || ""
+      
+      if (contentType.includes("application/json")) {
+        return await response.json()
+      }
+      
+      return await response.text()
+    } catch (error) {
+      console.error("Error testing endpoint:", error)
+      throw error
+    }
+  }
 }
 
 

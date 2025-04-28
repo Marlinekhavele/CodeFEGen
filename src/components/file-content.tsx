@@ -10,6 +10,7 @@ import { Loader2, RefreshCw, Code, FileText } from "lucide-react"
 import ReactMarkdown from "react-markdown"
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter"
 import { vscDarkPlus, vs } from "react-syntax-highlighter/dist/esm/styles/prism"
+import { TestEndpoint } from "./test-endpoint"
 
 type FileContentProps = {
   selectedFile: string | null
@@ -317,6 +318,24 @@ export function FileContent({
     return <span className={badgeClass}>{method}</span>
   }
 
+  // Get endpoint path for testing
+  const getEndpointPath = () => {
+    if (!file || file.type !== "endpoint") return ""
+
+    // Extract path from file name or path
+    const filePath = file.path || file.name || ""
+    const fileName = filePath.split("/").pop() || ""
+
+    // Extract method and path from filename
+    const methodMatch = fileName.match(/\.(get|post|put|delete)\./i)
+    const method = methodMatch ? methodMatch[1].toUpperCase() : file.method?.toUpperCase() || "GET"
+
+    // Get base path from filename (remove extension and method)
+    const basePath = fileName.replace(/\.(get|post|put|delete)\.py$/i, "")
+
+    return `/${basePath}`
+  }
+
   // Get documentation title based on selected file
   const getDocumentationTitle = () => {
     if (!file) return "API Documentation"
@@ -411,9 +430,18 @@ export function FileContent({
         </TabsContent>
 
         <TabsContent value="test" className="flex-1 h-[calc(100%-48px)]">
-          <div className="flex items-center justify-center h-full p-4 text-zinc-500 dark:text-zinc-400">
-            <p>Test content will be displayed here</p>
-          </div>
+          {file?.type === "endpoint" ? (
+              <TestEndpoint
+                method={file.method?.toUpperCase() || "GET"}
+                endpoint={getEndpointPath()}
+                projectId={projectId || ""}
+                theme={theme}
+              />
+            ) : (
+              <div className="flex items-center justify-center h-full p-4 text-zinc-500 dark:text-zinc-400">
+                <p>Select an endpoint file to test it</p>
+              </div>
+            )}
         </TabsContent>
 
         <TabsContent value="docs" className="flex-1 h-[calc(100%-48px)]">
