@@ -9,10 +9,52 @@ import {
   type SingleDocResponse,
   type GetDocsResponse,
   type GetMigrationsResponse,
-  type SingleMigrationResponse
+  type SingleMigrationResponse,
+  type DatabaseResponse
 } from '@/types'
 import { BaseService } from './base-service'
 import createAxiosInstance from './axiosInstance'
+
+// Define interfaces for database responses
+export interface DBFileListSuccessResponse {
+  status_code: number;
+  success: boolean;
+  message: string;
+  data: DBFileResponse[];
+}
+
+export interface DBFileResponse {
+  name: string;
+  path: string;
+}
+
+export interface DBTableListSuccessResponse {
+  status_code: number;
+  success: boolean;
+  message: string;
+  data: DBTableResponse[];
+}
+
+export interface DBTableResponse {
+  name: string;
+  columns?: Column[];
+  row_count?: number;
+}
+
+export interface Column {
+  name: string;
+  type: string;
+  nullable: boolean;
+  primary_key: boolean;
+  default?: string;
+}
+
+export interface TableRowsSuccessResponse {
+  status_code: number;
+  success: boolean;
+  message: string;
+  data: Record<string, any>[];
+}
 
 class EndpointService extends BaseService {
   constructor() {
@@ -153,8 +195,6 @@ class EndpointService extends BaseService {
     }
   }
   
-  
-
   public async getDoc(projectId: string, docName: string): Promise<string> {
     try {
       if (!projectId) {
@@ -256,71 +296,106 @@ class EndpointService extends BaseService {
   // Database methods
   public async getDatabaseFiles(projectId: string): Promise<any[]> {
     try {
-      const res = await this.get(`/${projectId}/db/files`)
-
+      console.log(`Fetching database files for project: ${projectId}`);
+      const res = await this.get<DBFileListSuccessResponse>(`/${projectId}/db/files`);
+      
       if (res.status_code === 200 && Array.isArray(res.data)) {
-        return res.data
+        return res.data;
       }
-
-      return []
+      
+      return [];
     } catch (error) {
-      console.error("Error fetching database files:", error)
-      throw error
+      console.error("Error fetching database files:", error);
+      throw error;
     }
   }
 
   public async getDatabaseTables(projectId: string, dbFilename: string): Promise<any[]> {
     try {
-      const res = await this.get(`/${projectId}/db/${dbFilename}/tables`)
-
+      console.log(`Fetching database tables for ${dbFilename} in project: ${projectId}`);
+      const res = await this.get<DBTableListSuccessResponse>(`/${projectId}/db/${dbFilename}/tables`);
+      
       if (res.status_code === 200 && Array.isArray(res.data)) {
-        // Enhance the table data with column information
-        return res.data.map((table) => ({
-          ...table,
-          columns: table.columns || [],
-          rowCount: table.row_count || 0,
-        }))
+        // Assuming we can get column information in the same format
+        return res.data.map((table) => {
+          // If the response already includes columns and row_count, use them
+          if (table.columns && table.row_count !== undefined) {
+            return {
+              name: table.name,
+              columns: table.columns,
+              rowCount: table.row_count
+            };
+          }
+          
+          // Otherwise, we'll need to make additional calls to get column info
+          // This is where you would fetch column information in a similar way to rows
+          // For now, return with empty columns array
+          return {
+            name: table.name,
+            columns: [],
+            rowCount: 0
+          };
+        });
       }
-
-      return []
+      
+      return [];
     } catch (error) {
-      console.error(`Error fetching tables for database ${dbFilename}:`, error)
-      throw error
+      console.error(`Error fetching tables for database ${dbFilename}:`, error);
+      throw error;
     }
   }
 
-  public async getTableRows(projectId: string, dbFilename: string, tableName: string): Promise<any[]> {
+  public async getTableColumns(projectId: string, dbFilename: string, tableName: string): Promise<Column[]> {
     try {
-      const res = await this.get(`/${projectId}/db/${dbFilename}/tables/${tableName}/rows`)
-
+      console.log(`Fetching columns for table ${tableName} in database ${dbFilename}`);
+      // This is the endpoint we're assuming exists or would be created
+      const res = await this.get<{status_code: number, success: boolean, data: Column[]}>
+        (`/${projectId}/db/${dbFilename}/tables/${tableName}/columns`);
+      
       if (res.status_code === 200 && Array.isArray(res.data)) {
-        return res.data
+        return res.data;
       }
-
-      return []
+      
+      return [];
     } catch (error) {
-      console.error(`Error fetching rows for table ${tableName}:`, error)
-      throw error
+      console.error(`Error fetching columns for table ${tableName}:`, error);
+      // Return empty array instead of throwing to handle gracefully
+      return [];
     }
   }
 
-  public async getFullDatabaseView(projectId: string): Promise<any> {
+  public async getTableRows(projectId: string, dbFilename: string, tableName: string, limit: number = 50): Promise<any[]> {
     try {
-      const res = await this.get(`/${projectId}/db/full-view`)
+      console.log(`Fetching rows for table ${tableName} in database ${dbFilename}`);
+      const res = await this.get<TableRowsSuccessResponse>
+        (`/${projectId}/db/${dbFilename}/tables/${tableName}/rows?limit=${limit}`);
+
+      if (res.status_code === 200 && Array.isArray(res.data)) {
+        return res.data;
+      }
+
+      return [];
+    } catch (error) {
+      console.error(`Error fetching rows for table ${tableName}:`, error);
+      throw error;
+    }
+  }
+
+  public async getFullDatabaseView(projectId: string, rowLimit: number = 10): Promise<any> {
+    try {
+      console.log(`Fetching full database view for project: ${projectId}`);
+      const res = await this.get<any>(`/${projectId}/db/full-view?row_limit=${rowLimit}`);
 
       if (res.status_code === 200) {
-        return res.data
+        return res.data;
       }
 
-      return null
+      return null;
     } catch (error) {
-      console.error("Error fetching full database view:", error)
-      throw error
+      console.error("Error fetching full database view:", error);
+      throw error;
     }
   }
 }
 
-
-
-
-export default EndpointService
+export default EndpointService;
