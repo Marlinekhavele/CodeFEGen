@@ -101,6 +101,9 @@ export function ProjectFiles({
   // Function to normalize/clean filename
   const normalizeFileName = (file: FileType): string => {
     // Extract base name (without path or method)
+    if (file.type === "database") {
+      return file.name;
+    }
     let baseName = "";
     
     if (file.name) {
@@ -418,15 +421,15 @@ export function ProjectFiles({
               
              {/* Database Section */}
              <div
-              className={`p-2 ${expandedSections.database ? "bg-zinc-100/50 dark:bg-zinc-800/50" : ""} rounded-md mb-2 cursor-pointer`}
-              onClick={() => toggleSection("database")}
+              className={`p-2 ${expandedSections.Database ? "bg-zinc-100/50 dark:bg-zinc-800/50" : ""} rounded-md mb-2 cursor-pointer`}
+              onClick={() => toggleSection("Database")}
             >
               <div className="flex items-center gap-2 text-zinc-700 dark:text-zinc-300 font-medium text-sm">
                 <HardDrive className="h-4 w-4 text-[#7dff00]" />
                 <span>Database</span>
               </div>
 
-              {expandedSections.database && (
+              {expandedSections.Database && (
                 <div className="space-y-1 ml-6 mt-2">
                   {databaseFiles.map((file) => (
                     <div
