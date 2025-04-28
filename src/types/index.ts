@@ -344,7 +344,7 @@ export type FileType = {
   id: string
   name: string
   path: string
-  type: "endpoint" | "model" | "schema" | "config" | "migration" | "helpers" | "docs" | "api_docs"
+  type: "endpoint" | "model" | "schema" | "config" | "migration" | "helpers" | "database" | "docs" | "api_docs"
   code: string
   method?: MethodType
 }
@@ -443,4 +443,26 @@ export interface FileObject {
   entity_name?: string
   endpoint_id?: string
   exists?: boolean
+}
+export interface DatabaseFile {
+  name: string
+  path: string
+  size: number
+  type: string
+}
+
+export interface TableInfo {
+  name: string
+  row_count: number
+  columns: Array<{
+    name: string
+    type: string
+    nullable: boolean
+    primaryKey: boolean
+  }>
+}
+
+export interface DatabaseResponse {
+  status_code: number
+  data: any
 }

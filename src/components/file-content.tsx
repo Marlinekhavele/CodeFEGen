@@ -10,6 +10,7 @@ import { Loader2, RefreshCw, Code, FileText } from "lucide-react"
 import ReactMarkdown from "react-markdown"
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter"
 import { vscDarkPlus, vs } from "react-syntax-highlighter/dist/esm/styles/prism"
+import { DatabaseViewer } from "@/components/database-viewer"
 
 type FileContentProps = {
   selectedFile: string | null
@@ -511,6 +512,10 @@ export function FileContent({
               </div>
             )}
           </div>
+        </TabsContent>
+
+        <TabsContent value="database" className="flex-1 h-[calc(100%-48px)]">
+          <DatabaseViewer projectId={projectId || ""} theme={theme} />
         </TabsContent>
       </Tabs>
     </div>
