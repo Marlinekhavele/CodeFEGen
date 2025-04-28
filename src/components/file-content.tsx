@@ -348,6 +348,14 @@ export function FileContent({
     
     return file.type === "endpoint" ? "Endpoint Documentation" : "API Documentation"
   }
+  useEffect(() => {
+    if (selectedFile) {
+      const file = files.find(f => f.id === selectedFile);
+      if (file?.type === "database") {
+        setActiveTab("database");
+      }
+    }
+  }, [selectedFile, files, setActiveTab]);
 
   return (
     <div className="rounded-lg overflow-hidden border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 h-full flex flex-col">
@@ -393,6 +401,12 @@ export function FileContent({
               className="text-xs data-[state=active]:bg-[#7dff00] data-[state=active]:text-black"
             >
               Docs
+            </TabsTrigger>
+            <TabsTrigger
+              value="database"
+              className="text-xs data-[state=active]:bg-[#7dff00] data-[state=active]:text-black"
+            >
+              Database
             </TabsTrigger>
           </TabsList>
         </div>
@@ -543,7 +557,11 @@ export function FileContent({
         </TabsContent>
 
         <TabsContent value="database" className="flex-1 h-[calc(100%-48px)]">
-          <DatabaseViewer projectId={projectId || ""} theme={theme} />
+          <DatabaseViewer 
+            projectId={projectId || ""} 
+            dbFilename={files.find(f => f.id === selectedFile)?.name || ""} 
+            theme={theme} 
+          />
         </TabsContent>
       </Tabs>
     </div>
