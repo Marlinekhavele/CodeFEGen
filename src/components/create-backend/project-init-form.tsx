@@ -28,7 +28,7 @@ export function ProjectInitForm({ onProjectInitialized }: ProjectInitFormProps) 
     defaultValues: {
       project_name: "",
       language: "python",
-      framework: "flask",
+      framework: "fastapi",
     },
   })
 
@@ -103,13 +103,13 @@ export function ProjectInitForm({ onProjectInitialized }: ProjectInitFormProps) 
                 <FormLabel>Language</FormLabel>
                 <Select onValueChange={field.onChange} defaultValue={field.value}>
                   <FormControl>
-                    <SelectTrigger className="focus:border-[#7dff00] focus:ring-[#7dff00]/20">
+                    <SelectTrigger className="text-white focus:border-[#7dff00] focus:ring-[#7dff00]/20">
                       <SelectValue placeholder="Select a language" />
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
                     {languages.map((language) => (
-                      <SelectItem key={language.value} value={language.value}>
+                      <SelectItem key={language.value} value={language.value} className="text-white">
                         {language.label}
                       </SelectItem>
                     ))}
@@ -132,13 +132,13 @@ export function ProjectInitForm({ onProjectInitialized }: ProjectInitFormProps) 
                   disabled={!selectedLanguage}
                 >
                   <FormControl>
-                    <SelectTrigger className="focus:border-[#7dff00] focus:ring-[#7dff00]/20">
+                    <SelectTrigger className="text-white focus:border-[#7dff00] focus:ring-[#7dff00]/20">
                       <SelectValue placeholder="Select a framework" />
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
                     {selectedLanguage && frameworks[selectedLanguage as keyof typeof frameworks].map((framework) => (
-                      <SelectItem key={framework.value} value={framework.value}>
+                      <SelectItem key={framework.value} value={framework.value} className="text-white">
                         {framework.label}
                       </SelectItem>
                     ))}

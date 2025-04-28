@@ -58,6 +58,7 @@ export default function BackendEditorClient({
       const axiosInstance = createAxiosInstance('', 'v1')
       
       try {
+        setIsPageLoading(true); // 🟢 Start page loading immediately
         console.log("Fetching endpoints for project:", urlFriendlyName)
         
         // Fetch endpoints
@@ -324,6 +325,8 @@ export default function BackendEditorClient({
           description: error instanceof Error ? error.message : "Failed to fetch files",
           variant: "destructive"
         })
+      } finally {
+        setIsPageLoading(false); // 🛑 Stop page loading when fetch is done (whether success or error)
       }
     }
     if (urlFriendlyName) {
@@ -720,6 +723,7 @@ export default function BackendEditorClient({
   const handleEndpointDetailsSubmit = (details: EndpointDetails) => {
     // Set the generation state
     setIsEndpointCreating(true);
+    console.log("Set isEndpointCreating to true");
     
     // First, create the endpoint structure using the API service
     const endpointService = new EndPointService();
@@ -776,8 +780,10 @@ export default function BackendEditorClient({
         })
       }
       
-      // End the generation state
-      setIsGenerating(false);
+      // Add a deliberate delay to ensure loading state is visible
+      setTimeout(() => {
+        setIsEndpointCreating(false);
+      }, 3000); 
       
       // Focus the AI chat input if possible
       const aiChatInput = document.querySelector('.ai-chat-input') as HTMLTextAreaElement;
@@ -820,7 +826,7 @@ export default function BackendEditorClient({
   };
 
   return (
-    <div className="flex min-h-screen flex-col bg-zinc-100 text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100">
+    <div className="flex min-h-screen flex-col bg-zinc-100 text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100 p-2">
       <ProjectHeader 
         projectName={projectName}
         urlFriendlyName={urlFriendlyName}
@@ -848,56 +854,87 @@ export default function BackendEditorClient({
 
       <main className="flex-1">
         <div className="container py-6">
-          <div className="grid grid-cols-[280px_1fr_300px] gap-6" style={{ height: "calc(100vh - 200px)" }}>
-            {/* Project Files */}
-            <ProjectFiles 
-              files={files}
-              selectedFile={selectedFile}
-              setSelectedFile={setSelectedFile}
-              generatedData={generatedData}
-              onGenerateAdditionalCode={handleGenerateAdditionalCode}
-              onSelectGeneratedFile={handleSelectGeneratedFile}
-              onEndpointDetailsSubmit={handleEndpointDetailsSubmit}
-              isGenerating={isGenerating}
-              onCreateEndpoint={handleOpenEndpointModal}
-              projectLanguage={projectLanguage}
-              projectFramework={projectFramework}
-            />
-
-            {/* File Content */}
-            <FileContent 
-              selectedFile={selectedFile}
-              currentCode={currentCode}
-              files={files}
-              onCodeChange={setCurrentCode}
-              theme={theme}
-              streamingCode={streamingCode}
-              projectId={urlFriendlyName}
-              activeTab={activeTab}
-              setActiveTab={setActiveTab}
-            />
-
-            {/* AI Chat Panel */}
-            <div className="h-full">
-              <AIChat 
-                projectId={urlFriendlyName || projectName} 
-                onFileGenerated={handleFileGenerated}
-                endpointDetails={endpointDetails}
-                projectLanguage={projectLanguage}
-                projectFramework={projectFramework}
-                selectedFile={selectedFile ? files.find(f => f.id === selectedFile) : null}
-              />
-              <EndpointModal
-                isOpen={isEndpointModalOpen}
-                onClose={() => setIsEndpointModalOpen(false)}
-                onSubmit={handleEndpointDetailsSubmit}
-                projectLanguage={projectLanguage}
-                projectFramework={projectFramework}
-              />
+          {isAnyLoading ? (
+            <div className="grid grid-cols-[280px_1fr_300px] gap-6" style={{ height: "calc(100vh - 200px)" }}>
+              {/* Left Side (Project Files Skeleton) */}
+              <div className="space-y-4 animate-[pulse_2s_ease-in-out_infinite]">
+                <div className="h-10 bg-zinc-700/60 rounded-md backdrop-blur-sm" />
+                <div className="h-6 bg-zinc-700/50 rounded-md backdrop-blur-sm" />
+                <div className="h-6 bg-zinc-700/50 rounded-md backdrop-blur-sm" />
+                <div className="h-6 bg-zinc-700/50 rounded-md backdrop-blur-sm" />
+                <div className="h-6 bg-zinc-700/50 rounded-md backdrop-blur-sm" />
+              </div>
+          
+              {/* Center (Code Editor Skeleton) */}
+              <div className="flex flex-col space-y-4 animate-[pulse_2s_ease-in-out_infinite]">
+                <div className="h-10 bg-zinc-700/60 rounded-md backdrop-blur-sm" />
+                <div className="flex-1 bg-zinc-800/50 rounded-md backdrop-blur-sm" />
+              </div>
+          
+              {/* Right Side (AI Chat Panel Skeleton) */}
+              <div className="flex flex-col space-y-4 animate-[pulse_2s_ease-in-out_infinite]">
+                <div className="h-10 bg-zinc-700/60 rounded-md backdrop-blur-sm" />
+                <div className="flex-1 bg-zinc-800/50 rounded-md backdrop-blur-sm" />
+              </div>
             </div>
-          </div>
+          ) : (
+            <div className="grid grid-cols-[280px_1fr_300px] gap-6" style={{ height: "calc(100vh - 200px)" }}>
+              {/* Project Files */}
+              <ProjectFiles 
+                files={files}
+                selectedFile={selectedFile}
+                setSelectedFile={setSelectedFile}
+                generatedData={generatedData}
+                onGenerateAdditionalCode={handleGenerateAdditionalCode}
+                onSelectGeneratedFile={handleSelectGeneratedFile}
+                onEndpointDetailsSubmit={handleEndpointDetailsSubmit}
+                isGenerating={isGenerating}
+                onCreateEndpoint={handleOpenEndpointModal}
+                projectLanguage={projectLanguage}
+                projectFramework={projectFramework}
+              />
+
+              {/* File Content */}
+              <FileContent 
+                selectedFile={selectedFile}
+                currentCode={currentCode}
+                files={files}
+                onCodeChange={setCurrentCode}
+                theme={theme}
+                streamingCode={streamingCode}
+                projectId={urlFriendlyName}
+                activeTab={activeTab}
+                setActiveTab={setActiveTab}
+              />
+
+              {/* AI Chat Panel */}
+              <div className="h-full">
+                <AIChat 
+                  projectId={urlFriendlyName || projectName} 
+                  onFileGenerated={handleFileGenerated}
+                  endpointDetails={endpointDetails}
+                  projectLanguage={projectLanguage}
+                  projectFramework={projectFramework}
+                  selectedFile={selectedFile ? files.find(f => f.id === selectedFile) : null}
+                />
+                <EndpointModal
+                  isOpen={isEndpointModalOpen}
+                  onClose={() => {
+                    if (!isEndpointCreating) {
+                      setIsEndpointModalOpen(false);
+                    }
+                  }}
+                  onSubmit={handleEndpointDetailsSubmit}
+                  projectLanguage={projectLanguage}
+                  projectFramework={projectFramework}
+                  isLoading={isEndpointCreating}
+                />
+              </div>
+            </div>
+          )}
         </div>
       </main>
+
     </div>
   )
 }
