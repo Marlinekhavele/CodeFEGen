@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -27,11 +27,18 @@ type TableInfo = {
     nullable: boolean
     primaryKey: boolean
   }[]
+  rows?: Record<string, any>[]
 }
+
 
 type TableRow = Record<string, any>
 
-export function DatabaseViewer({ projectId, theme }: { projectId: string; theme?: string }) {
+type DatabaseViewerProps = { 
+  projectId: string; 
+  theme?: string;
+  dbFilename?: string;
+}
+export function DatabaseViewer({ projectId, theme, dbFilename }: DatabaseViewerProps) {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [dbFiles, setDbFiles] = useState<DatabaseFile[]>([])
@@ -44,6 +51,17 @@ export function DatabaseViewer({ projectId, theme }: { projectId: string; theme?
   const [viewMode, setViewMode] = useState<"tables" | "full">("tables")
 
   const endpointService = new EndPointService()
+  useEffect(() => {
+    if (selectedTable) {
+      console.log("Selected table data:", {
+        tableName: selectedTable,
+        tableInfo: tables.find(t => t.name === selectedTable),
+        rowCount: tables.find(t => t.name === selectedTable)?.rowCount,
+        actualRowsLength: tableRows.length
+      });
+    }
+  }, [selectedTable, tables, tableRows]);
+
 
   // Fetch database files when component mounts or projectId changes
   useEffect(() => {
@@ -51,16 +69,18 @@ export function DatabaseViewer({ projectId, theme }: { projectId: string; theme?
       setIsLoading(false)
       return
     }
-
+  
     const fetchDatabaseFiles = async () => {
       setIsLoading(true)
       setError(null)
       try {
         const files = await endpointService.getDatabaseFiles(projectId)
         setDbFiles(files)
-
-        // Auto-select the first database file if available
-        if (files.length > 0 && !selectedDbFile) {
+  
+        // Use the provided dbFilename or default to the first one
+        if (dbFilename && files.some(file => file.name === dbFilename)) {
+          setSelectedDbFile(dbFilename)
+        } else if (files.length > 0 && !selectedDbFile) {
           setSelectedDbFile(files[0].name)
         }
       } catch (err) {
@@ -70,9 +90,9 @@ export function DatabaseViewer({ projectId, theme }: { projectId: string; theme?
         setIsLoading(false)
       }
     }
-
+  
     fetchDatabaseFiles()
-  }, [projectId, refreshKey])
+  }, [projectId, dbFilename, refreshKey])
 
   // Fetch tables when a database file is selected
   useEffect(() => {
@@ -82,7 +102,9 @@ export function DatabaseViewer({ projectId, theme }: { projectId: string; theme?
       setIsLoading(true)
       setError(null)
       try {
+        console.log(`Fetching tables for ${selectedDbFile} in project ${projectId}`);
         const tables = await endpointService.getDatabaseTables(projectId, selectedDbFile)
+        console.log("Tables response:", tables);
         setTables(tables)
 
         // Auto-select the first table if available
@@ -100,26 +122,116 @@ export function DatabaseViewer({ projectId, theme }: { projectId: string; theme?
     fetchTables()
   }, [projectId, selectedDbFile, refreshKey])
 
-  // Fetch table rows when a table is selected
   useEffect(() => {
-    if (!projectId || !selectedDbFile || !selectedTable) return
-
-    const fetchTableRows = async () => {
-      setIsLoading(true)
-      setError(null)
-      try {
-        const rows = await endpointService.getTableRows(projectId, selectedDbFile, selectedTable)
-        setTableRows(rows)
-      } catch (err) {
-        console.error("Error fetching table rows:", err)
-        setError(err instanceof Error ? err.message : "Failed to fetch table rows")
-      } finally {
-        setIsLoading(false)
+    // This ensures we don't lose data when view mode changes
+    if (viewMode === "full" && selectedDbFile) {
+      console.log("Loading full view for database:", selectedDbFile);
+      const fetchFullDatabaseView = async () => {
+        try {
+          setIsLoading(true);
+          
+          // Try to get full database view
+          const fullView = await endpointService.getFullDatabaseView(projectId);
+          console.log("Full database view data:", fullView);
+          
+          if (fullView && fullView.length > 0) {
+            // Find the current database in full view
+            const dbInfo = fullView.find((db: any) => db.db_file === selectedDbFile);
+            if (dbInfo && dbInfo.tables) {
+              console.log(`Processing tables data for ${selectedDbFile}:`, dbInfo.tables);
+              setTables(dbInfo.tables.map((table: any) => ({
+                name: table.name,
+                rowCount: table.rows?.length || 0,
+                columns: extractColumnsFromRows(table.rows || []),
+                rows: table.rows || []
+              })));
+            }
+          }
+        } catch (error) {
+          console.error("Error fetching full database view:", error);
+          setError("Failed to fetch full database view");
+        } finally {
+          setIsLoading(false);
+        }
       }
+      
+      fetchFullDatabaseView();
+      
     }
+  }, [viewMode, selectedDbFile, projectId]);
+  
+  // Add these helper functions to your component
+  const extractColumnsFromRows = (rows: any[]): any[] => {
+    if (!rows || rows.length === 0) return [];
+    
+    // Get sample row to extract columns
+    const sampleRow = rows[0];
+    const columnNames = Object.keys(sampleRow);
+    
+    return columnNames.map(name => {
+      return {
+        name: name,
+        type: inferColumnType(rows[0][name]),
+        nullable: rows.some(row => row[name] === null),
+        primaryKey: name.toLowerCase() === 'id' || name.toLowerCase().endsWith('_id')
+      };
+    });
+  };
+  
+  const inferColumnType = (value: any): string => {
+    if (value === null || value === undefined) return "unknown";
+    
+    const type = typeof value;
+    
+    switch (type) {
+      case "number":
+        return Number.isInteger(value) ? "integer" : "float";
+      case "string":
+        return "text";
+      case "boolean":
+        return "boolean";
+      case "object":
+        return "json";
+      default:
+        return type;
+    }
+  };
 
-    fetchTableRows()
-  }, [projectId, selectedDbFile, selectedTable, refreshKey])
+  useEffect(() => {
+    if (!projectId || !selectedDbFile || !selectedTable) return;
+  
+    const fetchTableRows = async () => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        console.log(`Fetching rows for table ${selectedTable} in ${selectedDbFile}`);
+        const rows = await endpointService.getTableRows(projectId, selectedDbFile, selectedTable);
+        console.log(`Received ${rows.length} rows for table ${selectedTable}:`, rows);
+        
+        setTableRows(rows);
+        
+        // IMPORTANT: Update the table's row count in the tables state
+        if (tables.find(t => t.name === selectedTable)?.rowCount !== rows.length) {
+          console.log(`Updating row count for ${selectedTable} from ${tables.find(t => t.name === selectedTable)?.rowCount} to ${rows.length}`);
+          
+          setTables(prevTables => 
+            prevTables.map(table => 
+              table.name === selectedTable 
+                ? { ...table, rowCount: rows.length }
+                : table
+            )
+          );
+        }
+      } catch (err) {
+        console.error("Error fetching table rows:", err);
+        setError(err instanceof Error ? err.message : "Failed to fetch table rows");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+  
+    fetchTableRows();
+  }, [projectId, selectedDbFile, selectedTable, refreshKey]);
 
   // Handle refresh button click
   const handleRefresh = () => {
@@ -131,7 +243,8 @@ export function DatabaseViewer({ projectId, theme }: { projectId: string; theme?
 
   // Get column names from the first row
   const getColumnNames = () => {
-    if (tableRows.length === 0) return []
+    if (tableRows.length === 0) return [];
+    console.log("First row in tableRows:", tableRows[0]);
     return Object.keys(tableRows[0])
   }
 
@@ -279,25 +392,33 @@ export function DatabaseViewer({ projectId, theme }: { projectId: string; theme?
             </SelectContent>
           </Select>
 
-          <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-2">
+            <Tabs value={viewMode} onValueChange={(val) => setViewMode(val as "tables" | "full")}>
             <TabsList>
-              <TabsTrigger
-                value="tables"
-                onClick={() => setViewMode("tables")}
-                className={viewMode === "tables" ? "bg-[#7dff00] text-black" : ""}
-              >
-                <Table className="h-4 w-4 mr-2" />
-                Tables
-              </TabsTrigger>
-              <TabsTrigger
-                value="full"
-                onClick={() => setViewMode("full")}
-                className={viewMode === "full" ? "bg-[#7dff00] text-black" : ""}
-              >
-                <FileText className="h-4 w-4 mr-2" />
-                Full View
-              </TabsTrigger>
-            </TabsList>
+                <TabsTrigger
+                  value="tables"
+                  onClick={() => {
+                    console.log("Switching to tables view");
+                    setViewMode("tables");
+                  }}
+                  className={viewMode === "tables" ? "bg-[#7dff00] text-black" : ""}
+                >
+                  <Table className="h-4 w-4 mr-2" />
+                  Tables
+                </TabsTrigger>
+                <TabsTrigger
+                  value="full"
+                  onClick={() => {
+                    console.log("Switching to full view");
+                    setViewMode("full");
+                  }}
+                  className={viewMode === "full" ? "bg-[#7dff00] text-black" : ""}
+                >
+                  <FileText className="h-4 w-4 mr-2" />
+                  Full View
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>  
           </div>
         </div>
 
@@ -317,6 +438,21 @@ export function DatabaseViewer({ projectId, theme }: { projectId: string; theme?
         </div>
       </div>
 
+      {isLoading && (
+        <div className="bg-yellow-100 dark:bg-yellow-900/20 p-2 text-xs">
+          Loading data...
+        </div>
+      )}
+      {error && (
+        <div className="bg-red-100 dark:bg-red-900/20 p-2 text-xs">
+          Error: {error}
+        </div>
+      )}
+      {!isLoading && !error && tables.length === 0 && (
+        <div className="bg-blue-100 dark:bg-blue-900/20 p-2 text-xs">
+          No tables found in database. View mode: {viewMode}
+        </div>
+      )}            
       <div className="flex flex-1 overflow-hidden">
         {viewMode === "tables" ? (
           <div className="flex flex-1 overflow-hidden">
@@ -359,7 +495,7 @@ export function DatabaseViewer({ projectId, theme }: { projectId: string; theme?
                       {selectedTable}
                     </h2>
                     <p className="text-sm text-zinc-500 dark:text-zinc-400">
-                      {tables.find((t) => t.name === selectedTable)?.rowCount || 0} rows
+                    {tables.find((t) => t.name === selectedTable)?.rowCount || 0} rows (Actual: {tableRows.length} rows)
                     </p>
                   </div>
 
@@ -432,90 +568,127 @@ export function DatabaseViewer({ projectId, theme }: { projectId: string; theme?
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <Accordion type="multiple" defaultValue={tables.map((t) => t.name)}>
-                  {tables.map((table) => (
-                    <AccordionItem key={table.name} value={table.name}>
-                      <AccordionTrigger className="hover:bg-zinc-50 dark:hover:bg-zinc-800/50 px-4">
-                        <div className="flex items-center">
-                          <Table className="h-4 w-4 mr-2" />
-                          <span>{table.name}</span>
-                          <Badge variant="outline" className="ml-2">
-                            {table.rowCount} rows
-                          </Badge>
-                        </div>
-                      </AccordionTrigger>
-                      <AccordionContent>
-                        <div className="pl-6 pr-4 pb-2">
-                          <div className="border rounded-md overflow-hidden">
-                            <table className="w-full">
-                              <thead>
-                                <tr className="bg-zinc-50 dark:bg-zinc-800 border-b border-zinc-200 dark:border-zinc-700">
-                                  <th className="px-4 py-2 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400">
-                                    Column
-                                  </th>
-                                  <th className="px-4 py-2 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400">
-                                    Type
-                                  </th>
-                                  <th className="px-4 py-2 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400">
-                                    Nullable
-                                  </th>
-                                  <th className="px-4 py-2 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400">
-                                    Primary Key
-                                  </th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {table.columns.map((column) => (
-                                  <tr
-                                    key={column.name}
-                                    className="border-b border-zinc-200 dark:border-zinc-700 last:border-0"
-                                  >
-                                    <td className="px-4 py-2 text-sm font-medium">{column.name}</td>
-                                    <td className="px-4 py-2 text-sm">
-                                      <Badge className={getColumnBadgeClass(column.type)}>{column.type}</Badge>
-                                    </td>
-                                    <td className="px-4 py-2 text-sm">
-                                      {column.nullable ? (
-                                        <Badge variant="outline" className="bg-zinc-100 dark:bg-zinc-800">
-                                          YES
-                                        </Badge>
-                                      ) : (
-                                        <Badge variant="outline" className="bg-amber-100 dark:bg-amber-900/20">
-                                          NO
-                                        </Badge>
-                                      )}
-                                    </td>
-                                    <td className="px-4 py-2 text-sm">
-                                      {column.primaryKey ? (
-                                        <Badge className="bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300">
-                                          PK
-                                        </Badge>
-                                      ) : (
-                                        <span className="text-zinc-400">-</span>
-                                      )}
-                                    </td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
+                {tables.length > 0 ? (
+                  <Accordion type="multiple" defaultValue={tables.map((t) => t.name)}>
+                    {tables.map((table) => (
+                      <AccordionItem key={table.name} value={table.name}>
+                        <AccordionTrigger className="hover:bg-zinc-50 dark:hover:bg-zinc-800/50 px-4">
+                          <div className="flex items-center">
+                            <Table className="h-4 w-4 mr-2" />
+                            <span>{table.name}</span>
+                            <Badge variant="outline" className="ml-2">
+                              {table.rows?.length || table.rowCount} rows
+                            </Badge>
                           </div>
-
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="mt-4"
-                            onClick={() => {
-                              setSelectedTable(table.name)
-                              setViewMode("tables")
-                            }}
-                          >
-                            View Data
-                          </Button>
-                        </div>
-                      </AccordionContent>
-                    </AccordionItem>
-                  ))}
-                </Accordion>
+                        </AccordionTrigger>
+                        <AccordionContent>
+                          <div className="pl-6 pr-4 pb-2 space-y-4">
+                            {/* Column Metadata Table */}
+                            <div className="border rounded-md overflow-hidden">
+                              <table className="w-full text-sm">
+                                <thead className="bg-zinc-50 dark:bg-zinc-800">
+                                  <tr>
+                                    <th className="px-4 py-2 text-left text-xs text-zinc-500 dark:text-zinc-400">Column</th>
+                                    <th className="px-4 py-2 text-left text-xs text-zinc-500 dark:text-zinc-400">Type</th>
+                                    <th className="px-4 py-2 text-left text-xs text-zinc-500 dark:text-zinc-400">Nullable</th>
+                                    <th className="px-4 py-2 text-left text-xs text-zinc-500 dark:text-zinc-400">Primary Key</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {table.columns.map((column) => (
+                                    <tr key={column.name}>
+                                      <td className="px-4 py-2">{column.name}</td>
+                                      <td className="px-4 py-2">
+                                        <Badge className={getColumnBadgeClass(column.type)}>{column.type}</Badge>
+                                      </td>
+                                      <td className="px-4 py-2">
+                                        {column.nullable ? (
+                                          <Badge variant="outline" className="bg-zinc-100 dark:bg-zinc-800">YES</Badge>
+                                        ) : (
+                                          <Badge variant="outline" className="bg-amber-100 dark:bg-amber-900/20">NO</Badge>
+                                        )}
+                                      </td>
+                                      <td className="px-4 py-2">
+                                        {column.primaryKey ? (
+                                          <Badge className="bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300">PK</Badge>
+                                        ) : (
+                                          <span className="text-zinc-400">-</span>
+                                        )}
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                      
+                            {/* Table Row Data */}
+                            {table.rows && table.rows.length > 0 ? (
+                              <div className="border rounded-md overflow-x-auto">
+                                <table className="w-full text-sm">
+                                  <thead className="bg-zinc-50 dark:bg-zinc-800">
+                                    <tr>
+                                      {Object.keys(table.rows[0]).map((col) => (
+                                        <th key={col} className="px-4 py-2 text-left text-xs text-zinc-500 dark:text-zinc-400">
+                                          {col}
+                                        </th>
+                                      ))}
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {table.rows?.map((row: Record<string, any>, rowIndex) => (
+                                      <tr key={rowIndex} className="border-b border-zinc-200 dark:border-zinc-700 last:border-0">
+                                        {Object.keys(row).map((col) => (
+                                          <td key={`${rowIndex}-${col}`} className="px-4 py-2">
+                                            {formatCellValue(row[col], col)}
+                                          </td>
+                                        ))}
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                            ) : (
+                              <div className="text-sm text-zinc-400">No rows found in this table</div>
+                            )}
+                      
+                            {/* Button to jump to this table in Tables View */}
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="mt-4"
+                              onClick={() => {
+                                setSelectedTable(table.name)
+                                setViewMode("tables")
+                              }}
+                            >
+                              View in Table Mode
+                            </Button>
+                          </div>
+                        </AccordionContent>
+                    </AccordionItem>                    
+                    ))}
+                  </Accordion>
+                ) : (
+                  <div className="p-4 text-center text-zinc-500 dark:text-zinc-400">
+                    {isLoading ? (
+                      <div className="flex items-center justify-center space-x-2">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <span>Loading tables data...</span>
+                      </div>
+                    ) : (
+                      <>
+                        No tables found in this database. 
+                        <Button 
+                          variant="link" 
+                          className="ml-2" 
+                          onClick={handleRefresh}
+                        >
+                          Refresh
+                        </Button>
+                      </>
+                    )}
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>
