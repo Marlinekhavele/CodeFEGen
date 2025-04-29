@@ -10,7 +10,8 @@ import {
   FileCode,
   TableIcon, 
   FolderTree,
-  CodeIcon
+  CodeIcon,
+  HardDrive,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { EndpointModal } from "@/components/endpoint-modal"
@@ -31,6 +32,9 @@ interface ProjectFilesProps {
   onEndpointDetailsSubmit: (details: any) => void
   projectLanguage: string
   projectFramework: string
+  onViewDatabase?: () => void
+  projectId: string
+
 }
 
 export function ProjectFiles({
@@ -45,6 +49,7 @@ export function ProjectFiles({
   isGenerating,
   projectLanguage,
   projectFramework,
+  onViewDatabase
 }: ProjectFilesProps) {
   // State to track expanded sections
   const [expandedSections, setExpandedSections] = useState({
@@ -53,7 +58,8 @@ export function ProjectFiles({
     schemas: true,
     config: true,
     migrations: true,
-    helpers: true
+    helpers: true,
+    Database: true,
   });
 
   // Added state for modal
@@ -96,6 +102,9 @@ export function ProjectFiles({
   // Function to normalize/clean filename
   const normalizeFileName = (file: FileType): string => {
     // Extract base name (without path or method)
+    if (file.type === "database") {
+      return file.name;
+    }
     let baseName = "";
     
     if (file.name) {
@@ -163,6 +172,7 @@ export function ProjectFiles({
   const migrations = getUniqueFilesByName(files.filter((file) => file.type === "migration"))
   const helpers = getUniqueFilesByName(files.filter((file) => file.type === "helpers"))
   const configFiles = getUniqueFilesByName(files.filter((file) => file.type === "config"))
+  const databaseFiles = getUniqueFilesByName(files.filter((file) => file.type === "database"))
 
   // Get method color and badge
   const getMethodBadge = (method: string) => {
@@ -409,6 +419,58 @@ export function ProjectFiles({
                   </div>
                 )}
               </div>
+              
+             {/* Database Section */}
+             <div
+              className={`p-2 ${expandedSections.Database ? "bg-zinc-100/50 dark:bg-zinc-800/50" : ""} rounded-md mb-2 cursor-pointer`}
+              onClick={() => toggleSection("Database")}
+            >
+              <div className="flex items-center gap-2 text-zinc-700 dark:text-zinc-300 font-medium text-sm">
+                <HardDrive className="h-4 w-4 text-[#7dff00]" />
+                <span>Database</span>
+              </div>
+
+              {expandedSections.Database && (
+                <div className="space-y-1 ml-6 mt-2">
+                  {databaseFiles.map((file) => (
+                    <div
+                      key={file.id}
+                      className={`flex items-center justify-between rounded-md px-2 py-1.5 text-sm ${
+                        selectedFile === file.id
+                          ? "bg-[#7dff00]/20 text-[#7dff00]"
+                          : "text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800"
+                      } cursor-pointer`}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setSelectedFile(file.id)
+                      }}
+                    >
+                      <div className="flex items-center gap-2">
+                        <HardDrive className="h-3 w-3" />
+                        <span>{file.name}</span>
+                      </div>
+                    </div>
+                  ))}
+                  {databaseFiles.length === 0 && (
+                    <div className="flex flex-col space-y-2">
+                      <div className="text-xs text-zinc-500 italic">No database files yet</div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="text-xs"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          if (onViewDatabase) onViewDatabase()
+                        }}
+                      >
+                        View Database
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
 
             {/* Helpers Section */}
             <div
