@@ -914,6 +914,7 @@ export default function BackendEditorClient({
                 onCreateEndpoint={handleOpenEndpointModal}
                 projectLanguage={projectLanguage}
                 projectFramework={projectFramework}
+                projectId={urlFriendlyName}
               />
 
               {/* File Content */}
