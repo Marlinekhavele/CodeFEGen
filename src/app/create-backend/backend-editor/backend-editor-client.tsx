@@ -84,8 +84,29 @@ export default function BackendEditorClient({
         // Fetch migrations
         const migrationResult = await endpointService.getMigrationList(urlFriendlyName)
         console.log("Migration list response:", migrationResult)
-
         let allFiles: FileType[] = []
+
+        // Fetch database files
+        try {
+          console.log(`Fetching database files for project: ${urlFriendlyName}`);
+          const databaseFiles = await endpointService.getDatabaseFiles(urlFriendlyName);
+          console.log("Database files response:", databaseFiles);
+          
+          if (databaseFiles && databaseFiles.length > 0) {
+            const dbFiles = databaseFiles.map((db) => ({
+              id: `database-${db.name}`,
+              name: db.name,
+              path: db.path || `/db/${db.name}`,
+              type: "database" as const,
+              // Either don't include the code property at all, or set it to empty string
+              code: ""
+            }));
+            
+            allFiles = [...allFiles, ...dbFiles];
+          }
+        } catch (error) {
+          console.error("Error fetching database files:", error);
+        }
 
         // Process endpoints
         if (endpointResult && endpointResult.length > 0) {
@@ -301,6 +322,7 @@ export default function BackendEditorClient({
           )
           allFiles = [...allFiles, ...migrationFiles]
         }
+        
         
 
 
@@ -892,6 +914,7 @@ export default function BackendEditorClient({
                 onCreateEndpoint={handleOpenEndpointModal}
                 projectLanguage={projectLanguage}
                 projectFramework={projectFramework}
+                projectId={urlFriendlyName}
               />
 
               {/* File Content */}
