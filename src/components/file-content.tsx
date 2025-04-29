@@ -36,9 +36,7 @@ export function FileContent({
   activeTab = "code",  // Default to code tab
   setActiveTab = () => {},  // Default empty function
 }: FileContentProps) {
-  // Find the selected file
-  const file = files.find((f) => f.id === selectedFile)
-
+  
   // State for documentation content
   const [documentation, setDocumentation] = useState<string>("# Select a file to view its documentation")
   const [isLoadingDocs, setIsLoadingDocs] = useState(false)
@@ -46,6 +44,12 @@ export function FileContent({
   const [docFetchError, setDocFetchError] = useState<string | null>(null)
   const [viewMode, setViewMode] = useState<"rendered" | "source">("rendered")
   
+  // Add state to handle database file detection
+  const [isDatabaseFile, setIsDatabaseFile] = useState(false)
+  
+  // Find the selected file
+  const file = files.find((f) => f.id === selectedFile)
+
   // Get entity name from the file
   const getEntityName = (file: FileType | undefined) => {
     if (!file) return null
@@ -55,12 +59,6 @@ export function FileContent({
     
     // For endpoints, try to extract entity name from the path or filename
     if (file.type === "endpoint") {
-      // Handle different file naming patterns:
-      // 1. order.get.py -> order
-      // 2. get_order.py -> order
-      // 3. order.py -> order
-      
-      // First, remove the extension
       const withoutExtension = fileName.replace(/\.[^/.]+$/, "")
       
       // Check if it follows pattern "resource.method.py" (like order.get.py)
@@ -140,6 +138,16 @@ export function FileContent({
       })
     }
   }, [selectedFile, file, currentCode, activeTab])
+
+  // Check if the selected file is a database file - FIXED HERE
+  useEffect(() => {
+    if (selectedFile) {
+      const selectedFileObj = files.find(f => f.id === selectedFile);
+      setIsDatabaseFile(selectedFileObj?.type === "database");
+    } else {
+      setIsDatabaseFile(false);
+    }
+  }, [selectedFile, files]);
 
   // Fetch documentation when tab changes to docs or selected file changes
   useEffect(() => {
@@ -348,14 +356,19 @@ export function FileContent({
     
     return file.type === "endpoint" ? "Endpoint Documentation" : "API Documentation"
   }
-  useEffect(() => {
-    if (selectedFile) {
-      const file = files.find(f => f.id === selectedFile);
-      if (file?.type === "database") {
-        setActiveTab("database");
-      }
-    }
-  }, [selectedFile, files, setActiveTab]);
+
+  // Render database viewer if the file is a database file
+  if (isDatabaseFile && selectedFile) {
+    return (
+      <div className="rounded-lg overflow-hidden border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 h-full flex flex-col">
+        <DatabaseViewer 
+          projectId={projectId || ""} 
+          dbFilename={files.find(f => f.id === selectedFile)?.name || ""} 
+          theme={theme} 
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="rounded-lg overflow-hidden border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 h-full flex flex-col">
@@ -401,12 +414,6 @@ export function FileContent({
               className="text-xs data-[state=active]:bg-[#7dff00] data-[state=active]:text-black"
             >
               Docs
-            </TabsTrigger>
-            <TabsTrigger
-              value="database"
-              className="text-xs data-[state=active]:bg-[#7dff00] data-[state=active]:text-black"
-            >
-              Database
             </TabsTrigger>
           </TabsList>
         </div>
@@ -554,14 +561,6 @@ export function FileContent({
               </div>
             )}
           </div>
-        </TabsContent>
-
-        <TabsContent value="database" className="flex-1 h-[calc(100%-48px)]">
-          <DatabaseViewer 
-            projectId={projectId || ""} 
-            dbFilename={files.find(f => f.id === selectedFile)?.name || ""} 
-            theme={theme} 
-          />
         </TabsContent>
       </Tabs>
     </div>

@@ -33,6 +33,7 @@ interface ProjectFilesProps {
   projectLanguage: string
   projectFramework: string
   onViewDatabase?: () => void
+  projectId: string
 
 }
 
