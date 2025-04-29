@@ -339,44 +339,125 @@ class EndpointService extends BaseService {
   public async getDatabaseTables(projectId: string, dbFilename: string): Promise<any[]> {
     try {
       console.log(`Fetching database tables for ${dbFilename} in project: ${projectId}`);
+      
+      // Get the full database view for complete information
+      const fullViewRes = await this.getFullDatabaseView(projectId);
+      console.log("Full DB view response:", fullViewRes);
+      
+      if (fullViewRes && Array.isArray(fullViewRes)) {
+        // Find the current database in the full view
+        const dbInfo = fullViewRes.find((db: any) => db.db_file === dbFilename);
+        
+        if (dbInfo && dbInfo.tables) {
+          // Process each table from the full view
+          const tablesWithDetails = dbInfo.tables.map((table: any) => {
+            console.log(`Processing table ${table.name}, rows:`, table.rows);
+            
+            // Extract column information from rows
+            const columns = this.extractColumnsFromRows(table.rows);
+            
+            return {
+              name: table.name,
+              rowCount: table.rows.length,
+              columns: columns
+            };
+          });
+          
+          return tablesWithDetails;
+        }
+      }
+      
+      // Fallback to the basic tables endpoint if full view fails
       const res = await this.get<DBTableListSuccessResponse>(`/${projectId}/db/${dbFilename}/tables`);
       
       if (res.status_code === 200 && Array.isArray(res.data)) {
-        // Assuming we can get column information in the same format
-        return res.data.map((table) => {
-          // If the response already includes columns and row_count, use them
-          if (table.columns && table.row_count !== undefined) {
-            return {
-              name: table.name,
-              columns: table.columns,
-              rowCount: table.row_count
-            };
-          }
-          
-          // Otherwise, we'll need to make additional calls to get column info
-          // This is where you would fetch column information in a similar way to rows
-          // For now, return with empty columns array
-          return {
-            name: table.name,
-            columns: [],
-            rowCount: 0
-          };
-        });
+        // Process each table with minimal information
+        const tablesWithBasicInfo = await Promise.all(
+          res.data.map(async (table) => {
+            try {
+              // Fetch rows to get count and infer columns
+              const rows = await this.getTableRows(projectId, dbFilename, table.name);
+              
+              return {
+                name: table.name,
+                rowCount: rows.length,
+                columns: this.extractColumnsFromRows(rows)
+              };
+            } catch (error) {
+              console.error(`Error processing table ${table.name}:`, error);
+              return {
+                name: table.name,
+                rowCount: 0,
+                columns: []
+              };
+            }
+          })
+        );
+        
+        return tablesWithBasicInfo;
       }
       
       return [];
     } catch (error) {
       console.error(`Error fetching tables for database ${dbFilename}:`, error);
-      throw error;
+      // Return empty array to prevent UI disruption
+      return [];
     }
   }
-
-  public async getTableColumns(projectId: string, dbFilename: string, tableName: string): Promise<Column[]> {
+  
+  // Helper to extract column information from row data
+  private extractColumnsFromRows(rows: any[]): any[] {
+    if (!rows || rows.length === 0) return [];
+    
+    // Get sample row to extract columns
+    const sampleRow = rows[0];
+    const columnNames = Object.keys(sampleRow);
+    
+    return columnNames.map(name => {
+      // Collect values for this column to help determine type and nullability
+      const values = rows.map(row => row[name]);
+      const nonNullValues = values.filter(v => v !== null && v !== undefined);
+      
+      return {
+        name: name,
+        type: this.inferColumnType(nonNullValues[0]),
+        nullable: values.some(v => v === null || v === undefined),
+        primaryKey: name.toLowerCase() === 'id' || name.toLowerCase().endsWith('_id')
+      };
+    });
+  }
+  
+  // Method to infer column type from a value
+  private inferColumnType(value: any): string {
+    if (value === null || value === undefined) return "unknown";
+    
+    const type = typeof value;
+    
+    switch (type) {
+      case "number":
+        return Number.isInteger(value) ? "integer" : "float";
+      case "string":
+        // Try to detect if it's a date
+        if (!isNaN(Date.parse(value))) return "datetime";
+        // Try to detect if it's a UUID
+        if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)) 
+          return "uuid";
+        return "text";
+      case "boolean":
+        return "boolean";
+      case "object":
+        if (Array.isArray(value)) return "array";
+        return "json";
+      default:
+        return type;
+    }
+  }
+  
+  // Update getFullDatabaseView to return directly the data array
+  public async getFullDatabaseView(projectId: string, rowLimit: number = 10): Promise<any[]> {
     try {
-      console.log(`Fetching columns for table ${tableName} in database ${dbFilename}`);
-      // This is the endpoint we're assuming exists or would be created
-      const res = await this.get<{status_code: number, success: boolean, data: Column[]}>
-        (`/${projectId}/db/${dbFilename}/tables/${tableName}/columns`);
+      console.log(`Fetching full database view for project: ${projectId}`);
+      const res = await this.get<any>(`/${projectId}/db/full-view?row_limit=${rowLimit}`);
       
       if (res.status_code === 200 && Array.isArray(res.data)) {
         return res.data;
@@ -384,8 +465,7 @@ class EndpointService extends BaseService {
       
       return [];
     } catch (error) {
-      console.error(`Error fetching columns for table ${tableName}:`, error);
-      // Return empty array instead of throwing to handle gracefully
+      console.error("Error fetching full database view:", error);
       return [];
     }
   }
@@ -407,21 +487,6 @@ class EndpointService extends BaseService {
     }
   }
 
-  public async getFullDatabaseView(projectId: string, rowLimit: number = 10): Promise<any> {
-    try {
-      console.log(`Fetching full database view for project: ${projectId}`);
-      const res = await this.get<any>(`/${projectId}/db/full-view?row_limit=${rowLimit}`);
-
-      if (res.status_code === 200) {
-        return res.data;
-      }
-
-      return null;
-    } catch (error) {
-      console.error("Error fetching full database view:", error);
-      throw error;
-    }
-  }
 }
 
 export default EndpointService;
