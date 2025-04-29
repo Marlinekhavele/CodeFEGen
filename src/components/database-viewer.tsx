@@ -30,13 +30,12 @@ type TableInfo = {
   rows?: Record<string, any>[]
 }
 
-
 type TableRow = Record<string, any>
 
-type DatabaseViewerProps = { 
-  projectId: string; 
-  theme?: string;
-  dbFilename?: string;
+type DatabaseViewerProps = {
+  projectId: string
+  theme?: string
+  dbFilename?: string
 }
 export function DatabaseViewer({ projectId, theme, dbFilename }: DatabaseViewerProps) {
   const [isLoading, setIsLoading] = useState(true)
@@ -55,13 +54,12 @@ export function DatabaseViewer({ projectId, theme, dbFilename }: DatabaseViewerP
     if (selectedTable) {
       console.log("Selected table data:", {
         tableName: selectedTable,
-        tableInfo: tables.find(t => t.name === selectedTable),
-        rowCount: tables.find(t => t.name === selectedTable)?.rowCount,
-        actualRowsLength: tableRows.length
-      });
+        tableInfo: tables.find((t) => t.name === selectedTable),
+        rowCount: tables.find((t) => t.name === selectedTable)?.rowCount,
+        actualRowsLength: tableRows.length,
+      })
     }
-  }, [selectedTable, tables, tableRows]);
-
+  }, [selectedTable, tables, tableRows])
 
   // Fetch database files when component mounts or projectId changes
   useEffect(() => {
@@ -69,16 +67,16 @@ export function DatabaseViewer({ projectId, theme, dbFilename }: DatabaseViewerP
       setIsLoading(false)
       return
     }
-  
+
     const fetchDatabaseFiles = async () => {
       setIsLoading(true)
       setError(null)
       try {
         const files = await endpointService.getDatabaseFiles(projectId)
         setDbFiles(files)
-  
+
         // Use the provided dbFilename or default to the first one
-        if (dbFilename && files.some(file => file.name === dbFilename)) {
+        if (dbFilename && files.some((file) => file.name === dbFilename)) {
           setSelectedDbFile(dbFilename)
         } else if (files.length > 0 && !selectedDbFile) {
           setSelectedDbFile(files[0].name)
@@ -90,7 +88,7 @@ export function DatabaseViewer({ projectId, theme, dbFilename }: DatabaseViewerP
         setIsLoading(false)
       }
     }
-  
+
     fetchDatabaseFiles()
   }, [projectId, dbFilename, refreshKey])
 
@@ -102,9 +100,9 @@ export function DatabaseViewer({ projectId, theme, dbFilename }: DatabaseViewerP
       setIsLoading(true)
       setError(null)
       try {
-        console.log(`Fetching tables for ${selectedDbFile} in project ${projectId}`);
+        console.log(`Fetching tables for ${selectedDbFile} in project ${projectId}`)
         const tables = await endpointService.getDatabaseTables(projectId, selectedDbFile)
-        console.log("Tables response:", tables);
+        console.log("Tables response:", tables)
         setTables(tables)
 
         // Auto-select the first table if available
@@ -125,113 +123,112 @@ export function DatabaseViewer({ projectId, theme, dbFilename }: DatabaseViewerP
   useEffect(() => {
     // This ensures we don't lose data when view mode changes
     if (viewMode === "full" && selectedDbFile) {
-      console.log("Loading full view for database:", selectedDbFile);
+      console.log("Loading full view for database:", selectedDbFile)
       const fetchFullDatabaseView = async () => {
         try {
-          setIsLoading(true);
-          
+          setIsLoading(true)
+
           // Try to get full database view
-          const fullView = await endpointService.getFullDatabaseView(projectId);
-          console.log("Full database view data:", fullView);
-          
+          const fullView = await endpointService.getFullDatabaseView(projectId)
+          console.log("Full database view data:", fullView)
+
           if (fullView && fullView.length > 0) {
             // Find the current database in full view
-            const dbInfo = fullView.find((db: any) => db.db_file === selectedDbFile);
+            const dbInfo = fullView.find((db: any) => db.db_file === selectedDbFile)
             if (dbInfo && dbInfo.tables) {
-              console.log(`Processing tables data for ${selectedDbFile}:`, dbInfo.tables);
-              setTables(dbInfo.tables.map((table: any) => ({
-                name: table.name,
-                rowCount: table.rows?.length || 0,
-                columns: extractColumnsFromRows(table.rows || []),
-                rows: table.rows || []
-              })));
+              console.log(`Processing tables data for ${selectedDbFile}:`, dbInfo.tables)
+              setTables(
+                dbInfo.tables.map((table: any) => ({
+                  name: table.name,
+                  rowCount: table.rows?.length || 0,
+                  columns: extractColumnsFromRows(table.rows || []),
+                  rows: table.rows || [],
+                })),
+              )
             }
           }
         } catch (error) {
-          console.error("Error fetching full database view:", error);
-          setError("Failed to fetch full database view");
+          console.error("Error fetching full database view:", error)
+          setError("Failed to fetch full database view")
         } finally {
-          setIsLoading(false);
+          setIsLoading(false)
         }
       }
-      
-      fetchFullDatabaseView();
-      
+
+      fetchFullDatabaseView()
     }
-  }, [viewMode, selectedDbFile, projectId]);
-  
+  }, [viewMode, selectedDbFile, projectId])
+
   // Add these helper functions to your component
   const extractColumnsFromRows = (rows: any[]): any[] => {
-    if (!rows || rows.length === 0) return [];
-    
+    if (!rows || rows.length === 0) return []
+
     // Get sample row to extract columns
-    const sampleRow = rows[0];
-    const columnNames = Object.keys(sampleRow);
-    
-    return columnNames.map(name => {
+    const sampleRow = rows[0]
+    const columnNames = Object.keys(sampleRow)
+
+    return columnNames.map((name) => {
       return {
         name: name,
         type: inferColumnType(rows[0][name]),
-        nullable: rows.some(row => row[name] === null),
-        primaryKey: name.toLowerCase() === 'id' || name.toLowerCase().endsWith('_id')
-      };
-    });
-  };
-  
+        nullable: rows.some((row) => row[name] === null),
+        primaryKey: name.toLowerCase() === "id" || name.toLowerCase().endsWith("_id"),
+      }
+    })
+  }
+
   const inferColumnType = (value: any): string => {
-    if (value === null || value === undefined) return "unknown";
-    
-    const type = typeof value;
-    
+    if (value === null || value === undefined) return "unknown"
+
+    const type = typeof value
+
     switch (type) {
       case "number":
-        return Number.isInteger(value) ? "integer" : "float";
+        return Number.isInteger(value) ? "integer" : "float"
       case "string":
-        return "text";
+        return "text"
       case "boolean":
-        return "boolean";
+        return "boolean"
       case "object":
-        return "json";
+        return "json"
       default:
-        return type;
+        return type
     }
-  };
+  }
 
   useEffect(() => {
-    if (!projectId || !selectedDbFile || !selectedTable) return;
-  
+    if (!projectId || !selectedDbFile || !selectedTable) return
+
     const fetchTableRows = async () => {
-      setIsLoading(true);
-      setError(null);
+      setIsLoading(true)
+      setError(null)
       try {
-        console.log(`Fetching rows for table ${selectedTable} in ${selectedDbFile}`);
-        const rows = await endpointService.getTableRows(projectId, selectedDbFile, selectedTable);
-        console.log(`Received ${rows.length} rows for table ${selectedTable}:`, rows);
-        
-        setTableRows(rows);
-        
+        console.log(`Fetching rows for table ${selectedTable} in ${selectedDbFile}`)
+        const rows = await endpointService.getTableRows(projectId, selectedDbFile, selectedTable)
+        console.log(`Received ${rows.length} rows for table ${selectedTable}:`, rows)
+
+        setTableRows(rows)
+
         // IMPORTANT: Update the table's row count in the tables state
-        if (tables.find(t => t.name === selectedTable)?.rowCount !== rows.length) {
-          console.log(`Updating row count for ${selectedTable} from ${tables.find(t => t.name === selectedTable)?.rowCount} to ${rows.length}`);
-          
-          setTables(prevTables => 
-            prevTables.map(table => 
-              table.name === selectedTable 
-                ? { ...table, rowCount: rows.length }
-                : table
-            )
-          );
+        if (tables.find((t) => t.name === selectedTable)?.rowCount !== rows.length) {
+          console.log(
+            `Updating row count for ${selectedTable} from ${tables.find((t) => t.name === selectedTable)?.rowCount} to ${rows.length}`,
+          )
+
+          setTables((prevTables) =>
+            prevTables.map((table) => (table.name === selectedTable ? { ...table, rowCount: rows.length } : table)),
+          )
         }
       } catch (err) {
-        console.error("Error fetching table rows:", err);
-        setError(err instanceof Error ? err.message : "Failed to fetch table rows");
+        console.error("Error fetching table rows:", err)
+        setError(err instanceof Error ? err.message : "Failed to fetch table rows")
       } finally {
-        setIsLoading(false);
+        setIsLoading(false)
       }
-    };
-  
-    fetchTableRows();
-  }, [projectId, selectedDbFile, selectedTable, refreshKey]);
+    }
+
+    fetchTableRows()
+  }, [projectId, selectedDbFile, selectedTable, refreshKey])
 
   // Handle refresh button click
   const handleRefresh = () => {
@@ -243,8 +240,8 @@ export function DatabaseViewer({ projectId, theme, dbFilename }: DatabaseViewerP
 
   // Get column names from the first row
   const getColumnNames = () => {
-    if (tableRows.length === 0) return [];
-    console.log("First row in tableRows:", tableRows[0]);
+    if (tableRows.length === 0) return []
+    console.log("First row in tableRows:", tableRows[0])
     return Object.keys(tableRows[0])
   }
 
@@ -376,11 +373,11 @@ export function DatabaseViewer({ projectId, theme, dbFilename }: DatabaseViewerP
   }
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full text-[0.9em] bg-zinc-950 rounded-lg border border-zinc-800 overflow-auto">
       <div className="flex justify-between items-center p-4 border-b border-zinc-200 dark:border-zinc-800">
         <div className="flex items-center space-x-4">
           <Select value={selectedDbFile || ""} onValueChange={setSelectedDbFile}>
-            <SelectTrigger className="w-[200px]">
+            <SelectTrigger className="w-[200px] bg-zinc-900 border-zinc-700">
               <SelectValue placeholder="Select database" />
             </SelectTrigger>
             <SelectContent>
@@ -392,16 +389,16 @@ export function DatabaseViewer({ projectId, theme, dbFilename }: DatabaseViewerP
             </SelectContent>
           </Select>
 
-            <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-2">
             <Tabs value={viewMode} onValueChange={(val) => setViewMode(val as "tables" | "full")}>
-            <TabsList>
+              <TabsList>
                 <TabsTrigger
                   value="tables"
                   onClick={() => {
-                    console.log("Switching to tables view");
-                    setViewMode("tables");
+                    console.log("Switching to tables view")
+                    setViewMode("tables")
                   }}
-                  className={viewMode === "tables" ? "bg-[#7dff00] text-black" : ""}
+                  className={`tab-accent ${viewMode === "tables" ? "bg-[#7dff00] text-black" : ""}`}
                 >
                   <Table className="h-4 w-4 mr-2" />
                   Tables
@@ -409,16 +406,16 @@ export function DatabaseViewer({ projectId, theme, dbFilename }: DatabaseViewerP
                 <TabsTrigger
                   value="full"
                   onClick={() => {
-                    console.log("Switching to full view");
-                    setViewMode("full");
+                    console.log("Switching to full view")
+                    setViewMode("full")
                   }}
-                  className={viewMode === "full" ? "bg-[#7dff00] text-black" : ""}
+                  className={`tab-accent ${viewMode === "full" ? "bg-[#7dff00] text-black" : ""}`}
                 >
                   <FileText className="h-4 w-4 mr-2" />
                   Full View
                 </TabsTrigger>
               </TabsList>
-            </Tabs>  
+            </Tabs>
           </div>
         </div>
 
@@ -438,21 +435,13 @@ export function DatabaseViewer({ projectId, theme, dbFilename }: DatabaseViewerP
         </div>
       </div>
 
-      {isLoading && (
-        <div className="bg-yellow-100 dark:bg-yellow-900/20 p-2 text-xs">
-          Loading data...
-        </div>
-      )}
-      {error && (
-        <div className="bg-red-100 dark:bg-red-900/20 p-2 text-xs">
-          Error: {error}
-        </div>
-      )}
+      {isLoading && <div className="bg-yellow-100 dark:bg-yellow-900/20 p-2 text-xs">Loading data...</div>}
+      {error && <div className="bg-red-100 dark:bg-red-900/20 p-2 text-xs">Error: {error}</div>}
       {!isLoading && !error && tables.length === 0 && (
         <div className="bg-blue-100 dark:bg-blue-900/20 p-2 text-xs">
           No tables found in database. View mode: {viewMode}
         </div>
-      )}            
+      )}
       <div className="flex flex-1 overflow-hidden">
         {viewMode === "tables" ? (
           <div className="flex flex-1 overflow-hidden">
@@ -495,19 +484,20 @@ export function DatabaseViewer({ projectId, theme, dbFilename }: DatabaseViewerP
                       {selectedTable}
                     </h2>
                     <p className="text-sm text-zinc-500 dark:text-zinc-400">
-                    {tables.find((t) => t.name === selectedTable)?.rowCount || 0} rows (Actual: {tableRows.length} rows)
+                      {tables.find((t) => t.name === selectedTable)?.rowCount || 0} rows (Actual: {tableRows.length}{" "}
+                      rows)
                     </p>
                   </div>
 
-                  <div className="flex-1 overflow-auto">
+                  <div className="flex-1 overflow-auto scrollable">
                     {isLoading ? (
                       <div className="flex items-center justify-center h-full">
                         <Loader2 className="h-8 w-8 animate-spin text-[#7dff00]" />
                       </div>
                     ) : tableRows.length > 0 ? (
                       <div className="p-4">
-                        <div className="border rounded-md overflow-hidden">
-                          <div className="overflow-x-auto">
+                        <div className="table-container scrollable max-h-[500px] border rounded-md overflow-hidden">
+                          <div className="overflow-x-auto scrollable">
                             <table className="w-full">
                               <thead>
                                 <tr className="bg-zinc-50 dark:bg-zinc-800 border-b border-zinc-200 dark:border-zinc-700">
@@ -559,7 +549,7 @@ export function DatabaseViewer({ projectId, theme, dbFilename }: DatabaseViewerP
             </div>
           </div>
         ) : (
-          <div className="flex-1 overflow-auto p-4">
+          <div className="flex-1 overflow-auto p-4 scrollable">
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center">
@@ -588,10 +578,18 @@ export function DatabaseViewer({ projectId, theme, dbFilename }: DatabaseViewerP
                               <table className="w-full text-sm">
                                 <thead className="bg-zinc-50 dark:bg-zinc-800">
                                   <tr>
-                                    <th className="px-4 py-2 text-left text-xs text-zinc-500 dark:text-zinc-400">Column</th>
-                                    <th className="px-4 py-2 text-left text-xs text-zinc-500 dark:text-zinc-400">Type</th>
-                                    <th className="px-4 py-2 text-left text-xs text-zinc-500 dark:text-zinc-400">Nullable</th>
-                                    <th className="px-4 py-2 text-left text-xs text-zinc-500 dark:text-zinc-400">Primary Key</th>
+                                    <th className="px-4 py-2 text-left text-xs text-zinc-500 dark:text-zinc-400">
+                                      Column
+                                    </th>
+                                    <th className="px-4 py-2 text-left text-xs text-zinc-500 dark:text-zinc-400">
+                                      Type
+                                    </th>
+                                    <th className="px-4 py-2 text-left text-xs text-zinc-500 dark:text-zinc-400">
+                                      Nullable
+                                    </th>
+                                    <th className="px-4 py-2 text-left text-xs text-zinc-500 dark:text-zinc-400">
+                                      Primary Key
+                                    </th>
                                   </tr>
                                 </thead>
                                 <tbody>
@@ -603,14 +601,20 @@ export function DatabaseViewer({ projectId, theme, dbFilename }: DatabaseViewerP
                                       </td>
                                       <td className="px-4 py-2">
                                         {column.nullable ? (
-                                          <Badge variant="outline" className="bg-zinc-100 dark:bg-zinc-800">YES</Badge>
+                                          <Badge variant="outline" className="bg-zinc-100 dark:bg-zinc-800">
+                                            YES
+                                          </Badge>
                                         ) : (
-                                          <Badge variant="outline" className="bg-amber-100 dark:bg-amber-900/20">NO</Badge>
+                                          <Badge variant="outline" className="bg-amber-100 dark:bg-amber-900/20">
+                                            NO
+                                          </Badge>
                                         )}
                                       </td>
                                       <td className="px-4 py-2">
                                         {column.primaryKey ? (
-                                          <Badge className="bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300">PK</Badge>
+                                          <Badge className="bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300">
+                                            PK
+                                          </Badge>
                                         ) : (
                                           <span className="text-zinc-400">-</span>
                                         )}
@@ -620,7 +624,7 @@ export function DatabaseViewer({ projectId, theme, dbFilename }: DatabaseViewerP
                                 </tbody>
                               </table>
                             </div>
-                      
+
                             {/* Table Row Data */}
                             {table.rows && table.rows.length > 0 ? (
                               <div className="border rounded-md overflow-x-auto">
@@ -628,7 +632,10 @@ export function DatabaseViewer({ projectId, theme, dbFilename }: DatabaseViewerP
                                   <thead className="bg-zinc-50 dark:bg-zinc-800">
                                     <tr>
                                       {Object.keys(table.rows[0]).map((col) => (
-                                        <th key={col} className="px-4 py-2 text-left text-xs text-zinc-500 dark:text-zinc-400">
+                                        <th
+                                          key={col}
+                                          className="px-4 py-2 text-left text-xs text-zinc-500 dark:text-zinc-400"
+                                        >
                                           {col}
                                         </th>
                                       ))}
@@ -636,7 +643,10 @@ export function DatabaseViewer({ projectId, theme, dbFilename }: DatabaseViewerP
                                   </thead>
                                   <tbody>
                                     {table.rows?.map((row: Record<string, any>, rowIndex) => (
-                                      <tr key={rowIndex} className="border-b border-zinc-200 dark:border-zinc-700 last:border-0">
+                                      <tr
+                                        key={rowIndex}
+                                        className="border-b border-zinc-200 dark:border-zinc-700 last:border-0"
+                                      >
                                         {Object.keys(row).map((col) => (
                                           <td key={`${rowIndex}-${col}`} className="px-4 py-2">
                                             {formatCellValue(row[col], col)}
@@ -650,7 +660,7 @@ export function DatabaseViewer({ projectId, theme, dbFilename }: DatabaseViewerP
                             ) : (
                               <div className="text-sm text-zinc-400">No rows found in this table</div>
                             )}
-                      
+
                             {/* Button to jump to this table in Tables View */}
                             <Button
                               variant="outline"
@@ -665,7 +675,7 @@ export function DatabaseViewer({ projectId, theme, dbFilename }: DatabaseViewerP
                             </Button>
                           </div>
                         </AccordionContent>
-                    </AccordionItem>                    
+                      </AccordionItem>
                     ))}
                   </Accordion>
                 ) : (
@@ -677,12 +687,8 @@ export function DatabaseViewer({ projectId, theme, dbFilename }: DatabaseViewerP
                       </div>
                     ) : (
                       <>
-                        No tables found in this database. 
-                        <Button 
-                          variant="link" 
-                          className="ml-2" 
-                          onClick={handleRefresh}
-                        >
+                        No tables found in this database.
+                        <Button variant="link" className="ml-2" onClick={handleRefresh}>
                           Refresh
                         </Button>
                       </>

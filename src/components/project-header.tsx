@@ -2,15 +2,10 @@
 
 import Link from "next/link"
 import Image from "next/image"
-import { ArrowLeft, Copy, Play, Save, Trash2 } from "lucide-react"
+import { ArrowLeft, Copy, Play, Save, Trash2, Database } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { ThemeToggle } from "@/components/theme-toggle"
-import { 
-  Tooltip, 
-  TooltipContent, 
-  TooltipProvider, 
-  TooltipTrigger 
-} from "@/components/ui/tooltip"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { toast } from "@/components/ui/use-toast"
 
 interface ProjectHeaderProps {
@@ -22,6 +17,8 @@ interface ProjectHeaderProps {
   onDeleteFile: () => void
   onDownloadFile: () => void
   onSaveFile: () => void
+  onRunMigrations?: () => void
+  hasPendingMigrations?: boolean
 }
 
 export function ProjectHeader({
@@ -32,20 +29,22 @@ export function ProjectHeader({
   onCopyCode,
   onDeleteFile,
   onDownloadFile,
-  onSaveFile
+  onSaveFile,
+  onRunMigrations,
+  hasPendingMigrations,
 }: ProjectHeaderProps) {
   // Display template info if available
   const getTemplateInfo = () => {
-    if (!templateId) return null;
-    
+    if (!templateId) return null
+
     return (
       <div className="mb-2 flex items-center">
         <span className="text-xs px-2 py-1 rounded font-medium bg-[#7dff00]/20 text-[#7dff00]">
           Template: {templateId}
         </span>
       </div>
-    );
-  };
+    )
+  }
 
   return (
     <>
@@ -53,12 +52,7 @@ export function ProjectHeader({
         <div className="container flex h-16 items-center justify-between">
           <div className="flex items-center gap-3">
             <Link href="/" className="flex items-center gap-2">
-              <Image
-                src="/codeBE-logo.png"
-                alt="CodeBEgen Logo"
-                width={30}
-                height={30}
-              />
+              <Image src="/codeBE-logo.png" alt="CodeBEgen Logo" width={30} height={30} />
               <span className="text-xl font-bold text-[#7dff00] dark:text-[#7dff00]">CodeBEGen</span>
             </Link>
           </div>
@@ -136,6 +130,27 @@ export function ProjectHeader({
                 <p>Download your backend files</p>
               </TooltipContent>
             </Tooltip>
+
+            {onRunMigrations && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className={`border-zinc-300 bg-white text-zinc-700 hover:bg-[#7dff00] hover:text-black dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-[#7dff00] dark:hover:text-black ${
+                      hasPendingMigrations ? "border-[#7dff00]/50 animate-pulse" : ""
+                    }`}
+                    onClick={onRunMigrations}
+                  >
+                    <Database className="h-4 w-4 mr-2" />
+                    Run Migrations
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p className="text-white">Apply database migrations</p>
+                </TooltipContent>
+              </Tooltip>
+            )}
 
             <Tooltip>
               <TooltipTrigger asChild>

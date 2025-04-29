@@ -3,21 +3,15 @@
 import type React from "react"
 import Image from "next/image"
 import { useState, useRef, useEffect } from "react"
-import { ThumbsUp, ThumbsDown, Copy, CornerUpRight, Paperclip, Maximize2, TriangleAlert, ArrowUp, X } from "lucide-react"
+import { ThumbsUp, ThumbsDown, Copy, CornerUpRight, Paperclip, Maximize2, TriangleAlert, ArrowUp } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Input } from "@/components/ui/input" // Added Input for the popup
 import { cn } from "@/lib/utils"
 import type { FileType } from "@/types"
 import { useCodeStore } from "@/stores/code-store"
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-  DialogClose,
-} from "@/components/ui/dialog" // Added Dialog components
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from "@/components/ui/dialog" // Added Dialog components
+import { CodeStreamEffect } from "@/components/code-stream-effect"
 
 // Add this near the top of the file, after the imports
 declare global {
@@ -51,19 +45,26 @@ type AIChartProps = {
 }
 
 // Constants for configuration
-const GENERATION_TIMEOUT = 120000; // 2 minutes in milliseconds
-const HEARTBEAT_INTERVAL = 30000; // 30 seconds in milliseconds
+const GENERATION_TIMEOUT = 120000 // 2 minutes in milliseconds
+const HEARTBEAT_INTERVAL = 30000 // 30 seconds in milliseconds
 
 // Helper function to clean filenames
 const cleanFileName = (fileName: string): string => {
   // Just return the filename as is, without any filtering
-  return fileName;
+  return fileName
 }
 
 // HTTP methods for dropdown
-const HTTP_METHODS = ["GET", "POST", "PUT", "DELETE"];
+const HTTP_METHODS = ["GET", "POST", "PUT", "DELETE"]
 
-export default function AIChat({ projectId, onFileGenerated, endpointDetails, projectLanguage = "python", projectFramework = "fastapi", selectedFile = null}: AIChartProps) {
+export default function AIChat({
+  projectId,
+  onFileGenerated,
+  endpointDetails,
+  projectLanguage = "python",
+  projectFramework = "fastapi",
+  selectedFile = null,
+}: AIChartProps) {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState("")
   const [isLoading, setIsLoading] = useState(false)
@@ -91,20 +92,20 @@ export default function AIChat({ projectId, onFileGenerated, endpointDetails, pr
   useEffect(() => {
     if (endpointDetails && !isLoading && codeGenStatus !== "generating") {
       // Use provided language/framework from endpointDetails or fallback to props
-      const language = projectLanguage;
-      const framework = projectFramework;
-      const { endpointPath, method, description } = endpointDetails;
-      const prompt = description;
-      
+      const language = projectLanguage
+      const framework = projectFramework
+      const { endpointPath, method, description } = endpointDetails
+      const prompt = description
+
       // Set input and trigger submission
-      setInput(prompt);
-      
+      setInput(prompt)
+
       // Use setTimeout to allow state to update before submitting
       setTimeout(() => {
-        handleSubmitWithDetails(prompt, language, framework, endpointPath, method);
-      }, 100);
+        handleSubmitWithDetails(prompt, language, framework, endpointPath, method)
+      }, 100)
     }
-  }, [endpointDetails, projectLanguage, projectFramework]);
+  }, [endpointDetails, projectLanguage, projectFramework])
 
   useEffect(() => {
     // Scroll to bottom when messages change
@@ -115,10 +116,10 @@ export default function AIChat({ projectId, onFileGenerated, endpointDetails, pr
   useEffect(() => {
     if (showEndpointPopup && endpointInputRef.current) {
       setTimeout(() => {
-        endpointInputRef.current?.focus();
-      }, 100);
+        endpointInputRef.current?.focus()
+      }, 100)
     }
-  }, [showEndpointPopup]);
+  }, [showEndpointPopup])
 
   // Clean up WebSocket connection and timeouts on unmount
   useEffect(() => {
@@ -137,41 +138,42 @@ export default function AIChat({ projectId, onFileGenerated, endpointDetails, pr
   const setupTimeoutHandler = () => {
     // Clear existing timeout if any
     if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
+      clearTimeout(timeoutRef.current)
     }
-    
+
     // Set new timeout
     timeoutRef.current = setTimeout(() => {
-      console.log("Code generation timed out after", GENERATION_TIMEOUT/1000, "seconds");
-      
+      console.log("Code generation timed out after", GENERATION_TIMEOUT / 1000, "seconds")
+
       if (wsRef.current) {
-        wsRef.current.close();
+        wsRef.current.close()
       }
-      
-      setCodeGenStatus("generationFailed");
-      setSuccessMessage("Code generation timed out. Please try again.");
-      setIsLoading(false);
-      
+
+      setCodeGenStatus("generationFailed")
+      setSuccessMessage("Code generation timed out. Please try again.")
+      setIsLoading(false)
+
       if (codeStore) {
-        codeStore.getState().endStream();
+        codeStore.getState().endStream()
       }
-      
+
       // Add error message to chat
       const errorMessage: Message = {
         id: Date.now().toString(),
         role: "assistant",
-        content: "Sorry, code generation timed out. This could be due to high server load or a complex request. Please try again with a simpler request or try later.",
+        content:
+          "Sorry, code generation timed out. This could be due to high server load or a complex request. Please try again with a simpler request or try later.",
         timestamp: new Date(),
-      };
-      
-      setMessages((prev) => [...prev, errorMessage]);
-    }, GENERATION_TIMEOUT);
-  };
+      }
+
+      setMessages((prev) => [...prev, errorMessage])
+    }, GENERATION_TIMEOUT)
+  }
 
   // Process the response data and update the state
   const processResponseData = (data: any) => {
     console.log("Processing response data:", data)
-    
+
     if (data.success && data.data) {
       const files: Record<string, any> = {}
 
@@ -190,10 +192,19 @@ export default function AIChat({ projectId, onFileGenerated, endpointDetails, pr
           endpoint_path: data.data.endpoint.endpoint_path ?? "",
           method: data.data.endpoint.method ?? "",
           endpoint_id: data.data.endpoint.endpoint_id,
-          exists: "exists" in data.data.endpoint && typeof (data.data.endpoint as any).exists === "boolean" ? (data.data.endpoint as any).exists : false,
+          exists:
+            "exists" in data.data.endpoint && typeof (data.data.endpoint as any).exists === "boolean"
+              ? (data.data.endpoint as any).exists
+              : false,
         }
       }
-      if (data.data.model && data.data.model.file_path && data.data.model.generated_code && data.data.model.content_base64 && data.data.model.file_hash) {
+      if (
+        data.data.model &&
+        data.data.model.file_path &&
+        data.data.model.generated_code &&
+        data.data.model.content_base64 &&
+        data.data.model.file_hash
+      ) {
         files["model"] = {
           file_path: data.data.model.file_path,
           generated_code: data.data.model.generated_code,
@@ -203,7 +214,13 @@ export default function AIChat({ projectId, onFileGenerated, endpointDetails, pr
           exists: data.data.model.exists,
         }
       }
-      if (data.data.schema && data.data.schema.file_path && data.data.schema.generated_code && data.data.schema.content_base64 && data.data.schema.file_hash) {
+      if (
+        data.data.schema &&
+        data.data.schema.file_path &&
+        data.data.schema.generated_code &&
+        data.data.schema.content_base64 &&
+        data.data.schema.file_hash
+      ) {
         files["schema"] = {
           file_path: data.data.schema.file_path,
           generated_code: data.data.schema.generated_code,
@@ -213,7 +230,13 @@ export default function AIChat({ projectId, onFileGenerated, endpointDetails, pr
           exists: data.data.schema.exists,
         }
       }
-      if (data.data.migration && data.data.migration.file_path && data.data.migration.generated_code && data.data.migration.content_base64 && data.data.migration.file_hash) {
+      if (
+        data.data.migration &&
+        data.data.migration.file_path &&
+        data.data.migration.generated_code &&
+        data.data.migration.content_base64 &&
+        data.data.migration.file_hash
+      ) {
         files["migration"] = {
           file_path: data.data.migration.file_path,
           generated_code: data.data.migration.generated_code,
@@ -223,7 +246,13 @@ export default function AIChat({ projectId, onFileGenerated, endpointDetails, pr
           exists: data.data.migration.exists,
         }
       }
-      if (data.data.helpers && data.data.helpers.file_path && data.data.helpers.generated_code && data.data.helpers.content_base64 && data.data.helpers.file_hash) {
+      if (
+        data.data.helpers &&
+        data.data.helpers.file_path &&
+        data.data.helpers.generated_code &&
+        data.data.helpers.content_base64 &&
+        data.data.helpers.file_hash
+      ) {
         files["helpers"] = {
           file_path: data.data.helpers.file_path,
           generated_code: data.data.helpers.generated_code,
@@ -233,7 +262,13 @@ export default function AIChat({ projectId, onFileGenerated, endpointDetails, pr
           exists: data.data.helpers.exists,
         }
       }
-      if (data.data.config && data.data.config.file_path && data.data.config.generated_code && data.data.config.content_base64 && data.data.config.file_hash) {
+      if (
+        data.data.config &&
+        data.data.config.file_path &&
+        data.data.config.generated_code &&
+        data.data.config.content_base64 &&
+        data.data.config.file_hash
+      ) {
         files["config"] = {
           file_path: data.data.config.file_path,
           generated_code: data.data.config.generated_code,
@@ -255,12 +290,12 @@ export default function AIChat({ projectId, onFileGenerated, endpointDetails, pr
 
       // If onFileGenerated callback provided, call it for each file
       if (onFileGenerated) {
-        Object.keys(files).forEach(key => {
-          const fileData = files[key];
+        Object.keys(files).forEach((key) => {
+          const fileData = files[key]
           // Get the filename and clean it
-          let fileName = fileData.file_path?.split("/").pop() || key;
-          fileName = cleanFileName(fileName);
-          
+          let fileName = fileData.file_path?.split("/").pop() || key
+          fileName = cleanFileName(fileName)
+
           const file: FileType = {
             id: fileData.endpoint_id || `${key}-${Date.now()}`,
             name: fileName, // Clean filename
@@ -268,16 +303,16 @@ export default function AIChat({ projectId, onFileGenerated, endpointDetails, pr
             type: key as "endpoint" | "model" | "schema" | "migration" | "helpers" | "config",
             code: fileData.generated_code,
             method: fileData.method as "GET" | "POST" | "PUT" | "DELETE",
-          };
-          onFileGenerated(file);
-        });
+          }
+          onFileGenerated(file)
+        })
       }
 
       const fileNames = Object.keys(files)
         .map((key) => {
           const file = files[key]
-          const fileName = file.file_path?.split("/").pop() || key;
-          return cleanFileName(fileName);
+          const fileName = file.file_path?.split("/").pop() || key
+          return cleanFileName(fileName)
         })
         .join(", ")
 
@@ -294,44 +329,44 @@ export default function AIChat({ projectId, onFileGenerated, endpointDetails, pr
     } else if (data.result) {
       // Handle the direct result structure
       const files: Record<string, any> = {}
-      
+
       if (data.result.endpoint) {
-        files["endpoint"] = data.result.endpoint;
+        files["endpoint"] = data.result.endpoint
       }
       if (data.result.model) {
-        files["model"] = data.result.model;
+        files["model"] = data.result.model
       }
       if (data.result.schema) {
-        files["schema"] = data.result.schema;
+        files["schema"] = data.result.schema
       }
       if (data.result.migration) {
-        files["migration"] = data.result.migration;
+        files["migration"] = data.result.migration
       }
       if (data.result.helpers) {
-        files["helpers"] = data.result.helpers;
+        files["helpers"] = data.result.helpers
       }
       if (data.result.config) {
-        files["config"] = data.result.config;
+        files["config"] = data.result.config
       }
-      
+
       if (Object.keys(files).length > 0) {
-        setGeneratedFiles(files);
-        
+        setGeneratedFiles(files)
+
         // Dispatch event with generated files
         window.dispatchEvent(
           new CustomEvent("code-update", {
             detail: { files },
           }),
-        );
-        
+        )
+
         // If onFileGenerated callback provided, call it for each file
         if (onFileGenerated) {
-          Object.keys(files).forEach(key => {
-            const fileData = files[key];
+          Object.keys(files).forEach((key) => {
+            const fileData = files[key]
             // Get the filename and clean it
-            let fileName = fileData.file_path?.split("/").pop() || key;
-            fileName = cleanFileName(fileName);
-            
+            let fileName = fileData.file_path?.split("/").pop() || key
+            fileName = cleanFileName(fileName)
+
             const file: FileType = {
               id: fileData.endpoint_id || `${key}-${Date.now()}`,
               name: fileName, // Clean filename
@@ -339,160 +374,148 @@ export default function AIChat({ projectId, onFileGenerated, endpointDetails, pr
               type: key as "endpoint" | "model" | "schema" | "migration" | "helpers" | "config",
               code: fileData.generated_code,
               method: fileData.method as "GET" | "POST" | "PUT" | "DELETE",
-            };
-            onFileGenerated(file);
-          });
+            }
+            onFileGenerated(file)
+          })
         }
-        
+
         const fileNames = Object.keys(files)
           .map((key) => {
-            const file = files[key];
-            const fileName = file.file_path?.split("/").pop() || key;
-            return cleanFileName(fileName);
+            const file = files[key]
+            const fileName = file.file_path?.split("/").pop() || key
+            return cleanFileName(fileName)
           })
-          .join(", ");
-          
+          .join(", ")
+
         const assistantMessage: Message = {
           id: (Date.now() + 1).toString(),
           role: "assistant",
           content: `I've generated the following files: ${fileNames}. You can view them in the editor.`,
           timestamp: new Date(),
         }
-        
-        setMessages((prev) => [...prev, assistantMessage]);
-        setCodeGenStatus("generated");
-        setSuccessMessage("Code generated successfully!");
+
+        setMessages((prev) => [...prev, assistantMessage])
+        setCodeGenStatus("generated")
+        setSuccessMessage("Code generated successfully!")
       }
     } else {
       throw new Error(data.message || "Failed to generate code")
     }
   }
 
- // Handle the submission of text prompt from the chat input
- const handleSubmit = (e?: React.FormEvent) => {
-  e?.preventDefault();
-  
-  if (!input.trim() || isLoading) return;
-  
-  // Check if there's a selected file that's an endpoint
-  if (selectedFile && selectedFile.type === "endpoint") {
-    // For existing endpoints, use the prompt directly with the endpoint's details
-    handleSubmitWithDetails(
-      input.trim(),  // The prompt is just what the user typed in the chat
-      projectLanguage,
-      projectFramework,
-      selectedFile.path || "/api/",
-      selectedFile.method || "GET"
-    );
-  } else {
-    // For non-endpoints or when no file is selected,
-    // we'll show the endpoint collection popup
-    setPromptText(input.trim());
-    setShowEndpointPopup(true);
-  }
-};
+  // Handle the submission of text prompt from the chat input
+  const handleSubmit = (e?: React.FormEvent) => {
+    e?.preventDefault()
 
-// Handle form submission from the endpoint popup
-const handleEndpointPopupSubmit = (e: React.FormEvent) => {
-  e.preventDefault();
-  
-  // Close the popup
-  setShowEndpointPopup(false);
-  
-  // Now we can proceed with the actual submission
-  handleSubmitWithDetails(
-    promptText,
-    projectLanguage,
-    projectFramework,
-    endpointPath,
-    httpMethod
-  );
-};
+    if (!input.trim() || isLoading) return
 
-// Handle endpoint details from the CreateEndpoint modal
-useEffect(() => {
-  if (endpointDetails && !isLoading && codeGenStatus !== "generating") {
-    // When endpoint details are received from the modal, we need a separate interaction
-    const { language, framework, endpointPath, method } = endpointDetails;
-    
-    // Focus the input field so user can describe what the endpoint should do
-    if (inputRef.current) {
-      inputRef.current.focus();
-      
-      // Optional: Update placeholder to guide the user
-      inputRef.current.placeholder = `Describe what the ${method} endpoint at ${endpointPath} should do...`;
-    }
-    
-    // If there was already text in the input, use it as the prompt
-    if (input.trim()) {
+    // Check if there's a selected file that's an endpoint
+    if (selectedFile && selectedFile.type === "endpoint") {
+      // For existing endpoints, use the prompt directly with the endpoint's details
       handleSubmitWithDetails(
-        input.trim(),
-        language,
-        framework,
-        endpointPath,
-        method
-      );
+        input.trim(), // The prompt is just what the user typed in the chat
+        projectLanguage,
+        projectFramework,
+        selectedFile.path || "/api/",
+        selectedFile.method || "GET",
+      )
     } else {
-      // Just save the endpoint details for later use when the user types a prompt
-      // You could add state for this if needed
-      // For example: setCurrentEndpointContext({ endpointPath, method });
-      
-      // Or simply show a message guiding the user
-      setMessages(prev => [
-        ...prev,
-        {
-          id: Date.now().toString(),
-          role: "assistant",
-          content: `I'll help you create a ${method} endpoint at ${endpointPath}. Please describe what this endpoint should do.`,
-          timestamp: new Date()
-        }
-      ]);
+      // For non-endpoints or when no file is selected,
+      // we'll show the endpoint collection popup
+      setPromptText(input.trim())
+      setShowEndpointPopup(true)
     }
   }
-}, [endpointDetails, projectLanguage, projectFramework]);
-  
+
+  // Handle form submission from the endpoint popup
+  const handleEndpointPopupSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+
+    // Close the popup
+    setShowEndpointPopup(false)
+
+    // Now we can proceed with the actual submission
+    handleSubmitWithDetails(promptText, projectLanguage, projectFramework, endpointPath, httpMethod)
+  }
+
+  // Handle endpoint details from the CreateEndpoint modal
+  useEffect(() => {
+    if (endpointDetails && !isLoading && codeGenStatus !== "generating") {
+      // When endpoint details are received from the modal, we need a separate interaction
+      const { language, framework, endpointPath, method } = endpointDetails
+
+      // Focus the input field so user can describe what the endpoint should do
+      if (inputRef.current) {
+        inputRef.current.focus()
+
+        // Optional: Update placeholder to guide the user
+        inputRef.current.placeholder = `Describe what the ${method} endpoint at ${endpointPath} should do...`
+      }
+
+      // If there was already text in the input, use it as the prompt
+      if (input.trim()) {
+        handleSubmitWithDetails(input.trim(), language, framework, endpointPath, method)
+      } else {
+        // Just save the endpoint details for later use when the user types a prompt
+        // You could add state for this if needed
+        // For example: setCurrentEndpointContext({ endpointPath, method });
+
+        // Or simply show a message guiding the user
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: Date.now().toString(),
+            role: "assistant",
+            content: `I'll help you create a ${method} endpoint at ${endpointPath}. Please describe what this endpoint should do.`,
+            timestamp: new Date(),
+          },
+        ])
+      }
+    }
+  }, [endpointDetails, projectLanguage, projectFramework])
+
   const handleSubmitWithDetails = (
-    promptText: string, 
-    language: string, 
-    framework: string, 
-    endpointPath: string, 
-    method: string
+    promptText: string,
+    language: string,
+    framework: string,
+    endpointPath: string,
+    method: string,
   ) => {
-    if (!promptText.trim() || isLoading) return;
+    if (!promptText.trim() || isLoading) return
 
     // Close any existing WebSocket
     if (wsRef.current) {
-      wsRef.current.close();
-      wsRef.current = null;
+      wsRef.current.close()
+      wsRef.current = null
     }
 
     // Clear any existing timeout
     if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
-      timeoutRef.current = null;
+      clearTimeout(timeoutRef.current)
+      timeoutRef.current = null
     }
-    
+
     // Create a message that includes the endpoint details
-    const userMessageContent = `${promptText.trim()}`;
+    const userMessageContent = `${promptText.trim()}`
 
     const userMessage: Message = {
       id: Date.now().toString(),
       role: "user",
       content: userMessageContent,
       timestamp: new Date(),
-    };
+    }
 
-    setMessages((prev) => [...prev, userMessage]);
-    setLastMessage(promptText.trim());
-    setInput("");
-    setIsLoading(true);
-    setCodeGenStatus("generating");
-    setSuccessMessage("Generating code...");
-    setGeneratedFiles(null);
+    setMessages((prev) => [...prev, userMessage])
+    setLastMessage(promptText.trim())
+    setInput("")
+    setIsLoading(true)
+    setCodeGenStatus("generating")
+    setSuccessMessage("Generating code...")
+    setGeneratedFiles(null)
 
     // Start code stream if code store exists
     if (codeStore) {
-      codeStore.getState().startStream();
+      codeStore.getState().startStream()
     }
 
     try {
@@ -506,113 +529,116 @@ useEffect(() => {
         endpoint_path: endpointPath,
         additional_context: `Framework: ${framework}`,
         file_id: selectedFile?.id || null,
-        update_existing: !!selectedFile
-      };
+        update_existing: !!selectedFile,
+      }
 
-      console.log("Connecting to WebSocket with data:", codeGenData);
+      console.log("Connecting to WebSocket with data:", codeGenData)
 
       // Direct WebSocket connection
-      const ws = new WebSocket("wss://codebegen.canadacentral.cloudapp.azure.com/api/v1/generate/stream");
-      wsRef.current = ws;
+      const ws = new WebSocket("wss://codebegen.canadacentral.cloudapp.azure.com/api/v1/generate/stream")
+      wsRef.current = ws
 
       // Setup timeout handler
-      setupTimeoutHandler();
+      setupTimeoutHandler()
 
-      let accumulatedData = "";
-      let receivedFirstChunk = false;
-      let messageCount = 0;
-      let lastActivityTime = Date.now();
+      let accumulatedData = ""
+      let receivedFirstChunk = false
+      let messageCount = 0
+      let lastActivityTime = Date.now()
 
       // Setup heartbeat check to detect stalled connections
       const heartbeatInterval = setInterval(() => {
-        const inactiveTime = Date.now() - lastActivityTime;
+        const inactiveTime = Date.now() - lastActivityTime
         if (inactiveTime > HEARTBEAT_INTERVAL) {
-          console.warn(`No activity for ${inactiveTime/1000} seconds. Connection might be stalled.`);
-          setSuccessMessage(`Waiting for server response... (${Math.floor(inactiveTime/1000)}s)`);
+          console.warn(`No activity for ${inactiveTime / 1000} seconds. Connection might be stalled.`)
+          setSuccessMessage(`Waiting for server response... (${Math.floor(inactiveTime / 1000)}s)`)
         }
-      }, 10000); // Check every 10 seconds
+      }, 10000) // Check every 10 seconds
 
       ws.onopen = () => {
-        console.log("WebSocket connected, sending data");
-        setSuccessMessage("Connected to code generation service...");
-        lastActivityTime = Date.now();
-        ws.send(JSON.stringify(codeGenData));
-      };
+        console.log("WebSocket connected, sending data")
+        setSuccessMessage("Connected to code generation service...")
+        lastActivityTime = Date.now()
+        ws.send(JSON.stringify(codeGenData))
+      }
 
       ws.onmessage = (event) => {
         try {
-          lastActivityTime = Date.now();
-          messageCount++;
-          
+          lastActivityTime = Date.now()
+          messageCount++
+
           // Log raw message for debugging
-          console.log(`WebSocket message #${messageCount} received:`, event.data.substring(0, 100) + (event.data.length > 100 ? "..." : ""));
-          
-          const data = JSON.parse(event.data);
+          console.log(
+            `WebSocket message #${messageCount} received:`,
+            event.data.substring(0, 100) + (event.data.length > 100 ? "..." : ""),
+          )
+
+          const data = JSON.parse(event.data)
 
           // Handle token streaming
           if (data.token) {
-            accumulatedData += data.token;
-            
+            accumulatedData += data.token
+
             // Reset timeout since we're receiving data
             if (timeoutRef.current) {
-              clearTimeout(timeoutRef.current);
-              setupTimeoutHandler();
+              clearTimeout(timeoutRef.current)
+              setupTimeoutHandler()
             }
-            
+
             // Skip first chunk if needed
             if (!receivedFirstChunk) {
-              receivedFirstChunk = true;
-              console.log("First chunk received");
+              receivedFirstChunk = true
+              console.log("First chunk received")
             }
-            
-            // Dispatch code chunk event
+
+            // Dispatch code chunk event with typewriter effect
             window.dispatchEvent(
               new CustomEvent("code-chunk", {
-                detail: { code: data.token },
+                detail: { code: data.token, animate: true },
               }),
-            );
-            
+            )
+
             // Update code store if it exists
             if (codeStore) {
-              codeStore.getState().appendCode(data.token);
+              codeStore.getState().appendCode(data.token)
             }
           }
-          
+
           // Handle status updates
           if (data.status) {
             if (data.message) {
-              setSuccessMessage(data.message);
+              setSuccessMessage(data.message)
             }
-            
+
             // Handle progress updates
             if (data.status === "progress" && data.stage) {
-              setSuccessMessage(`Generating ${data.stage}...`);
+              setSuccessMessage(`Generating ${data.stage}...`)
             }
-            
+
             // Handle completed stages
             if (data.status === "completed" && data.stage && data.result) {
-              console.log(`${data.stage} generation completed:`, data.result);
-              
+              console.log(`${data.stage} generation completed:`, data.result)
+
               // Process completed stage data
               if (data.result && data.result.generated_code) {
-                const stageData = data.result;
-                const fileType = data.stage as "endpoint" | "model" | "schema" | "migration" | "helpers" | "config";
-                
+                const stageData = data.result
+                const fileType = data.stage as "endpoint" | "model" | "schema" | "migration" | "helpers" | "config"
+
                 // Start with the data from the result
-                let fileId = stageData.endpoint_id || `${fileType}-${Date.now()}`;
-                let filePath = stageData.endpoint_path || stageData.file_path || `/${fileType}`;
-                
+                let fileId = stageData.endpoint_id || `${fileType}-${Date.now()}`
+                let filePath = stageData.endpoint_path || stageData.file_path || `/${fileType}`
+
                 // If we have a selected file and it's an endpoint, use its ID and path instead
                 if (selectedFile && selectedFile.type === "endpoint" && fileType === "endpoint") {
-                  fileId = selectedFile.id;
-                  filePath = selectedFile.path;
-                  console.log("Updating existing endpoint:", selectedFile.path);
+                  fileId = selectedFile.id
+                  filePath = selectedFile.path
+                  console.log("Updating existing endpoint:", selectedFile.path)
                 }
-                
+
                 // Get filename and clean it
-                let fileName = filePath.split("/").pop() || fileType;
-                fileName = cleanFileName(fileName);
-                
+                let fileName = filePath.split("/").pop() || fileType
+                fileName = cleanFileName(fileName)
+
                 // Create standardized file object
                 const file: FileType = {
                   id: fileId,
@@ -621,45 +647,45 @@ useEffect(() => {
                   type: fileType,
                   code: stageData.generated_code,
                   method: (stageData.method as "GET" | "POST" | "PUT" | "DELETE") || "GET",
-                };
-                
+                }
+
                 // Call the callback directly
                 if (onFileGenerated) {
-                  onFileGenerated(file);
+                  onFileGenerated(file)
                 }
-                
+
                 // Also dispatch an event for each completed file
                 window.dispatchEvent(
                   new CustomEvent("file-generated", {
                     detail: { file },
                   }),
-                );
+                )
               }
             }
-            
+
             // Handle overall completion
             if (data.status === "complete") {
-              console.log("Code generation complete:", data);
-              
+              console.log("Code generation complete:", data)
+
               // Clear timeout
               if (timeoutRef.current) {
-                clearTimeout(timeoutRef.current);
-                timeoutRef.current = null;
+                clearTimeout(timeoutRef.current)
+                timeoutRef.current = null
               }
-              
-              clearInterval(heartbeatInterval);
-              
+
+              clearInterval(heartbeatInterval)
+
               if (data.result) {
                 // Create a collection of files from the result
-                const files: Record<string, any> = {};
-                
+                const files: Record<string, any> = {}
+
                 // Process all components in the result
-                ["endpoint", "model", "schema", "migration", "helpers", "config", "api_docs"].forEach(component => {
+                ;["endpoint", "model", "schema", "migration", "helpers", "config", "api_docs"].forEach((component) => {
                   if (data.result[component]) {
-                    files[component] = data.result[component];
+                    files[component] = data.result[component]
                   }
-                });
-                
+                })
+
                 // If we have any files, process them
                 if (Object.keys(files).length > 0) {
                   // Dispatch code-update event with all files
@@ -667,36 +693,36 @@ useEffect(() => {
                     new CustomEvent("code-update", {
                       detail: { files },
                     }),
-                  );
-                  
+                  )
+
                   // Store the generated files
-                  setGeneratedFiles(files);
-                  
+                  setGeneratedFiles(files)
+
                   // Add assistant response
                   const fileNames = Object.keys(files)
                     .map((key) => {
-                      const file = files[key];
-                      const fileName = file.file_path?.split("/").pop() || key;
-                      return cleanFileName(fileName);
+                      const file = files[key]
+                      const fileName = file.file_path?.split("/").pop() || key
+                      return cleanFileName(fileName)
                     })
-                    .join(", ");
-                    
+                    .join(", ")
+
                   const assistantMessage: Message = {
                     id: (Date.now() + 1).toString(),
                     role: "assistant",
                     content: `I've generated the following files: ${fileNames}. You can view them in the editor.`,
                     timestamp: new Date(),
-                  };
-                  
-                  setMessages((prev) => [...prev, assistantMessage]);
+                  }
+
+                  setMessages((prev) => [...prev, assistantMessage])
                 } else {
                   // Handle completion without structured files
                   window.dispatchEvent(
                     new CustomEvent("code-update", {
                       detail: { code: accumulatedData },
                     }),
-                  );
-                  
+                  )
+
                   setMessages((prev) => [
                     ...prev,
                     {
@@ -705,109 +731,110 @@ useEffect(() => {
                       content: "I've generated code for you. Check the editor.",
                       timestamp: new Date(),
                     },
-                  ]);
+                  ])
                 }
-                
-                setCodeGenStatus("generated");
-                setSuccessMessage("Code generated successfully!");
+
+                setCodeGenStatus("generated")
+                setSuccessMessage("Code generated successfully!")
               }
-              
-              setIsLoading(false);
-              
+
+              setIsLoading(false)
+
               if (codeStore) {
-                codeStore.getState().endStream();
+                codeStore.getState().endStream()
               }
-              
+
               // Revalidate paths if needed
               if (typeof window !== "undefined" && typeof window.revalidatePaths === "function") {
-                window.revalidatePaths(projectId);
+                window.revalidatePaths(projectId)
               }
-              
+
               // Close the WebSocket
-              ws.close();
+              ws.close()
             }
           }
         } catch (err) {
-          console.error("Error processing WebSocket message:", err);
-          setCodeGenStatus("generationFailed");
-          setSuccessMessage("Error processing code generation");
-          setIsLoading(false);
-          
+          console.error("Error processing WebSocket message:", err)
+          setCodeGenStatus("generationFailed")
+          setSuccessMessage("Error processing code generation")
+          setIsLoading(false)
+
           // Clear timeout
           if (timeoutRef.current) {
-            clearTimeout(timeoutRef.current);
-            timeoutRef.current = null;
+            clearTimeout(timeoutRef.current)
+            timeoutRef.current = null
           }
-          
-          clearInterval(heartbeatInterval);
-          
+
+          clearInterval(heartbeatInterval)
+
           if (codeStore) {
-            codeStore.getState().endStream();
+            codeStore.getState().endStream()
           }
         }
-      };
+      }
 
       ws.onerror = (error) => {
-        console.error("WebSocket error:", error);
-        setCodeGenStatus("generationFailed");
-        setSuccessMessage("Connection error. Try again.");
-        setIsLoading(false);
-        
+        console.error("WebSocket error:", error)
+        setCodeGenStatus("generationFailed")
+        setSuccessMessage("Connection error. Try again.")
+        setIsLoading(false)
+
         // Clear timeout
         if (timeoutRef.current) {
-          clearTimeout(timeoutRef.current);
-          timeoutRef.current = null;
+          clearTimeout(timeoutRef.current)
+          timeoutRef.current = null
         }
-        
-        clearInterval(heartbeatInterval);
-        
+
+        clearInterval(heartbeatInterval)
+
         if (codeStore) {
-          codeStore.getState().endStream();
+          codeStore.getState().endStream()
         }
-      };
+      }
 
       ws.onclose = (event) => {
-        console.log("WebSocket closed:", event);
-        
+        console.log("WebSocket closed:", event)
+
         // Clear timeout
         if (timeoutRef.current) {
-          clearTimeout(timeoutRef.current);
-          timeoutRef.current = null;
+          clearTimeout(timeoutRef.current)
+          timeoutRef.current = null
         }
-        
-        clearInterval(heartbeatInterval);
-        
+
+        clearInterval(heartbeatInterval)
+
         // Only update status if we're still generating (avoid overriding completed status)
         if (codeGenStatus === "generating") {
-          setCodeGenStatus("generationFailed");
-          setSuccessMessage("Connection closed unexpectedly. Try again.");
-          setIsLoading(false);
-          
+          setCodeGenStatus("generationFailed")
+          setSuccessMessage("Connection closed unexpectedly. Try again.")
+          setIsLoading(false)
+
           if (codeStore) {
-            codeStore.getState().endStream();
+            codeStore.getState().endStream()
           }
-          
+
           // Add error message
           const errorMessage: Message = {
             id: (Date.now() + 1).toString(),
             role: "assistant",
-            content: "The connection was closed unexpectedly. This could be due to server issues or network problems. Please try again.",
+            content:
+              "The connection was closed unexpectedly. This could be due to server issues or network problems. Please try again.",
             timestamp: new Date(),
-          };
+          }
 
-          setMessages((prev) => [...prev, errorMessage]);
+          setMessages((prev) => [...prev, errorMessage])
         }
-        
-        wsRef.current = null;
-      };
+
+        wsRef.current = null
+      }
     } catch (error) {
-      console.error("Error getting AI response:", error);
-      setCodeGenStatus("generationFailed");
-      setSuccessMessage("Something went wrong. Try again.");
-      setIsLoading(false);
-      
+      console.error("Error getting AI response:", error)
+      setCodeGenStatus("generationFailed")
+      setSuccessMessage("Something went wrong. Try again.")
+      setIsLoading(false)
+
       if (codeStore) {
-        codeStore.getState().endStream();
+        codeStore.getState().endStream()
       }
 
       const errorMessage: Message = {
@@ -815,13 +842,11 @@ useEffect(() => {
         role: "assistant",
         content: "Sorry, I encountered an error while generating code. Please try again.",
         timestamp: new Date(),
-      };
+      }
 
-      setMessages((prev) => [...prev, errorMessage]);
+      setMessages((prev) => [...prev, errorMessage])
     }
-  };
-
-  
+  }
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -832,20 +857,20 @@ useEffect(() => {
 
   const handleRetry = () => {
     if (lastMessage) {
-      setInput(lastMessage);
-      handleSubmit();
+      setInput(lastMessage)
+      handleSubmit()
     }
   }
 
-   // Get dynamic placeholder based on selected file
-   const getPlaceholderText = () => {
+  // Get dynamic placeholder based on selected file
+  const getPlaceholderText = () => {
     if (selectedFile && selectedFile.type === "endpoint") {
-      const method = selectedFile.method || "GET";
-      const path = selectedFile.path || "/api";
-      return `How would you like to improve the ${method} endpoint at ${path}?`;
+      const method = selectedFile.method || "GET"
+      const path = selectedFile.path || "/api"
+      return `How would you like to improve the ${method} endpoint at ${path}?`
     }
-    return "Ask me to create an endpoint or describe what you want to build...";
-  };
+    return "Ask me to create an endpoint or describe what you want to build..."
+  }
 
   return (
     <div className="flex flex-col h-full border border-zinc-200 rounded-lg overflow-hidden dark:border-zinc-800">
@@ -872,15 +897,15 @@ useEffect(() => {
           </Button>
         </div>
       </div>
-  
+
       {/* Message display area showing conversation history */}
       <div className="flex-1 overflow-y-auto p-4 bg-zinc-50 dark:bg-zinc-950">
         {messages.length === 0 ? (
-           <div className="flex items-center justify-center h-full text-zinc-500 dark:text-zinc-400 text-sm">
-           {selectedFile && selectedFile.type === "endpoint" 
-             ? `Ask the AI assistant to help improve or modify the ${selectedFile.method} endpoint at ${selectedFile.path}`
-             : "Ask the AI assistant about your code or for help with your backend."}
-         </div>
+          <div className="flex items-center justify-center h-full text-zinc-500 dark:text-zinc-400 text-sm">
+            {selectedFile && selectedFile.type === "endpoint"
+              ? `Ask the AI assistant to help improve or modify the ${selectedFile.method} endpoint at ${selectedFile.path}`
+              : "Ask the AI assistant about your code or for help with your backend."}
+          </div>
         ) : (
           <div className="space-y-4">
             {messages.map((message) => (
@@ -893,7 +918,22 @@ useEffect(() => {
                     : "bg-white border border-zinc-200 dark:bg-zinc-900 dark:border-zinc-800 dark:text-zinc-100",
                 )}
               >
-                <div className="text-sm">{message.content}</div>
+                {message.role === "assistant" && message.content.includes("```") ? (
+                  // Use CodeStreamEffect for code blocks in assistant messages
+                  <div className="text-sm">
+                    {message.content.split("```").map((part, idx) =>
+                      idx % 2 === 0 ? (
+                        <span key={idx}>{part}</span>
+                      ) : (
+                        <div key={idx} className="bg-zinc-100 dark:bg-zinc-800 p-2 rounded my-2 overflow-x-auto">
+                          <CodeStreamEffect code={part} speed={5} className="text-xs font-mono" />
+                        </div>
+                      ),
+                    )}
+                  </div>
+                ) : (
+                  <div className="text-sm">{message.content}</div>
+                )}
                 {message.role === "assistant" && (
                   <div className="flex items-center gap-1 mt-2">
                     <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full">
@@ -916,7 +956,7 @@ useEffect(() => {
                 )}
               </div>
             ))}
-  
+
             {/* Status indicators (generating, success, failure) */}
             {codeGenStatus === "generating" && (
               <div className="animate-fade mt-3 flex items-center gap-2">
@@ -950,7 +990,7 @@ useEffect(() => {
           </div>
         )}
       </div>
-  
+
       {/* Input area with textarea and send button */}
       <div className="p-3 border-t border-zinc-200 bg-white dark:bg-zinc-900 dark:border-zinc-800">
         <form onSubmit={handleSubmit} className="flex items-end">
@@ -964,7 +1004,7 @@ useEffect(() => {
               className="ai-chat-input min-h-[44px] max-h-[200px] py-3 resize-none bg-zinc-50 border-zinc-200 text-zinc-800 placeholder:text-xs placeholder:text-zinc-500 focus:border-[#7dff00] focus:ring-[#7dff00]/20 dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-200 dark:placeholder:text-zinc-500"
               disabled={isLoading}
             />
-            
+
             {/* Attach button */}
             <Button
               type="button"
@@ -975,7 +1015,7 @@ useEffect(() => {
               <Paperclip className="h-4 w-4 text-zinc-500 dark:text-zinc-400" />
               <span className="sr-only">Attach</span>
             </Button>
-  
+
             {/* Send button */}
             <Button
               type="submit"
@@ -1022,8 +1062,8 @@ useEffect(() => {
                     onClick={() => setHttpMethod(method)}
                     className={`rounded-md px-3 py-2 text-sm font-medium ${
                       httpMethod === method
-                        ? 'bg-[#7dff00] text-black'
-                        : 'bg-zinc-200 text-zinc-700 dark:bg-zinc-700 dark:text-zinc-300'
+                        ? "bg-[#7dff00] text-black"
+                        : "bg-zinc-200 text-zinc-700 dark:bg-zinc-700 dark:text-zinc-300"
                     }`}
                   >
                     {method}
@@ -1038,12 +1078,8 @@ useEffect(() => {
               </div>
             </div>
             <div className="space-y-2">
-              <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-                Your prompt
-              </label>
-              <div className="rounded-md bg-zinc-100 p-2 text-sm dark:bg-zinc-800">
-                {promptText}
-              </div>
+              <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">Your prompt</label>
+              <div className="rounded-md bg-zinc-100 p-2 text-sm dark:bg-zinc-800">{promptText}</div>
             </div>
             <DialogFooter className="flex justify-end gap-2 sm:justify-end">
               <DialogClose asChild>
@@ -1059,5 +1095,5 @@ useEffect(() => {
         </DialogContent>
       </Dialog>
     </div>
-  );
+  )
 }

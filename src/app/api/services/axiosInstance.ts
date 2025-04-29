@@ -1,19 +1,19 @@
-import axios, { AxiosInstance, RawAxiosRequestHeaders } from 'axios'
-const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL  || "https://codebegen.canadacentral.cloudapp.azure.com"
+  import axios, { AxiosInstance, RawAxiosRequestHeaders } from 'axios'
+  const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL  || "https://codebegen.canadacentral.cloudapp.azure.com"
 
-const createAxiosInstance = (
-  clientUrl: string,
-  version: 'v1' | 'v2' = 'v1',
-  headers?: RawAxiosRequestHeaders
-): AxiosInstance => {
-  return axios.create({
-    timeout: 120000,
-    baseURL: `${baseUrl}/api/${version}${clientUrl}/`,
-    headers: {
-      'Content-Type': 'application/json',
-      ...headers,
-    },
-  })
-}
+  const createAxiosInstance = (
+    clientUrl: string,
+    version: 'v1' | 'v2' = 'v1',
+    headers?: RawAxiosRequestHeaders
+  ): AxiosInstance => {
+    return axios.create({
+      timeout: 120000,
+      baseURL: `${baseUrl}/api/${version}${clientUrl}/`,
+      headers: {
+        'Content-Type': 'application/json',
+        ...headers,
+      },
+    })
+  }
 
-export default createAxiosInstance
+  export default createAxiosInstance
