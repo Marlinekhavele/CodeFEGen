@@ -52,6 +52,21 @@ const config = {
         card: {
           DEFAULT: 'hsl(var(--card))',
           foreground: 'hsl(var(--card-foreground))'
+        },
+        // Add lime green color for tab highlighting
+        'lime': {
+          DEFAULT: '#7dff00',
+          50: '#f7fee7',
+          100: '#ecfccb',
+          200: '#d9f99d',
+          300: '#bef264',
+          400: '#98ec2d',
+          500: '#7dff00', // Our primary accent color
+          600: '#65a30d',
+          700: '#4d7c0f',
+          800: '#3f6212',
+          900: '#365314',
+          950: '#1a2e05',
         }
       },
       borderRadius: {
@@ -75,11 +90,38 @@ const config = {
           to: {
             height: '0'
           }
+        },
+        // Add blinking cursor animation
+        'blink': {
+          '0%, 100%': { opacity: "1" },
+          '50%': { opacity: "0" }
+        },
+        // Add progress bar animation
+        'progress': {
+          '0%': { width: '0%' },
+          '50%': { width: '70%' },
+          '100%': { width: '90%' }
+        },
+        // Add typewriter effect
+        'typewriter': {
+          '0%': { width: '0' },
+          '99.9%': { borderRight: '0.15em solid #7dff00' },
+          '100%': { borderRight: 'transparent' }
+        },
+        // Add cursor for typewriter
+        'typewriter-cursor': {
+          '0%': { borderColor: 'transparent' },
+          '50%': { borderColor: '#7dff00' },
+          '100%': { borderColor: 'transparent' }
         }
       },
       animation: {
         'accordion-down': 'accordion-down 0.2s ease-out',
-        'accordion-up': 'accordion-up 0.2s ease-out'
+        'accordion-up': 'accordion-up 0.2s ease-out',
+        'blink': 'blink 1s step-start infinite',
+        'progress': 'progress 3s ease-in-out infinite',
+        'typewriter': 'typewriter 2s steps(40, end)',
+        'typewriter-cursor': 'typewriter-cursor 0.8s step-end infinite'
       },
       typography: {
         DEFAULT: {

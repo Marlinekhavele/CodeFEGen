@@ -12,6 +12,7 @@ import { Loader2, Send, X } from "lucide-react"
 import { Editor } from "@monaco-editor/react"
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter"
 import { vscDarkPlus, vs } from "react-syntax-highlighter/dist/esm/styles/prism"
+import createAxiosInstance from "@/app/api/services/axiosInstance"
 
 type TestEndpointProps = {
   method: string
@@ -45,7 +46,7 @@ type TestResponse = {
 }
 
 export function TestEndpoint({ method, endpoint, projectId, theme }: TestEndpointProps) {
-  const [endpointUrl, setEndpointUrl] = useState(`http://localhost:8000${endpoint}`)
+  const [endpointUrl, setEndpointUrl] = useState(`http://${projectId}${endpoint}`)
   const [httpMethod, setHttpMethod] = useState(method)
   const [headers, setHeaders] = useState<RequestHeader[]>([{ key: "", value: "" }])
   const [queryParams, setQueryParams] = useState<QueryParam[]>([{ key: "", value: "" }])
@@ -94,81 +95,84 @@ export function TestEndpoint({ method, endpoint, projectId, theme }: TestEndpoin
     setResponse(null)
 
     try {
-      // Build URL with query parameters
-      const url = new URL(endpointUrl)
-      queryParams.forEach((param) => {
-        if (param.key) {
-          url.searchParams.append(param.key, param.value)
-        }
-      })
+      // Create axios instance
+      const axios = createAxiosInstance('/test-endpoint');
 
-      // Build headers
-      const requestHeaders: Record<string, string> = {}
+      // Build headers object from array
+      const headersObj: Record<string, string> = {}
       headers.forEach((header) => {
         if (header.key) {
-          requestHeaders[header.key] = header.value
+          headersObj[header.key] = header.value
         }
       })
 
       // Add content-type header if not present
-      if (!requestHeaders["Content-Type"] && requestBody) {
-        requestHeaders["Content-Type"] = bodyFormat === "json" ? "application/json" : "text/plain"
+      if (!headersObj["Content-Type"] && requestBody) {
+        headersObj["Content-Type"] = bodyFormat === "json" ? "application/json" : "text/plain"
       }
 
-      // Prepare request options
-      const requestOptions: RequestInit = {
-        method: httpMethod,
-        headers: requestHeaders,
-      }
-
-      // Add body if needed
-      if (["POST", "PUT", "PATCH"].includes(httpMethod) && requestBody) {
-        requestOptions.body = bodyFormat === "json" ? requestBody : requestBody
-      }
-
-      // Record start time
-      const startTime = performance.now()
-
-      // Send request
-      const response = await fetch(url.toString(), requestOptions)
-
-      // Record end time
-      const endTime = performance.now()
-      const elapsedTime = endTime - startTime
-
-      // Parse response headers
-      const responseHeaders: Record<string, string> = {}
-      response.headers.forEach((value, key) => {
-        responseHeaders[key] = value
+      // Build query parameters
+      const queryParamsObj: Record<string, string> = {}
+      queryParams.forEach((param) => {
+        if (param.key) {
+          queryParamsObj[param.key] = param.value
+        }
       })
 
-      // Get response body
-      let responseBody = ""
-      const contentType = response.headers.get("content-type") || ""
+      // Parse request body based on format
+      let parsedBody = requestBody
+      if (bodyFormat === "json" && requestBody) {
+        try {
+          // Validate JSON
+          JSON.parse(requestBody)
+          parsedBody = requestBody
+        } catch (e) {
+          setError("Invalid JSON in request body")
+          setIsLoading(false)
+          return
+        }
+      }
 
-      if (contentType.includes("application/json")) {
-        const jsonBody = await response.json()
-        responseBody = JSON.stringify(jsonBody, null, 2)
+      // Prepare request payload
+      const payload = {
+        endpointUrl,
+        httpMethod,
+        headers: headersObj,
+        queryParams: queryParamsObj,
+        requestBody: parsedBody ? JSON.parse(parsedBody) : undefined,
+      }
+
+      // Send request to the new API endpoint
+      const result = await axios.post(`project/${projectId}`, payload);
+
+      // Process response
+      if (result.data && result.data.success) {
+        const responseData = result.data.data
+
+        // Create response object
+        const testResponse: TestResponse = {
+          request_id: responseData.request_id || Math.random().toString(36).substring(2, 15),
+          success: responseData.success,
+          statusCode: responseData.statusCode,
+          responseBody:
+            typeof responseData.responseBody === "object"
+              ? JSON.stringify(responseData.responseBody, null, 2)
+              : responseData.responseBody,
+          responseHeaders: responseData.responseHeaders || {},
+          elapsedTime: responseData.timeTaken * 1000 || 0, // Convert to ms
+          size: responseData.size || 0,
+          contentType: responseData.contentType || "unknown",
+          cookies: responseData.cookies,
+          redirects: responseData.redirects,
+          timestamp: responseData.timestamp || new Date().toISOString(),
+        }
+
+        setResponse(testResponse)
       } else {
-        responseBody = await response.text()
+        throw new Error(result.data?.message || "Failed to test endpoint")
       }
-
-      // Create response object
-      const testResponse: TestResponse = {
-        request_id: Math.random().toString(36).substring(2, 15),
-        success: response.ok,
-        statusCode: response.status,
-        responseBody,
-        responseHeaders,
-        elapsedTime,
-        size: new Blob([responseBody]).size,
-        contentType: contentType || "unknown",
-        timestamp: new Date().toISOString(),
-      }
-
-      setResponse(testResponse)
     } catch (err) {
-      console.error("Error sending request:", err)
+      console.error("Error testing endpoint:", err)
       setError(err instanceof Error ? err.message : "An unknown error occurred")
     } finally {
       setIsLoading(false)
@@ -199,7 +203,7 @@ export function TestEndpoint({ method, endpoint, projectId, theme }: TestEndpoin
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      <div className="flex flex-col p-4 space-y-4 overflow-auto">
+      <div className="flex flex-col p-4 space-y-4 overflow-auto scrollable">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-lg">Test Endpoint</CardTitle>
@@ -241,9 +245,15 @@ export function TestEndpoint({ method, endpoint, projectId, theme }: TestEndpoin
 
               <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as any)}>
                 <TabsList className="grid w-full grid-cols-3">
-                  <TabsTrigger value="params">Query Params</TabsTrigger>
-                  <TabsTrigger value="headers">Headers</TabsTrigger>
-                  <TabsTrigger value="body">Body</TabsTrigger>
+                  <TabsTrigger value="params" className="tab-accent">
+                    Query Params
+                  </TabsTrigger>
+                  <TabsTrigger value="headers" className="tab-accent">
+                    Headers
+                  </TabsTrigger>
+                  <TabsTrigger value="body" className="tab-accent">
+                    Body
+                  </TabsTrigger>
                 </TabsList>
                 <TabsContent value="params" className="p-4 border rounded-md mt-2">
                   <div className="space-y-2">
@@ -395,7 +405,7 @@ export function TestEndpoint({ method, endpoint, projectId, theme }: TestEndpoin
                 <AccordionItem value="headers">
                   <AccordionTrigger>Response Headers</AccordionTrigger>
                   <AccordionContent>
-                    <div className="mt-2 border rounded-md overflow-hidden">
+                    <div className="mt-2 border rounded-md overflow-hidden scrollable">
                       <div className="divide-y">
                         {Object.entries(response.responseHeaders).map(([key, value]) => (
                           <div key={key} className="flex py-2 px-4">

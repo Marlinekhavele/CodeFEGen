@@ -31,8 +31,10 @@
     --chart-3: 197 37% 24%;
     --chart-4: 43 74% 66%;
     --chart-5: 27 87% 67%;
+    /* Scale down base font size by 10% */
+    font-size: 90%;
   }
-  
+
   .dark {
     --background: 240 10% 3.9%;
     --foreground: 0 0% 98%;
@@ -60,27 +62,86 @@
     --chart-5: 340 75% 55%;
   }
 
+  @layer base {
+    * {
+      @apply border-border;
+    }
+    body {
+      @apply bg-background text-foreground;
+      background-color: hsl(var(--background)); /* Use the --background variable */
+      color: hsl(var(--foreground)); /* Use the --foreground variable */
+    }
 
-@layer base {
-  * {
-    @apply border-border;
+    /* Scale down UI elements by 10% */
+    .ui-scale-90 {
+      transform: scale(0.9);
+      transform-origin: top left;
+    }
+
+    /* Add proper scrolling to components */
+    .scrollable {
+      overflow-y: auto;
+      scrollbar-width: thin;
+      scrollbar-color: rgba(155, 155, 155, 0.5) transparent;
+    }
+
+    .scrollable::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    .scrollable::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    .scrollable::-webkit-scrollbar-thumb {
+      background-color: rgba(155, 155, 155, 0.5);
+      border-radius: 20px;
+    }
+
+    /* Typewriter animation for code streaming */
+    @keyframes typewriter {
+      from {
+        width: 0;
+      }
+      to {
+        width: 100%;
+      }
+    }
+
+    .typewriter-effect {
+      display: inline-block;
+      overflow: hidden;
+      border-right: 2px solid #7dff00;
+      white-space: nowrap;
+      animation: typewriter 0.5s steps(40, end) forwards, blink-caret 0.75s step-end infinite;
+    }
+
+    @keyframes blink-caret {
+      from,
+      to {
+        border-color: transparent;
+      }
+      50% {
+        border-color: #7dff00;
+      }
+    }
+
+    /* Custom tab styling for the accent color */
+    .tab-accent[data-state="active"] {
+      background-color: #7dff00 !important;
+      color: black !important;
+    }
   }
-  body {
-    @apply bg-background text-foreground;
-    background-color: hsl(var(--background)); /* Use the --background variable */
-    color: hsl(var(--foreground)); /* Use the --foreground variable */
+
+  /* Ensure dark mode is applied */
+  .dark body {
+    @apply bg-zinc-950 text-zinc-100;
   }
-}
 
-/* Ensure dark mode is applied */
-.dark body {
-  @apply bg-zinc-950 text-zinc-100;
-}
-
-/* Ensure light mode is applied */
-:root:not(.dark) body {
-  @apply bg-white text-zinc-900;
-}
+  /* Ensure light mode is applied */
+  :root:not(.dark) body {
+    @apply bg-white text-zinc-900;
+  }
 }
 
 /* Add glow effect for neon elements */
@@ -122,6 +183,8 @@
   overflow: hidden;
   position: relative;
   transition: all 0.8s cubic-bezier(0.2, 0.8, 0.2, 1);
+  /* Scale down by 10% */
+  transform: scale(0.9);
 }
 
 .dark .phone-frame {
@@ -161,38 +224,38 @@
 
 /* Phone animations */
 .phone-left {
-  transform: rotate(-5deg) translateX(-30px);
+  transform: rotate(-5deg) translateX(-30px) scale(0.9);
   animation: float-left 6s ease-in-out infinite;
   transition: all 0.8s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 .phone-right {
-  transform: rotate(5deg) translateX(30px);
+  transform: rotate(5deg) translateX(30px) scale(0.9);
   animation: float-right 7s ease-in-out infinite;
   transition: all 0.8s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 @keyframes float-left {
   0% {
-    transform: rotate(-5deg) translateY(0px) translateX(-30px);
+    transform: rotate(-5deg) translateY(0px) translateX(-30px) scale(0.9);
   }
   50% {
-    transform: rotate(-5deg) translateY(-10px) translateX(-30px);
+    transform: rotate(-5deg) translateY(-10px) translateX(-30px) scale(0.9);
   }
   100% {
-    transform: rotate(-5deg) translateY(0px) translateX(-30px);
+    transform: rotate(-5deg) translateY(0px) translateX(-30px) scale(0.9);
   }
 }
 
 @keyframes float-right {
   0% {
-    transform: rotate(5deg) translateY(0px) translateX(30px);
+    transform: rotate(5deg) translateY(0px) translateX(30px) scale(0.9);
   }
   50% {
-    transform: rotate(5deg) translateY(-15px) translateX(30px);
+    transform: rotate(5deg) translateY(-15px) translateX(30px) scale(0.9);
   }
   100% {
-    transform: rotate(5deg) translateY(0px) translateX(30px);
+    transform: rotate(5deg) translateY(0px) translateX(30px) scale(0.9);
   }
 }
 
@@ -201,6 +264,7 @@
   .phone-frame {
     width: 140px;
     height: 280px;
+    transform: scale(0.9);
   }
 
   .phone-notch {
@@ -209,34 +273,34 @@
   }
 
   .phone-left {
-    transform: rotate(-5deg) translateX(-20px);
+    transform: rotate(-5deg) translateX(-20px) scale(0.9);
   }
 
   .phone-right {
-    transform: rotate(5deg) translateX(20px);
+    transform: rotate(5deg) translateX(20px) scale(0.9);
   }
 
   @keyframes float-left {
     0% {
-      transform: rotate(-5deg) translateY(0px) translateX(-20px);
+      transform: rotate(-5deg) translateY(0px) translateX(-20px) scale(0.9);
     }
     50% {
-      transform: rotate(-5deg) translateY(-10px) translateX(-20px);
+      transform: rotate(-5deg) translateY(-10px) translateX(-20px) scale(0.9);
     }
     100% {
-      transform: rotate(-5deg) translateY(0px) translateX(-20px);
+      transform: rotate(-5deg) translateY(0px) translateX(-20px) scale(0.9);
     }
   }
 
   @keyframes float-right {
     0% {
-      transform: rotate(5deg) translateY(0px) translateX(20px);
+      transform: rotate(5deg) translateY(0px) translateX(20px) scale(0.9);
     }
     50% {
-      transform: rotate(5deg) translateY(-15px) translateX(20px);
+      transform: rotate(5deg) translateY(-15px) translateX(20px) scale(0.9);
     }
     100% {
-      transform: rotate(5deg) translateY(0px) translateX(20px);
+      transform: rotate(5deg) translateY(0px) translateX(20px) scale(0.9);
     }
   }
 }
@@ -245,6 +309,7 @@
   .phone-frame {
     width: 120px;
     height: 240px;
+    transform: scale(0.9);
   }
 
   .phone-notch {
@@ -259,19 +324,107 @@
   }
 
   .phone-right {
-    transform: rotate(0deg) translateX(0px);
+    transform: rotate(0deg) translateX(0px) scale(0.9);
     animation: float-center 6s ease-in-out infinite;
   }
 
   @keyframes float-center {
     0% {
-      transform: translateY(0px);
+      transform: translateY(0px) scale(0.9);
     }
     50% {
-      transform: translateY(-10px);
+      transform: translateY(-10px) scale(0.9);
     }
     100% {
-      transform: translateY(0px);
+      transform: translateY(0px) scale(0.9);
     }
   }
+}
+
+/* Code streaming animation */
+.code-stream-container {
+  position: relative;
+  overflow: hidden;
+}
+
+.code-stream-text {
+  display: inline-block;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.code-stream-char {
+  opacity: 0;
+  animation: fadeIn 0.05s forwards;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Cursor animation */
+.code-cursor {
+  display: inline-block;
+  width: 2px;
+  height: 1em;
+  background-color: #7dff00;
+  margin-left: 1px;
+  animation: blink 1s infinite;
+}
+
+@keyframes blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
+}
+
+/* Typewriter effect */
+@keyframes blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
+}
+
+.animate-blink {
+  animation: blink 1s infinite;
+}
+
+/* Scrollable components */
+.scrollable {
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(155, 155, 155, 0.5) transparent;
+}
+
+.scrollable::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.scrollable::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.scrollable::-webkit-scrollbar-thumb {
+  background-color: rgba(155, 155, 155, 0.5);
+  border-radius: 20px;
+}
+
+/* Tab accent color */
+.tab-accent.active {
+  color: #7dff00;
+  border-color: #7dff00;
 }

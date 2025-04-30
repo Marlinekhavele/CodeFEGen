@@ -2,7 +2,7 @@
 
 ## Overview
 
-Build, deploy and test backend functionalities effortlessly with AI-powered assistance, optimized for speed and efficiency.
+Build and test backend functionalities effortlessly with AI-powered assistance, optimized for speed and efficiency.
 
 
 ## Getting Started
