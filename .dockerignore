@@ -1,13 +1,11 @@
 node_modules
 .next
 .env.local
-pnpm-lock.yaml
 .dockerignore
 Dockerfile
 .git
 .gitignore
 *.log
-.next
 out
 build
 dist
