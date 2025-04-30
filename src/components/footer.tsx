@@ -18,7 +18,7 @@ export function Footer() {
            <h3 className="text-lg font-medium text-[#7dff00]">CodeBEGen</h3>
           </div>
           <p className="text-sm text-zinc-400">
-            Generate backend code using AI. Deploy and test it inside CodeBEGen — without switching tools.
+            Generate backend code using AI. Test it inside CodeBEGen — without switching tools.
           </p>
         </div>
         <div className="space-y-4">

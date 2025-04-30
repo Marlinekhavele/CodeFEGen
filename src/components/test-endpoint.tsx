@@ -46,7 +46,7 @@ type TestResponse = {
 }
 
 export function TestEndpoint({ method, endpoint, projectId, theme }: TestEndpointProps) {
-  const [endpointUrl, setEndpointUrl] = useState(`http://localhost:8000${endpoint}`)
+  const [endpointUrl, setEndpointUrl] = useState(`http://${projectId}${endpoint}`)
   const [httpMethod, setHttpMethod] = useState(method)
   const [headers, setHeaders] = useState<RequestHeader[]>([{ key: "", value: "" }])
   const [queryParams, setQueryParams] = useState<QueryParam[]>([{ key: "", value: "" }])
