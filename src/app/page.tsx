@@ -49,7 +49,7 @@ export default function Home() {
               Platform
               </h1>
               <p className="text-zinc-400 dark:text-zinc-400 md:text-xl/relaxed lg:text-base/relaxed xl:text-xl/relaxed">
-              Generate powerful backend code with AI. Seamlessly deploy and test it inside 
+              Generate powerful backend code with AI. Seamlessly test it inside 
               <br />
               CodeBEGen — no need to jump between tools!
               </p>
