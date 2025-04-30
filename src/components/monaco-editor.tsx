@@ -120,10 +120,10 @@ export function MonacoEditor({
   const displayCode = streaming ? initialContent : code
 
   return (
-    <div className="h-full w-full border-0 bg-transparent overflow-hidden">
+    <div className="h-full w-full border-0 bg-transparent overflow-hidden p-5">
       {mounted ? (
         <Editor
-          height="100vh"
+          height="100%"
           width="100%"
           defaultLanguage={language}
           defaultValue={displayCode}
@@ -133,10 +133,10 @@ export function MonacoEditor({
           beforeMount={handleEditorWillMount}
           onMount={handleEditorDidMount}
           options={{
-            readOnly: streaming || readOnly, // Lock editing during streaming
+            readOnly: streaming || readOnly, 
             minimap: { enabled: true },
             scrollBeyondLastLine: false,
-            fontSize: 14,
+            fontSize: 8,
             fontFamily: "'Fira Code', monospace",
             cursorBlinking: "smooth",
             renderLineHighlight: "all",
@@ -144,7 +144,7 @@ export function MonacoEditor({
               verticalScrollbarSize: 10,
               horizontalScrollbarSize: 10,
             },
-            padding: { top: 10 },
+            padding: { top: 10, bottom: 20 },
             automaticLayout: true,
           }}
           className="h-full w-full"

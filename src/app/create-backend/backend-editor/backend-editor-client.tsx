@@ -84,369 +84,434 @@ export default function BackendEditorClient({
 
   const handleRunMigrations = async () => {
     if (!urlFriendlyName || isRunningMigrations) return
-
+  
     setIsRunningMigrations(true)
     setMigrationStatus("running")
-    setMigrationLogs([`[${new Date().toLocaleTimeString()}] Starting migrations for project ${urlFriendlyName}...`])
+    setMigrationLogs([`[${new Date().toLocaleTimeString()}] Initiating migration process...`])
     setShowMigrationLogs(true)
-
+  
     try {
       const migrationService = new MigrationService()
-
+  
       // Add initial logs
       setMigrationLogs((prev) => [
         ...prev,
-        `[${new Date().toLocaleTimeString()}] Connecting to database...`,
-        `[${new Date().toLocaleTimeString()}] Checking for pending migrations...`,
+        `[${new Date().toLocaleTimeString()}] Establishing connection to server...`,
       ])
-
-      // Simulate streaming logs (in a real implementation, you would use WebSockets or SSE)
-      const streamMigrationLogs = async () => {
-        // This is a simulation - in a real app, you'd connect to a WebSocket
-        const steps = [
-          "Detected database models",
-          "Creating migration script",
-          "Applying migration: create_users_table",
-          "Applying migration: add_email_to_users",
-          "Updating database schema",
-          "Running post-migration checks",
-          "Verifying database integrity",
-        ]
-
-        for (const step of steps) {
-          await new Promise((resolve) => setTimeout(resolve, 800))
-          setMigrationLogs((prev) => [...prev, `[${new Date().toLocaleTimeString()}] ${step}...`])
-        }
-      }
-
-      // Start streaming logs simulation
-      streamMigrationLogs()
-
-      // Run the actual migration
-      const result = await migrationService.runMigrations(urlFriendlyName)
-
-      // Add success logs
-      setTimeout(() => {
+  
+      // Create a variable to track if we need to close the stream
+      let closeLogStream: (() => void) | null = null
+      
+      // Set up the log streaming connection
+      try {
+        closeLogStream = migrationService.streamMigrationLogs(
+          urlFriendlyName,
+          (logEntry) => {
+            setMigrationLogs(prev => [
+              ...prev, 
+              `[${logEntry.timestamp}] ${
+                logEntry.level === "error" ? "ERROR: " : 
+                logEntry.level === "warning" ? "WARNING: " : 
+                logEntry.level === "success" ? "SUCCESS: " : 
+                ""
+              }${logEntry.message}`
+            ]);
+  
+            // Update migration status when complete
+            if (logEntry.completed) {
+              setMigrationStatus(
+                logEntry.level === "error" ? "error" : "success"
+              );
+              setIsRunningMigrations(false);
+              
+              // Check for success in final message
+              const isSuccess = logEntry.level === "success" || 
+                               logEntry.message.toLowerCase().includes("success") ||
+                               !logEntry.message.toLowerCase().includes("fail");
+                               
+              // Refresh endpoint list if successful
+              if (isSuccess) {
+                setHasPendingMigrations(false);
+                // Short delay to ensure backend has finished processing
+                setTimeout(() => fetchEndpoints(), 1000);
+              }
+            }
+          },
+          (error) => {
+            // Handle connection errors
+            setMigrationLogs(prev => [
+              ...prev,
+              `[${new Date().toLocaleTimeString()}] ERROR: ${error}`
+            ]);
+            setMigrationStatus("error");
+            setIsRunningMigrations(false);
+            
+            toast({
+              title: "Migration log stream error",
+              description: error,
+              variant: "destructive"
+            });
+          }
+        );
+        
         setMigrationLogs((prev) => [
           ...prev,
-          `[${new Date().toLocaleTimeString()}] Migrations completed successfully!`,
-          `[${new Date().toLocaleTimeString()}] Applied ${result?.data?.applied_migrations || 0} migrations.`,
-        ])
-        setMigrationStatus("success")
-        setHasPendingMigrations(false)
-
-        toast({
-          title: "Migrations completed",
-          description: `Successfully applied ${result?.data?.applied_migrations || 0} migrations.`,
-          variant: "default",
-        })
-
-        // Refresh the file list to show new migration files
-        fetchEndpoints()
-      }, 6000) // Simulate delay for the streaming logs
+          `[${new Date().toLocaleTimeString()}] Log streaming connection established`,
+        ]);
+      } catch (error) {
+        console.error("Failed to establish log streaming connection:", error);
+        setMigrationLogs((prev) => [
+          ...prev,
+          `[${new Date().toLocaleTimeString()}] WARNING: Could not establish log streaming connection. Will proceed with migration but detailed logs may not be available.`,
+        ]);
+      }
+  
+      // Run the actual migration in parallel
+      setMigrationLogs((prev) => [
+        ...prev,
+        `[${new Date().toLocaleTimeString()}] Triggering migration process...`,
+      ]);
+      
+      const result = await migrationService.runMigrations(urlFriendlyName)
+  
+      // Add success logs (only if we don't have streaming)
+      if (!closeLogStream) {
+        // If we don't have streaming logs, add basic information from the result
+        setMigrationLogs((prev) => [
+          ...prev,
+          `[${new Date().toLocaleTimeString()}] Migration process completed`,
+          `[${new Date().toLocaleTimeString()}] ${result?.data?.message || "See server logs for details"}`,
+        ]);
+        
+        setMigrationStatus(result?.data?.success ? "success" : "error");
+        
+        if (result?.data?.success) {
+          setHasPendingMigrations(false);
+          toast({
+            title: "Migrations completed",
+            description: result?.data?.message || "Migration process completed successfully",
+            variant: "default",
+          });
+          
+          // Refresh the file list to show new migration files
+          fetchEndpoints();
+        } else {
+          toast({
+            title: "Migration issues",
+            description: result?.data?.message || "Migration completed with issues",
+            variant: "destructive",
+          });
+        }
+        
+        // Set the final state
+        setIsRunningMigrations(false);
+      }
     } catch (error) {
       console.error("Error running migrations:", error)
-
+  
       setMigrationLogs((prev) => [
         ...prev,
         `[${new Date().toLocaleTimeString()}] ERROR: Failed to run migrations.`,
         `[${new Date().toLocaleTimeString()}] ${error instanceof Error ? error.message : String(error)}`,
       ])
       setMigrationStatus("error")
-
+      setIsRunningMigrations(false)
+  
       toast({
         title: "Migration failed",
         description: error instanceof Error ? error.message : "Failed to run migrations",
         variant: "destructive",
       })
-    } finally {
-      setTimeout(() => {
-        setIsRunningMigrations(false)
-      }, 6000) // Match the delay from the success case
     }
   }
 
   const fetchEndpoints = async () => {
-    const endpointService = new EndPointService()
-    const axiosInstance = createAxiosInstance("", "v1")
+  const endpointService = new EndPointService()
+  const axiosInstance = createAxiosInstance('', 'v1')
+  
+  try {
+    setIsPageLoading(true); // 🟢 Start page loading immediately
+    console.log("Fetching endpoints for project:", urlFriendlyName)
+    
+    // Fetch endpoints
+    const endpointResult = await endpointService.getEndpointList(urlFriendlyName)
+    console.log("Endpoint list response:", endpointResult)
 
+    // Fetch models
+    const modelResult = await endpointService.getModelList(urlFriendlyName)
+    console.log("Model list response:", modelResult)
+
+    // Fetch schemas
+    const schemaResult = await endpointService.getSchemaList(urlFriendlyName)
+    console.log("Schema list response:", schemaResult)
+
+    // Fetch helpers
+    const helperResult = await endpointService.getHelperList(urlFriendlyName)
+    console.log("Helper list response:", helperResult)
+
+    // fetch docs
+    const docsResult = await endpointService.getDocList(urlFriendlyName)
+    console.log("Docs list response:", docsResult)
+
+    // Fetch migrations
+    const migrationResult = await endpointService.getMigrationList(urlFriendlyName)
+    console.log("Migration list response:", migrationResult)
+    let allFiles: FileType[] = []
+
+    // Fetch database files
     try {
-      setIsPageLoading(true) // 🟢 Start page loading immediately
-      console.log("Fetching endpoints for project:", urlFriendlyName)
-
-      // Fetch endpoints
-      const endpointResult = await endpointService.getEndpointList(urlFriendlyName)
-      console.log("Endpoint list response:", endpointResult)
-
-      // Fetch models
-      const modelResult = await endpointService.getModelList(urlFriendlyName)
-      console.log("Model list response:", modelResult)
-
-      // Fetch schemas
-      const schemaResult = await endpointService.getSchemaList(urlFriendlyName)
-      console.log("Schema list response:", schemaResult)
-
-      // Fetch helpers
-      const helperResult = await endpointService.getHelperList(urlFriendlyName)
-      console.log("Helper list response:", helperResult)
-
-      // fetch docs
-      const docsResult = await endpointService.getDocList(urlFriendlyName)
-      console.log("Docs list response:", docsResult)
-
-      // Fetch migrations
-      const migrationResult = await endpointService.getMigrationList(urlFriendlyName)
-      console.log("Migration list response:", migrationResult)
-      let allFiles: FileType[] = []
-
-      // Fetch database files
-      try {
-        console.log(`Fetching database files for project: ${urlFriendlyName}`)
-        const databaseFiles = await endpointService.getDatabaseFiles(urlFriendlyName)
-        console.log("Database files response:", databaseFiles)
-
-        if (databaseFiles && databaseFiles.length > 0) {
-          const dbFiles = databaseFiles.map((db) => ({
-            id: `database-${db.name}`,
-            name: db.name,
-            path: db.path || `/db/${db.name}`,
-            type: "database" as const,
-            // Either don't include the code property at all, or set it to empty string
-            code: "",
-          }))
-
-          allFiles = [...allFiles, ...dbFiles]
-        }
-      } catch (error) {
-        console.error("Error fetching database files:", error)
+      console.log(`Fetching database files for project: ${urlFriendlyName}`);
+      const databaseFiles = await endpointService.getDatabaseFiles(urlFriendlyName);
+      console.log("Database files response:", databaseFiles);
+      
+      if (databaseFiles && databaseFiles.length > 0) {
+        const dbFiles = databaseFiles.map((db) => ({
+          id: `database-${db.name}`,
+          name: db.name,
+          path: db.path || `/db/${db.name}`,
+          type: "database" as const,
+          // Either don't include the code property at all, or set it to empty string
+          code: ""
+        }));
+        
+        allFiles = [...allFiles, ...dbFiles];
       }
+    } catch (error) {
+      console.error("Error fetching database files:", error);
+    }
 
-      // Process endpoints
-      if (endpointResult && endpointResult.length > 0) {
-        const endpointFiles = await Promise.all(
-          endpointResult.map(async (ep: EndpointListContent) => {
-            try {
-              const endpointAxios = createAxiosInstance("/endpoint", "v1")
-              const resp = await endpointAxios.get("", {
-                params: {
-                  project_id: urlFriendlyName,
-                  endpoint_path: ep.path,
-                  method: ep.method,
-                },
-              })
-              const fileResult = resp.data?.data
-              const code = fileResult?.content_base64 ? atob(fileResult.content_base64) : ""
-
-              let fileName = ep.path.split("/").pop() || ep.path
-              fileName = fileName.replace(/^(GET|POST|PUT|DELETE)_/i, "")
-
-              return {
-                id: `endpoint-${ep.path}`,
-                name: fileName,
-                path: ep.path,
-                type: "endpoint" as const,
-                code,
-                method: ep.method as MethodType,
-              }
-            } catch (error) {
-              console.error(`Error fetching code for endpoint ${ep.path}:`, error)
-              let fileName = ep.path.split("/").pop() || ep.path
-              fileName = fileName.replace(/^(GET|POST|PUT|DELETE)_/i, "")
-              return {
-                id: `endpoint-${ep.path}`,
-                name: fileName,
-                path: ep.path,
-                type: "endpoint" as const,
-                code: "",
-                method: ep.method as MethodType,
-              }
+    // Process endpoints
+    if (endpointResult && endpointResult.length > 0) {
+      const endpointFiles = await Promise.all(
+        endpointResult.map(async (ep: EndpointListContent) => {
+          try {
+            const endpointAxios = createAxiosInstance('/endpoint', 'v1')
+            const resp = await endpointAxios.get('', {
+              params: {
+                project_id: urlFriendlyName,
+                endpoint_path: ep.path,
+                method: ep.method,
+              },
+            })
+            const fileResult = resp.data?.data
+            const code = fileResult?.content_base64
+              ? atob(fileResult.content_base64)
+              : ""
+              
+            let fileName = ep.path.split("/").pop() || ep.path;
+            fileName = fileName.replace(/^(GET|POST|PUT|DELETE)_/i, "");
+            
+            return {
+              id: `endpoint-${ep.path}`,
+              name: fileName,
+              path: ep.path,
+              type: "endpoint" as const,
+              code,
+              method: ep.method as MethodType,
             }
-          }),
-        )
-        allFiles = [...allFiles, ...endpointFiles]
-      }
-
-      // Process models
-      if (modelResult && modelResult.length > 0) {
-        const modelFiles = await Promise.all(
-          modelResult.map(async (model: any) => {
-            try {
-              const modelAxios = createAxiosInstance(`/projects/${urlFriendlyName}/models/${model.name}/content`, "v1")
-              const resp = await modelAxios.get("")
-              const fileResult = resp.data?.data
-              const code = fileResult?.content_base64 ? atob(fileResult.content_base64) : ""
-
-              return {
-                id: `model-${model.name}`,
-                name: model.name,
-                path: model.path || `/models/${model.name}`,
-                type: "model" as const,
-                code,
-              }
-            } catch (error) {
-              console.error(`Error fetching code for model ${model.name}:`, error)
-              return {
-                id: `model-${model.name}`,
-                name: model.name,
-                path: model.path || `/models/${model.name}`,
-                type: "model" as const,
-                code: "",
-              }
+          } catch (error) {
+            console.error(`Error fetching code for endpoint ${ep.path}:`, error)
+            let fileName = ep.path.split("/").pop() || ep.path;
+            fileName = fileName.replace(/^(GET|POST|PUT|DELETE)_/i, "");
+            return {
+              id: `endpoint-${ep.path}`,
+              name: fileName,
+              path: ep.path,
+              type: "endpoint" as const,
+              code: "",
+              method: ep.method as MethodType,
             }
-          }),
-        )
-        allFiles = [...allFiles, ...modelFiles]
-      }
-
-      // Process schemas
-      if (schemaResult && schemaResult.length > 0) {
-        const schemaFiles = await Promise.all(
-          schemaResult.map(async (schema: any) => {
-            try {
-              const schemaAxios = createAxiosInstance(
-                `/projects/${urlFriendlyName}/schemas/${schema.name}/content`,
-                "v1",
-              )
-              const resp = await schemaAxios.get("")
-              const fileResult = resp.data?.data
-              const code = fileResult?.content_base64 ? atob(fileResult.content_base64) : ""
-
-              return {
-                id: `schema-${schema.name}`,
-                name: schema.name,
-                path: schema.path || `/schemas/${schema.name}`,
-                type: "schema" as const,
-                code,
-              }
-            } catch (error) {
-              console.error(`Error fetching code for schema ${schema.name}:`, error)
-              return {
-                id: `schema-${schema.name}`,
-                name: schema.name,
-                path: schema.path || `/schemas/${schema.name}`,
-                type: "schema" as const,
-                code: "",
-              }
-            }
-          }),
-        )
-        allFiles = [...allFiles, ...schemaFiles]
-      }
-
-      // Process helpers
-      if (helperResult && helperResult.length > 0) {
-        const helperFiles = await Promise.all(
-          helperResult.map(async (helper: any) => {
-            try {
-              const helperAxios = createAxiosInstance(
-                `/projects/${urlFriendlyName}/helpers/${helper.name}/content`,
-                "v1",
-              )
-              const resp = await helperAxios.get("")
-              const fileResult = resp.data?.data
-              const code = fileResult?.content_base64 ? atob(fileResult.content_base64) : ""
-
-              return {
-                id: `helper-${helper.name}`,
-                name: helper.name,
-                path: helper.path || `/helpers/${helper.name}`,
-                type: "helpers" as const,
-                code,
-              }
-            } catch (error) {
-              console.error(`Error fetching code for helper ${helper.name}:`, error)
-              return {
-                id: `helper-${helper.name}`,
-                name: helper.name,
-                path: helper.path || `/helpers/${helper.name}`,
-                type: "helpers" as const,
-                code: "",
-              }
-            }
-          }),
-        )
-        allFiles = [...allFiles, ...helperFiles]
-      }
-      // Process docs
-      if (docsResult && docsResult.length > 0) {
-        const docsFiles = await Promise.all(
-          docsResult.map(async (doc: any) => {
-            try {
-              const docsAxios = createAxiosInstance(`/projects/${urlFriendlyName}/docs/${doc.name}/content`, "v1")
-              const resp = await docsAxios.get("")
-              const fileResult = resp.data?.data
-              const code = fileResult?.content_base64 ? atob(fileResult.content_base64) : ""
-              return {
-                id: `docs-${doc.name}`,
-                name: doc.name,
-                path: doc.path || `/docs/${doc.name}`,
-                type: "docs" as const,
-                code,
-              }
-            } catch (error) {
-              console.error(`Error fetching code for docs ${doc.name}:`, error)
-              return {
-                id: `docs-${doc.name}`,
-                name: doc.name,
-                path: doc.path || `/docs/${doc.name}`,
-                type: "docs" as const,
-                code: "",
-              }
-            }
-          }),
-        )
-        allFiles = [...allFiles, ...docsFiles]
-      }
-
-      // Process migrations
-      if (migrationResult && migrationResult.length > 0) {
-        const migrationFiles = await Promise.all(
-          migrationResult.map(async (migration: any) => {
-            try {
-              const migrationAxios = createAxiosInstance(
-                `/projects/${urlFriendlyName}/alembic/versions/${migration.name}/content`,
-                "v1",
-              )
-              const resp = await migrationAxios.get("")
-              const fileResult = resp.data?.data
-              const code = fileResult?.content_base64 ? atob(fileResult.content_base64) : ""
-
-              return {
-                id: `migration-${migration.name}`,
-                name: migration.name,
-                path: migration.path || `/alembic/versions/${migration.name}`,
-                type: "migration" as const,
-                code,
-              }
-            } catch (error) {
-              console.error(`Error fetching code for migration ${migration.name}:`, error)
-              return {
-                id: `migration-${migration.name}`,
-                name: migration.name,
-                path: migration.path || `/alembic/versions/${migration.name}`,
-                type: "migration" as const,
-                code: "",
-              }
-            }
-          }),
-        )
-        allFiles = [...allFiles, ...migrationFiles]
-      }
-
-      console.log("All processed files:", allFiles)
-      setFiles(allFiles)
-
-      if (allFiles.length > 0) {
-        setSelectedFile(allFiles[0].id)
-        setCurrentCode(allFiles[0].code)
-      } else {
-        console.log("No files found for project")
-        toast({
-          title: "No files found",
-          description: "This project doesn't have any files yet. Try creating one!",
-          variant: "default",
+          }
         })
-      }
+      )
+      allFiles = [...allFiles, ...endpointFiles]
+    }
+
+    // Process models
+    if (modelResult && modelResult.length > 0) {
+      const modelFiles = await Promise.all(
+        modelResult.map(async (model: any) => {
+          try {
+            const modelAxios = createAxiosInstance(`/projects/${urlFriendlyName}/models/${model.name}/content`, 'v1')
+            const resp = await modelAxios.get('')
+            const fileResult = resp.data?.data
+            const code = fileResult?.content_base64
+              ? atob(fileResult.content_base64)
+              : ""
+            
+            return {
+              id: `model-${model.name}`,
+              name: model.name,
+              path: model.path || `/models/${model.name}`,
+              type: "model" as const,
+              code,
+            }
+          } catch (error) {
+            console.error(`Error fetching code for model ${model.name}:`, error)
+            return {
+              id: `model-${model.name}`,
+              name: model.name,
+              path: model.path || `/models/${model.name}`,
+              type: "model" as const,
+              code: "",
+            }
+          }
+        })
+      )
+      allFiles = [...allFiles, ...modelFiles]
+    }
+
+    // Process schemas
+    if (schemaResult && schemaResult.length > 0) {
+      const schemaFiles = await Promise.all(
+        schemaResult.map(async (schema: any) => {
+          try {
+            const schemaAxios = createAxiosInstance(`/projects/${urlFriendlyName}/schemas/${schema.name}/content`, 'v1')
+            const resp = await schemaAxios.get('')
+            const fileResult = resp.data?.data
+            const code = fileResult?.content_base64
+              ? atob(fileResult.content_base64)
+              : ""
+            
+            return {
+              id: `schema-${schema.name}`,
+              name: schema.name,
+              path: schema.path || `/schemas/${schema.name}`,
+              type: "schema" as const,
+              code,
+            }
+          } catch (error) {
+            console.error(`Error fetching code for schema ${schema.name}:`, error)
+            return {
+              id: `schema-${schema.name}`,
+              name: schema.name,
+              path: schema.path || `/schemas/${schema.name}`,
+              type: "schema" as const,
+              code: "",
+            }
+          }
+        })
+      )
+      allFiles = [...allFiles, ...schemaFiles]
+    }
+
+    // Process helpers
+    if (helperResult && helperResult.length > 0) {
+      const helperFiles = await Promise.all(
+        helperResult.map(async (helper: any) => {
+          try {
+            const helperAxios = createAxiosInstance(`/projects/${urlFriendlyName}/helpers/${helper.name}/content`, 'v1')
+            const resp = await helperAxios.get('')
+            const fileResult = resp.data?.data
+            const code = fileResult?.content_base64
+              ? atob(fileResult.content_base64)
+              : ""
+            
+            return {
+              id: `helper-${helper.name}`,
+              name: helper.name,
+              path: helper.path || `/helpers/${helper.name}`,
+              type: "helpers" as const,
+              code,
+            }
+          } catch (error) {
+            console.error(`Error fetching code for helper ${helper.name}:`, error)
+            return {
+              id: `helper-${helper.name}`,
+              name: helper.name,
+              path: helper.path || `/helpers/${helper.name}`,
+              type: "helpers" as const,
+              code: "",
+            }
+          }
+        })
+      )
+      allFiles = [...allFiles, ...helperFiles]
+    }
+    // Process docs
+    if (docsResult && docsResult.length > 0) {
+      const docsFiles = await Promise.all(
+        docsResult.map(async (doc: any) => {
+          try {
+            const docsAxios = createAxiosInstance(`/projects/${urlFriendlyName}/docs/${doc.name}/content`, 'v1')
+            const resp = await docsAxios.get('')
+            const fileResult = resp.data?.data
+            const code = fileResult?.content_base64
+              ? atob(fileResult.content_base64)
+              : ""
+            return {
+              id: `docs-${doc.name}`,
+              name: doc.name, 
+              path: doc.path || `/docs/${doc.name}`,
+              type: "docs" as const,
+              code,
+            }
+          } catch (error) {
+            console.error(`Error fetching code for docs ${doc.name}:`, error)
+            return {
+              id: `docs-${doc.name}`,
+              name: doc.name,
+              path: doc.path || `/docs/${doc.name}`,
+              type: "docs" as const,
+              code: "",
+            }
+          }
+        })
+      )
+      allFiles = [...allFiles, ...docsFiles]
+    }
+
+    // Process migrations
+    if (migrationResult && migrationResult.length > 0) {
+      const migrationFiles = await Promise.all(
+        migrationResult.map(async (migration: any) => {
+          try {
+            const migrationAxios = createAxiosInstance(`/projects/${urlFriendlyName}/alembic/versions/${migration.name}/content`, 'v1')
+            const resp = await migrationAxios.get('')
+            const fileResult = resp.data?.data
+            const code = fileResult?.content_base64
+              ? atob(fileResult.content_base64)
+              : ""
+            
+            return {
+              id: `migration-${migration.name}`,
+              name: migration.name,
+              path: migration.path || `/alembic/versions/${migration.name}`,
+              type: "migration" as const,
+              code,
+            }
+          } catch (error) {
+            console.error(`Error fetching code for migration ${migration.name}:`, error)
+            return {
+              id: `migration-${migration.name}`,
+              name: migration.name,
+              path: migration.path || `/alembic/versions/${migration.name}`,
+              type: "migration" as const,
+              code: "",
+            }
+          }
+        })
+      )
+      allFiles = [...allFiles, ...migrationFiles]
+    }
+    
+    
+
+
+    console.log("All processed files:", allFiles)
+    setFiles(allFiles)
+    
+    if (allFiles.length > 0) {
+      setSelectedFile(allFiles[0].id)
+      setCurrentCode(allFiles[0].code)
+    } else {
+      console.log("No files found for project")
+      toast({
+        title: "No files found",
+        description: "This project doesn't have any files yet. Try creating one!",
+        variant: "default"
+      })
+    }
 
       // Check for pending migrations after loading files
       if (allFiles.some((file) => file.type === "model" || file.type === "schema")) {
@@ -1023,7 +1088,7 @@ export default function BackendEditorClient({
               </div>
             </div>
           ) : (
-            <div className="grid grid-cols-[270px_1fr_300px] gap-6" style={{ height: "calc(100vh - 200px)" }}>
+            <div className="grid grid-cols-[230px_1fr_270px] gap-6" style={{ height: "calc(100vh - 200px)" }}>
               {/* Project Files */}
               <ProjectFiles
                 files={files}

@@ -16,32 +16,9 @@ interface MigrationLogProps {
 }
 
 export function MigrationLog({ logs, isOpen, onClose, status, title = "Migration Logs" }: MigrationLogProps) {
-  const logEndRef = useRef<HTMLDivElement>(null)
+  const scrollRef = useRef<HTMLDivElement>(null)
   const [copied, setCopied] = useState(false)
 
-  // Auto-scroll to bottom when logs update
-  useEffect(() => {
-    if (isOpen && logEndRef.current) {
-      logEndRef.current.scrollIntoView({ behavior: "smooth" })
-    }
-  }, [logs, isOpen])
-
-  // Reset copied state after 2 seconds
-  useEffect(() => {
-    if (copied) {
-      const timeout = setTimeout(() => setCopied(false), 2000)
-      return () => clearTimeout(timeout)
-    }
-  }, [copied])
-
-  if (!isOpen) return null
-
-  const copyLogs = () => {
-    navigator.clipboard.writeText(logs.join("\n"))
-    setCopied(true)
-  }
-
-  // Helper to colorize log lines
   const colorizeLog = (log: string) => {
     if (log.toLowerCase().includes("error") || log.toLowerCase().includes("failed")) {
       return "text-red-500 dark:text-red-400"
@@ -58,8 +35,28 @@ export function MigrationLog({ logs, isOpen, onClose, status, title = "Migration
     return "text-zinc-700 dark:text-zinc-300"
   }
 
+  useEffect(() => {
+    if (isOpen && scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight
+    }
+  }, [logs, isOpen])
+
+  useEffect(() => {
+    if (copied) {
+      const timeout = setTimeout(() => setCopied(false), 2000)
+      return () => clearTimeout(timeout)
+    }
+  }, [copied])
+
+  if (!isOpen) return null
+
+  const copyLogs = () => {
+    navigator.clipboard.writeText(logs.join("\n"))
+    setCopied(true)
+  }
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm overflow-y-scroll">
       <Card className="w-full max-w-3xl max-h-[80vh] flex flex-col">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <div className="flex items-center space-x-2">
@@ -103,18 +100,25 @@ export function MigrationLog({ logs, isOpen, onClose, status, title = "Migration
             <X className="h-4 w-4" />
           </Button>
         </CardHeader>
-        <CardContent className="flex-1 overflow-hidden">
-          <div className="bg-zinc-100 dark:bg-zinc-900 rounded-md p-4 h-[400px] overflow-y-auto scrollable font-mono text-sm">
+        <CardContent className="flex-1 overflow-auto">
+          <div
+            ref={scrollRef}
+            className="bg-zinc-100 dark:bg-zinc-900 rounded-md p-4 h-[400px] overflow-hidden font-mono text-sm"
+          >
             {logs.length === 0 ? (
               <div className="text-zinc-500 dark:text-zinc-400 italic">No logs available yet...</div>
             ) : (
               logs.map((log, index) => (
-                <div key={index} className={`whitespace-pre-wrap ${colorizeLog(log)}`}>
+                <div key={index} className={`whitespace-pre-wrap break-words ${colorizeLog(log)}`}>
                   {log}
                 </div>
               ))
             )}
-            <div ref={logEndRef} />
+
+            {/* Blinking cursor */}
+            {status === "running" && (
+              <div className="h-4 w-2 bg-zinc-800 dark:bg-zinc-300 animate-blink inline-block mt-1" />
+            )}
           </div>
         </CardContent>
         <CardFooter className="flex justify-between pt-2">
