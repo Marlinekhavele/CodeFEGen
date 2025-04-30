@@ -22,7 +22,7 @@ jobs:
             git pull origin main
             docker stop codefegen || true
             docker rm codefegen || true
-            docker build --no-cache -t codefegen -f Dockerfile .
+            docker build --no-cache -t codefegen -f .
             docker run -d --name codefegen -p 3000:3000 codefegen
             systemctl restart nginx
           EOF
