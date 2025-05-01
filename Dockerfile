@@ -1,62 +1,41 @@
-# -------------------
-# Base image with Node and pnpm
-# -------------------
-    FROM node:20-alpine AS base
+# Single-stage Dockerfile (simpler approach)
+FROM node:20-alpine
 
-    # Set working directory
-    WORKDIR /app
-    
-    # Install pnpm globally
-    RUN npm install -g pnpm
-    
-    # -------------------
-    # Dependencies layer
-    # -------------------
-    FROM base AS deps
-    
-    # Copy package manager files
-    COPY package.json pnpm-lock.yaml ./
-    
-    # Install dependencies
-    RUN pnpm install
-    
-    # -------------------
-    # Build layer
-    # -------------------
-    FROM deps AS build
-    
-    # Copy rest of the application code
-    COPY . .
-    
-    # Set build environment
-    ENV NEXT_TELEMETRY_DISABLED=1
-    ENV NODE_ENV=production
-    ENV HUSKY=0
-    
-    # Ensure latest Next.js is installed
-    RUN pnpm add -D next@latest
-    
-    # Build the application
-    RUN pnpm build
-    
-    # -------------------
-    # Final runtime image
-    # -------------------
-    FROM base AS final
-    
-    # Set working directory
-    WORKDIR /app
-    
-    # Copy everything needed from build stage
-    COPY --from=build /app ./
-    
-    # Optionally prune devDependencies to slim image
-    # RUN pnpm prune --prod
-    
-    # Expose port and start app
-    EXPOSE 3000
-    ENV PORT=3000
-    ENV NODE_ENV=production
-    
-    CMD ["pnpm", "start"]
-    
+# Set working directory
+WORKDIR /app
+
+# Install pnpm
+RUN npm install -g pnpm
+
+# Copy package files
+COPY package.json pnpm-lock.yaml ./
+
+# Install all dependencies
+RUN pnpm install
+
+# Copy all project files
+COPY . .
+
+# Create postcss.config.js if it doesn't exist
+RUN [ -f postcss.config.js ] || echo "module.exports = { plugins: { tailwindcss: {}, autoprefixer: {} } }" > postcss.config.js
+
+# Debug: Show environment
+RUN echo "Node version: $(node -v) && NPM version: $(npm -v) && PNPM version: $(pnpm -v)"
+
+# Clean the Next.js cache
+RUN rm -rf .next
+
+# Build the application (do NOT add -D next@latest)
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
+RUN pnpm build
+
+# Debug: Check for CSS files
+RUN find .next -name "*.css" || echo "No CSS files found"
+RUN ls -la .next/static/ || echo "No static directory"
+
+# Expose port and start the application
+EXPOSE 3000
+ENV PORT=3000
+
+CMD ["pnpm", "start"]
