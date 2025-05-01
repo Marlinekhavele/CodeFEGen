@@ -2,7 +2,15 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
+@import "@fontsource/inter/100.css";
+@import "@fontsource/inter/200.css";
+@import "@fontsource/inter/300.css";
+@import "@fontsource/inter/400.css";
+@import "@fontsource/inter/500.css";
+@import "@fontsource/inter/600.css";
+@import "@fontsource/inter/700.css";
+@import "@fontsource/inter/800.css";
+@import "@fontsource/inter/900.css";
 /* Custom styles start here */
 @layer base {
   :root {
@@ -63,13 +71,11 @@
   }
 
   @layer base {
-    * {
-      @apply border-border;
-    }
+    
     body {
-      @apply bg-background text-foreground;
       background-color: hsl(var(--background)); /* Use the --background variable */
       color: hsl(var(--foreground)); /* Use the --foreground variable */
+      font-family: "Inter", sans-serif;
     }
 
     /* Scale down UI elements by 10% */

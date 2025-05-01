@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "node build-fix.js",
     "start": "next start",
     "lint": "next lint",
     "turbo": "next dev --turbo",
@@ -15,6 +15,7 @@
   },
   "dependencies": {
     "@bprogress/next": "^3.2.6",
+    "@fontsource/inter": "^5.2.5",
     "@hookform/resolvers": "^4.1.2",
     "@ianvs/prettier-plugin-sort-imports": "^4.4.1",
     "@monaco-editor/react": "^4.7.0",
@@ -41,6 +42,7 @@
     "clsx": "^2.1.1",
     "cmdk": "1.0.4",
     "cors": "^2.8.5",
+    "cssnano": "^7.0.6",
     "date-fns": "^4.1.0",
     "framer-motion": "^12.4.7",
     "lenis": "^1.1.21",
@@ -85,6 +87,7 @@
     "@types/ws": "^8.18.1",
     "autoprefixer": "^10.4.17",
     "conventional-changelog-conventionalcommits": "^8.0.0",
+    "cross-env": "^7.0.3",
     "eslint": "^9.21.0",
     "eslint-config-next": "15.1.7",
     "install": "^0.13.0",
