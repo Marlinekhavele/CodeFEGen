@@ -1,38 +1,43 @@
-# Single-stage Dockerfile (simpler approach)
-FROM node:20-alpine
+# Use the same Node version as your local environment
+FROM node:22-alpine
 
 # Set working directory
 WORKDIR /app
 
-# Install pnpm
-RUN npm install -g pnpm
+# Install the same pnpm version as your local environment
+RUN npm install -g pnpm@10.9.0
 
 # Copy package files
 COPY package.json pnpm-lock.yaml ./
 
-# Install all dependencies
+# Verify versions match your local environment
+RUN echo "Node $(node -v), NPM $(npm -v), PNPM $(pnpm -v)"
+
+# Install dependencies
 RUN pnpm install
 
 # Copy all project files
 COPY . .
 
-# Create postcss.config.js if it doesn't exist
+# Ensure postcss.config.js exists
 RUN [ -f postcss.config.js ] || echo "module.exports = { plugins: { tailwindcss: {}, autoprefixer: {} } }" > postcss.config.js
-
-# Debug: Show environment
-RUN echo "Node version: $(node -v) && NPM version: $(npm -v) && PNPM version: $(pnpm -v)"
 
 # Clean the Next.js cache
 RUN rm -rf .next
 
-# Build the application (do NOT add -D next@latest)
+# Set environment variables
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
+
+# Build the application
 RUN pnpm build
 
-# Debug: Check for CSS files
+# Debug: Verify CSS files
 RUN find .next -name "*.css" || echo "No CSS files found"
-RUN ls -la .next/static/ || echo "No static directory"
+RUN ls -la .next/static/css/ || echo "No CSS directory"
+
+# Debug: Check CSS content (to verify it's not empty)
+RUN cat .next/static/css/*.css | head -n 20 || echo "No CSS content"
 
 # Expose port and start the application
 EXPOSE 3000
