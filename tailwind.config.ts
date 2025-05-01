@@ -9,6 +9,53 @@ const config = {
     "./src/**/*.{ts,tsx}",
     "*.{js,ts,jsx,tsx,mdx}",
   ],
+  safelist: [
+    // Colors
+    'bg-background',
+    'text-foreground',
+    'bg-primary',
+    'text-primary-foreground',
+    'bg-secondary',
+    'text-secondary-foreground',
+    'bg-muted',
+    'text-muted-foreground',
+    'bg-accent',
+    'text-accent-foreground',
+    'bg-card',
+    'text-card-foreground',
+    'bg-lime-500',
+    
+    // Custom classes
+    'phone-frame',
+    'phone-notch',
+    'phone-screen',
+    'phone-header',
+    'phone-content',
+    'phone-left',
+    'phone-right',
+    'neon-glow',
+    'neon-box-glow',
+    'gradient-bg',
+    'scrollable',
+    'code-stream-container',
+    'code-stream-text',
+    'code-stream-char',
+    'code-cursor',
+    'animate-blink',
+    'tab-accent',
+    
+    // Animations
+    'animate-accordion-down',
+    'animate-accordion-up',
+    'animate-blink',
+    'animate-progress',
+    'animate-typewriter',
+    'animate-typewriter-cursor',
+    
+    // Dark mode
+    'dark:bg-zinc-950',
+    'dark:text-zinc-100',
+  ],
   prefix: "",
   theme: {
     container: {
