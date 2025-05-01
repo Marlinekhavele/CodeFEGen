@@ -20,10 +20,7 @@ jobs:
           ssh ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} << 'EOF'
             cd /root/CodeFEGen
             git pull origin main
-            docker stop codefegen || true
-            docker rm codefegen || true
-            docker rmi codefegen || true  # Optional: Remove old image
-            docker build --no-cache -t codefegen .
-            docker run -d --name codefegen -p 3000:3000 codefegen 
+            pnpm install
+            pnpm dev
             systemctl restart nginx
           EOF
