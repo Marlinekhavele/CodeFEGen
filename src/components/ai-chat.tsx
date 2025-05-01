@@ -818,7 +818,7 @@ export default function AIChat({
             id: (Date.now() + 1).toString(),
             role: "assistant",
             content:
-              "The connection was closed unexpectedly. This could be due to server issues or network problems. Please try again.",
+              "The connection was closed unexpectedly. This could be due to server issues or network problems. Please try again...",
             timestamp: new Date(),
           }
 
