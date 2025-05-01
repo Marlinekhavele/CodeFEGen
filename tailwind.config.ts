@@ -8,6 +8,9 @@ const config = {
     "./app/**/*.{ts,tsx}",
     "./src/**/*.{ts,tsx}",
     "*.{js,ts,jsx,tsx,mdx}",
+    "./src/app/**/*.{js,ts,jsx,tsx,mdx}",
+    "./src/components/**/*.{js,ts,jsx,tsx,mdx}",
+    "./src/components/ui/**/*.{js,ts,jsx,tsx,mdx}",
   ],
   prefix: "",
   theme: {
@@ -145,6 +148,17 @@ const config = {
     }
   },
   plugins: [require("tailwindcss-animate"), require("@tailwindcss/typography")],
+  safelist: [
+    "dark",
+    "light",
+    "bg-background",
+    "text-foreground",
+    "border-border",
+    {
+      pattern: /^(bg|text|border|ring)-(primary|secondary|destructive|muted|accent|popover|card|lime)/,
+      variants: ["hover", "focus", "active", "disabled"],
+    },
+  ],
 } satisfies Config
 
 export default config
