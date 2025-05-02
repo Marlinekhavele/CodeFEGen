@@ -6,6 +6,7 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    timeout-minutes: 30 
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -15,14 +16,17 @@ jobs:
           echo "${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
           ssh-keyscan -H ${{ secrets.DEPLOY_HOST }} >> ~/.ssh/known_hosts
+          echo "Host ${{ secrets.DEPLOY_HOST }}" >> ~/.ssh/config
+          echo "  ServerAliveInterval 60" >> ~/.ssh/config
+          echo "  ServerAliveCountMax 10" >> ~/.ssh/config
       - name: Deploy over SSH
         run: |
-          ssh ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} << 'EOF'
+          ssh -o ConnectTimeout=30 -o ConnectionAttempts=10 ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} << 'EOF'
             cd /root/CodeFEGen
             git pull origin main
             docker stop codefegen || true
             docker rm codefegen || true
-            docker build --no-cache -t codefegen .
+            COMPOSE_HTTP_TIMEOUT=600 timeout 1800 docker build -t codefegen .
             docker run -d --name codefegen -p 3000:3000 codefegen 
             systemctl restart nginx
           EOF
