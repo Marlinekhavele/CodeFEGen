@@ -147,15 +147,23 @@ export function ProjectFiles({
       const normalizedFile = {
         ...file,
         name: normalizedName,
+        // Ensure endpoint files have unique IDs by including the method in the ID
+        // This format should match the format in backend-editor-client.tsx: `endpoint-${path}-${method}`
+        id: file.type === "endpoint" && file.method && !file.id.includes(`-${file.method}`)
+          ? `endpoint-${file.path}-${file.method}`
+          : file.id,
         displayName: normalizedName // Optional: add a displayName property
       };
       
       normalizedFiles.push(normalizedFile);
     }
     
-    // Second pass: deduplicate
+    // Second pass: deduplicate files
     for (const file of normalizedFiles) {
-      const key = file.type + ":" + file.name;
+      // Include the method in the key if it's an endpoint, otherwise use just type+name
+      const key = file.type === "endpoint" && file.method 
+        ? `${file.type}:${file.name}:${file.method}`
+        : `${file.type}:${file.name}`;
       
       if (!uniqueFiles.has(key)) {
         uniqueFiles.set(key, file);

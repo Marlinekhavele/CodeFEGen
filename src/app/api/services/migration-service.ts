@@ -13,7 +13,6 @@ class MigrationService extends BaseService {
    */
   public async runMigrations(projectId: string): Promise<any> {
     try {
-      console.log(`Running migrations for project: ${projectId}`)
       const axiosInstance = createAxiosInstance(`/migration/${projectId}/run`, "v1")
       const response = await axiosInstance.post("")
       return response.data
@@ -30,12 +29,10 @@ class MigrationService extends BaseService {
    */
   public async checkPendingMigrations(projectId: string): Promise<boolean> {
     try {
-      console.log(`Checking pending migrations for project: ${projectId}`)
       const axiosInstance = createAxiosInstance(`/migration/${projectId}/status`, "v1")
       const response = await axiosInstance.get("")
       return response.data?.data?.pending_migrations > 0
     } catch (error) {
-      console.error("Error checking pending migrations:", error)
       return false
     }
   }
@@ -47,7 +44,6 @@ class MigrationService extends BaseService {
   ): () => void {
     const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || "https://codebegen.canadacentral.cloudapp.azure.com";
     const eventSourceUrl = `${baseUrl}/api/v1/migration/${projectId}/logs`;
-    console.log(`Connecting to EventSource at: ${eventSourceUrl}`);
     const eventSource = new EventSource(eventSourceUrl);
     
     // Handle incoming messages

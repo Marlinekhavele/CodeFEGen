@@ -373,7 +373,7 @@
   }
 }
 
-/* Cursor animation */
+
 .code-cursor {
   display: inline-block;
   width: 2px;
@@ -393,7 +393,7 @@
   }
 }
 
-/* Typewriter effect */
+
 @keyframes blink {
   0%,
   100% {
@@ -405,10 +405,10 @@
 }
 
 .animate-blink {
-  animation: blink 1s infinite;
+  animation: blink 1s ease-in-out infinite;
 }
 
-/* Scrollable components */
+
 .scrollable {
   overflow-y: auto;
   scrollbar-width: thin;
@@ -429,8 +429,132 @@
   border-radius: 20px;
 }
 
-/* Tab accent color */
 .tab-accent.active {
   color: #7dff00;
   border-color: #7dff00;
+}
+
+.mobile-nav {
+  display: none;
+}
+
+
+html, body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+html, body, #__next, main {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+}
+
+.editor-grid {
+  display: grid;
+  height: 100%;
+  min-height: 0; 
+}
+
+.database-container {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.database-content {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+
+.overflow-auto, .scrollable {
+  overflow: auto !important;
+  -webkit-overflow-scrolling: touch; 
+  scrollbar-width: thin;
+  scrollbar-color: rgba(155, 155, 155, 0.5) transparent;
+}
+
+
+.overflow-auto::-webkit-scrollbar, 
+.scrollable::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.overflow-auto::-webkit-scrollbar-track,
+.scrollable::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.overflow-auto::-webkit-scrollbar-thumb,
+.scrollable::-webkit-scrollbar-thumb {
+  background-color: rgba(155, 155, 155, 0.5);
+  border-radius: 20px;
+}
+
+@media (max-width: 1024px) {
+  .editor-grid {
+    grid-template-columns: 1fr !important;
+    gap: 1rem !important;
+  }
+  
+  .editor-panel {
+    display: none;
+  }
+  
+  .editor-panel.active {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+  
+  .mobile-nav {
+    display: flex;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  
+  .mobile-nav::-webkit-scrollbar {
+    display: none;
+  }
+  
+  .mobile-nav-item {
+    flex: 1;
+    min-width: auto;
+    white-space: nowrap;
+  }
+}
+
+@media (max-width: 640px) {
+  .editor-container {
+    padding: 0.5rem !important;
+  }
+  
+  .mobile-nav {
+    padding: 0.25rem;
+  }
+  
+  .file-header {
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 0.5rem !important;
+    gap: 0.5rem;
+  }
+  
+  .code-editor-height {
+    height: 100% !important;
+    min-height: 0 !important;
+  }
+
+  .mobile-scroll-container {
+    overflow: auto !important;
+    -webkit-overflow-scrolling: touch;
+    max-height: calc(100vh - 200px); 
+  }
 }
