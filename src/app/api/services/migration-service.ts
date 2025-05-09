@@ -46,18 +46,40 @@ class MigrationService extends BaseService {
     const eventSourceUrl = `${baseUrl}/api/v1/migration/${projectId}/logs`;
     const eventSource = new EventSource(eventSourceUrl);
     
+    console.log(`Establishing EventSource connection to: ${eventSourceUrl}`);
+    
+    // Handle connection open
+    eventSource.onopen = () => {
+      console.log("Migration log stream connection established");
+      onLogReceived({
+        timestamp: new Date().toLocaleTimeString(),
+        message: "Connection to migration service established",
+        level: "info"
+      });
+    };
+    
     // Handle incoming messages
     eventSource.onmessage = (event) => {
+      console.log("Received migration log event:", event.data);
       try {
         const logEntry = JSON.parse(event.data);
+        
+        // Enhanced debugging for table creation events
+        if (logEntry.message && 
+            (logEntry.message.toLowerCase().includes("table") || 
+             logEntry.message.toLowerCase().includes("migration"))) {
+          console.log("Table-related event detected:", logEntry);
+        }
+        
         onLogReceived(logEntry);
         
         // Close the connection if we receive a completion message
         if (logEntry.completed) {
+          console.log("Received completion message, closing connection");
           eventSource.close();
         }
       } catch (error) {
-        console.error("Error parsing log message:", error);
+        console.error("Error parsing log message:", error, "Raw data:", event.data);
         onLogReceived({
           timestamp: new Date().toLocaleTimeString(),
           message: `Error parsing log: ${error instanceof Error ? error.message : String(error)}`,
@@ -75,6 +97,7 @@ class MigrationService extends BaseService {
     
     // Return a function to close the connection
     return () => {
+      console.log("Manually closing migration log stream");
       eventSource.close();
     };
   }

@@ -95,25 +95,6 @@ export default function AIChat({
   // Initialize code store if it exists
   const codeStore = typeof useCodeStore !== "undefined" ? useCodeStore : null
 
-  // Listen for new endpoint details and generate code when they're provided
-  useEffect(() => {
-    if (endpointDetails && !isLoading && codeGenStatus !== "generating") {
-      // Use provided language/framework from endpointDetails or fallback to props
-      const language = projectLanguage
-      const framework = projectFramework
-      const { endpointPath, method, description } = endpointDetails
-      const prompt = description
-
-      // Set input and trigger submission
-      setInput(prompt)
-
-      // Use setTimeout to allow state to update before submitting
-      setTimeout(() => {
-        handleSubmitWithDetails(prompt, language, framework, endpointPath, method)
-      }, 100)
-    }
-  }, [endpointDetails, projectLanguage, projectFramework])
-
   useEffect(() => {
     // Scroll to bottom when messages change
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
@@ -141,6 +122,35 @@ export default function AIChat({
       }
     }
   }, [])
+
+  // Keep this useEffect as it correctly handles endpoint details
+  useEffect(() => {
+    if (endpointDetails && !isLoading && codeGenStatus !== "generating") {
+      // When endpoint details are received from the modal, we need a separate interaction
+      const { language, framework, endpointPath, method } = endpointDetails
+
+      // Focus the input field so user can describe what the endpoint should do
+      if (inputRef.current) {
+        inputRef.current.focus()
+        inputRef.current.placeholder = `Describe what the ${method} endpoint at ${endpointPath} should do...`
+      }
+
+      // If there was already text in the input, use it as the prompt
+      if (input.trim()) {
+        handleSubmitWithDetails(input.trim(), language, framework, endpointPath, method)
+      } else {
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: Date.now().toString(),
+            role: "assistant",
+            content: `I'll help you create a ${method} endpoint at ${endpointPath}. Please describe what this endpoint should do.`,
+            timestamp: new Date(),
+          },
+        ])
+      }
+    }
+  }, [endpointDetails, projectLanguage, projectFramework])
 
   const setupTimeoutHandler = () => {
     // Clear existing timeout if any

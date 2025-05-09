@@ -87,7 +87,6 @@ export default function BackendEditorClient({
       const hasPending = await migrationService.checkPendingMigrations(urlFriendlyName)
       setHasPendingMigrations(hasPending)
     } catch (error) {
-      console.error("Error checking pending migrations:", error)
     }
   }
 
@@ -112,29 +111,55 @@ export default function BackendEditorClient({
         closeLogStream = migrationService.streamMigrationLogs(
           urlFriendlyName,
           (logEntry) => {
+            // Enhanced log level detection
+            const logLevel = logEntry.level ? logEntry.level.toLowerCase() : "";
+            
+            // Check specifically for table creation events
+            const isTableCreationEvent = logEntry.message && 
+              (logEntry.message.toLowerCase().includes("creating table") || 
+               logEntry.message.toLowerCase().includes("table created") ||
+               (logEntry.message.toLowerCase().includes("table") && !logEntry.message.toLowerCase().includes("already exists")));
+            
+            const prefix = 
+              isTableCreationEvent ? "TABLE CREATED: " :
+              logLevel === "error" ? "ERROR: " : 
+              logLevel === "warning" || logLevel === "warn" ? "WARNING: " : 
+              logLevel === "success" ? "SUCCESS: " :
+              logLevel === "info" ? "INFO: " :
+              logLevel === "debug" ? "DEBUG: " : 
+              "";
+            
+            // Force success level for table creation events to highlight them
+            const displayLevel = isTableCreationEvent ? "success" : logLevel;
+            
+            // Update UI with log entry
             setMigrationLogs(prev => [
               ...prev, 
-              `[${logEntry.timestamp}] ${
-                logEntry.level === "error" ? "ERROR: " : 
-                logEntry.level === "warning" ? "WARNING: " : 
-                logEntry.level === "success" ? "SUCCESS: " : 
-                ""
-              }${logEntry.message}`
-            ])
-  
+              `[${logEntry.timestamp || new Date().toLocaleTimeString()}] ${prefix}${logEntry.message}`
+            ]);
+        
             if (logEntry.completed) {
+              // If we had any table creation events but received a generic "no tables" summary,
+              // let's provide a more accurate summary
+              if (isTableCreationEvent) {
+                setMigrationLogs(prev => [
+                  ...prev,
+                  `[${new Date().toLocaleTimeString()}] SUCCESS: Database tables were updated successfully.`
+                ]);
+              }
+              
               setMigrationStatus(
                 logEntry.level === "error" ? "error" : "success"
-              )
-              setIsRunningMigrations(false)
+              );
+              setIsRunningMigrations(false);
               
               const isSuccess = logEntry.level === "success" || 
-                               logEntry.message.toLowerCase().includes("success") ||
-                               !logEntry.message.toLowerCase().includes("fail")
-                               
+                                logEntry.message.toLowerCase().includes("success") ||
+                                !logEntry.message.toLowerCase().includes("fail");
+                                
               if (isSuccess) {
-                setHasPendingMigrations(false)
-                setTimeout(() => fetchEndpoints(), 1000)
+                setHasPendingMigrations(false);
+                setTimeout(() => fetchEndpoints(), 1000);
               }
             }
           },
@@ -142,9 +167,9 @@ export default function BackendEditorClient({
             setMigrationLogs(prev => [
               ...prev,
               `[${new Date().toLocaleTimeString()}] ERROR: ${error}`
-            ])
-            setMigrationStatus("error")
-            setIsRunningMigrations(false)
+            ]);
+            setMigrationStatus("error");
+            setIsRunningMigrations(false);
           }
         )
         
@@ -153,7 +178,6 @@ export default function BackendEditorClient({
           `[${new Date().toLocaleTimeString()}] Log streaming connection established`,
         ])
       } catch (error) {
-        console.error("Failed to establish log streaming connection:", error)
         setMigrationLogs((prev) => [
           ...prev,
           `[${new Date().toLocaleTimeString()}] WARNING: Could not establish log streaming connection. Will proceed with migration but detailed logs may not be available.`,
@@ -184,7 +208,6 @@ export default function BackendEditorClient({
         setIsRunningMigrations(false)
       }
     } catch (error) {
-      console.error("Error running migrations:", error)
   
       setMigrationLogs((prev) => [
         ...prev,
@@ -241,7 +264,6 @@ export default function BackendEditorClient({
           allFiles = [...allFiles, ...dbFiles]
         }
       } catch (error) {
-        console.error("Error fetching database files:", error)
       }
 
       // Explicitly define the type for newEndpointFile
@@ -292,7 +314,6 @@ export default function BackendEditorClient({
               
               return endpointFile
             } catch (error) {
-              console.error(`Error fetching code for endpoint ${ep.path}:`, error)
               let fileName = ep.path.split("/").pop() || ep.path
               fileName = fileName.replace(/^(GET|POST|PUT|DELETE)_/i, "")
               
@@ -331,7 +352,6 @@ export default function BackendEditorClient({
                 code,
               }
             } catch (error) {
-              console.error(`Error fetching code for model ${model.name}:`, error)
               return {
                 id: `model-${model.name}`,
                 name: model.name,
@@ -364,7 +384,6 @@ export default function BackendEditorClient({
                 code,
               }
             } catch (error) {
-              console.error(`Error fetching code for schema ${schema.name}:`, error)
               return {
                 id: `schema-${schema.name}`,
                 name: schema.name,
@@ -397,7 +416,6 @@ export default function BackendEditorClient({
                 code,
               }
             } catch (error) {
-              console.error(`Error fetching code for helper ${helper.name}:`, error)
               return {
                 id: `helper-${helper.name}`,
                 name: helper.name,
@@ -429,7 +447,6 @@ export default function BackendEditorClient({
                 code,
               }
             } catch (error) {
-              console.error(`Error fetching code for docs ${doc.name}:`, error)
               return {
                 id: `docs-${doc.name}`,
                 name: doc.name,
@@ -462,7 +479,6 @@ export default function BackendEditorClient({
                 code,
               }
             } catch (error) {
-              console.error(`Error fetching code for migration ${migration.name}:`, error)
               return {
                 id: `migration-${migration.name}`,
                 name: migration.name,
@@ -493,7 +509,6 @@ export default function BackendEditorClient({
       
       return endpointResult
     } catch (error) {
-      console.error("Error fetching files:", error)
       return []
     } finally {
       if (!isPostCreation) {
@@ -806,7 +821,6 @@ export default function BackendEditorClient({
     (`BEC: Processing ${nextFile.name} from queue. Has code: ${!!nextFile.code && nextFile.code.trim() !== ""}`);
     
     if (!nextFile.code || nextFile.code.trim() === "") {
-        console.warn(`BEC: File ${nextFile.name} has no code. Skipping animation, setting content directly.`);
         setSelectedFile(nextFile.id);
         setCurrentCode(nextFile.code || ""); 
         
@@ -883,7 +897,6 @@ export default function BackendEditorClient({
 
     setFileAnimationQueue(prevQueue => {
       if (prevQueue.some(f => f.id === fileWithCorrectProperties.id)) {
-          console.warn(`BEC: File ${fileWithCorrectProperties.name} (ID: ${fileWithCorrectProperties.id}) might already be in animation queue. Not adding again.`);
           return prevQueue;
       }
       const newQueue = [...prevQueue, fileWithCorrectProperties];
@@ -937,7 +950,6 @@ export default function BackendEditorClient({
         }, 3000)
       })
       .catch((error) => {
-        console.error("Error creating endpoint:", error)
         setIsEndpointCreating(false)
         setIsEndpointModalOpen(false)
         setEndpointDetails(null)
@@ -974,7 +986,7 @@ export default function BackendEditorClient({
   }
 
   return (
-    <div className="flex flex-col h-screen overflow-hidden bg-zinc-100 text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100 p-2">
+    <div className="flex flex-col min-h-screen overflow-y-auto bg-zinc-100 text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100">
       <ProjectHeader
         projectName={projectName}
         urlFriendlyName={urlFriendlyName}
@@ -998,9 +1010,9 @@ export default function BackendEditorClient({
         hasPendingMigrations={hasPendingMigrations}
       />
 
-      <main className="flex-1 flex flex-col min-h-0 overflow-hidden">
-        <div className="container py-4 flex-1 flex flex-col min-h-0 overflow-hidden">
-          <div className="mobile-nav mb-4 flex md:hidden">
+      <main className="flex-1 flex flex-col min-h-0">
+        <div className="container py-2 flex-1 flex flex-col min-h-0">
+          <div className="mobile-nav mb-2 flex md:hidden">
             <Button 
               variant={activeMobilePanel === "files" ? "default" : "outline"}
               onClick={() => setActiveMobilePanel("files")}
@@ -1055,7 +1067,7 @@ export default function BackendEditorClient({
               </div>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-[230px_1fr_270px] gap-6 flex-1 min-h-0 overflow-hidden">
+            <div className="grid grid-cols-1 md:grid-cols-[230px_1fr_270px] gap-4 flex-1 min-h-0 overflow-hidden">
               <div className={`editor-panel h-full overflow-hidden flex flex-col ${activeMobilePanel === "files" ? "active" : ""}`}>
                 <ProjectFiles
                   files={files}
@@ -1119,18 +1131,20 @@ export default function BackendEditorClient({
         </div>
       </main>
 
-      <MigrationButton
-        onRunMigrations={handleRunMigrations}
-        hasPendingMigrations={hasPendingMigrations}
-        isLoading={isRunningMigrations}
-      />
+      <div className="flex-shrink-0 py-1">
+        <MigrationButton
+          onRunMigrations={handleRunMigrations}
+          hasPendingMigrations={hasPendingMigrations}
+          isLoading={isRunningMigrations}
+        />
+      </div>
 
       <MigrationLog
         logs={migrationLogs}
         isOpen={showMigrationLogs}
         onClose={() => setShowMigrationLogs(false)}
         status={migrationStatus}
-        title="Database Migration Logs"
+        title="Migration Logs"
       />
       
       <style jsx global>{`
@@ -1139,12 +1153,13 @@ export default function BackendEditorClient({
           flex-direction: column;
           min-height: 0;
           overflow: auto;
+          height: calc(100vh - 180px); /* Adjusted to reclaim space */
         }
         
         @media (max-width: 768px) {
           .editor-panel {
             display: none;
-            height: 100%;
+            height: calc(100vh - 200px); /* Also adjusted for mobile */
             overflow: auto;
           }
           

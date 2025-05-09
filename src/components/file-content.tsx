@@ -340,7 +340,7 @@ export function FileContent({
         className="flex-1 h-full flex flex-col"
         onValueChange={(value) => setActiveTab(value)}
       >
-        <div className="flex items-center justify-between border-b border-zinc-200 px-4 py-2 bg-white dark:border-zinc-800 dark:bg-zinc-950">
+        <div className="flex items-center justify-between border-b border-zinc-200 px-4 py-1.5 bg-white dark:border-zinc-800 dark:bg-zinc-950">
           <div className="flex items-center gap-2">
             {selectedFile && (
               <>
@@ -381,7 +381,7 @@ export function FileContent({
         <div className="flex-1 overflow-hidden">
           <TabsContent 
             value="code" 
-            className="flex-1 h-[calc(100%-48px)] data-[state=active]:h-[calc(100%-48px)] overflow-auto"
+            className="flex-1 h-[calc(100%-42px)] data-[state=active]:h-[calc(100%-42px)] overflow-auto"
           >
             {selectedFile || streamingCode ? (
               <CustomMonacoEditor
@@ -402,7 +402,7 @@ export function FileContent({
           </TabsContent>
           <TabsContent 
             value="test" 
-            className="flex-1 h-[calc(100%-48px)] overflow-auto"
+            className="flex-1 h-[calc(100%-42px)] overflow-auto"
           >
             {file?.type === "endpoint" ? (
                 <TestEndpoint
@@ -419,7 +419,7 @@ export function FileContent({
           </TabsContent>
           <TabsContent 
             value="docs" 
-            className="flex-1 h-[calc(100%-48px)] overflow-auto"
+            className="flex-1 h-[calc(100%-42px)] overflow-auto"
           >
             <div className="flex flex-col h-full">
               <div className="flex justify-between p-2 border-b border-zinc-200 dark:border-zinc-800">

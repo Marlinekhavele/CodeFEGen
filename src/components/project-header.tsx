@@ -49,7 +49,7 @@ export function ProjectHeader({
   return (
     <>
       <header className="sticky top-0 z-50 w-full border-b border-zinc-200 bg-zinc-100/80 backdrop-blur-sm dark:border-zinc-800 dark:bg-zinc-950/80">
-        <div className="container flex h-16 items-center justify-between px-4">
+        <div className="container flex h-14 items-center justify-between px-4">
           <div className="flex items-center gap-3">
             <Link href="/" className="flex items-center gap-2">
               <Image src="/codeBE-logo.png" alt="CodeBEgen Logo" width={30} height={30} />
@@ -62,16 +62,16 @@ export function ProjectHeader({
         </div>
       </header>
 
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between m-3 gap-3">
-        <div className="flex flex-wrap items-center gap-4 mb-2 sm:mb-0">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between mx-3 my-2 gap-3">
+        <div className="flex flex-wrap items-center gap-4 mb-1 sm:mb-0">
           <Link
             href="/create-backend"
-            className="inline-flex items-center gap-2 text-zinc-600 hover:text-[#7dff00] dark:text-zinc-400 dark:hover:text-[#7dff00]"
+            className="inline-flex items-center gap-2 text-zinc-600 hover:text-[#7dff00] dark:text-zinc-400 dark:hover:text-[#7dff00] text-sm"
           >
             <ArrowLeft className="h-4 w-4" />
             Back
           </Link>
-          <h1 className="text-xl sm:text-2xl font-medium text-zinc-900 dark:text-white truncate max-w-[200px] sm:max-w-full">
+            <h1 className="text-lg sm:text-xl font-medium text-zinc-900 dark:text-white truncate max-w-[200px] sm:max-w-full">
             {projectName}
           </h1>
           {isGenerating && (
@@ -174,7 +174,7 @@ export function ProjectHeader({
       </div>
 
       {/* Project URL Display */}
-      <div className="mb-4 p-3 bg-white border border-zinc-200 rounded-md flex flex-col sm:flex-row items-start sm:items-center justify-between dark:bg-zinc-900 dark:border-zinc-800">
+      <div className="mb-2 mx-3 p-2 bg-white border border-zinc-200 rounded-md flex flex-col sm:flex-row items-start sm:items-center justify-between dark:bg-zinc-900 dark:border-zinc-800">
         <div className="flex flex-col sm:flex-row sm:items-center mb-2 sm:mb-0 w-full sm:w-auto">
           <span className="text-sm font-medium text-zinc-500 dark:text-zinc-400 mr-2 mb-1 sm:mb-0">Project URL:</span>
           <code className="text-xs sm:text-sm bg-zinc-100 px-2 py-1 rounded text-zinc-800 dark:bg-zinc-800 dark:text-zinc-300 w-full sm:w-auto overflow-x-auto">

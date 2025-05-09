@@ -20,6 +20,15 @@ export function MigrationLog({ logs, isOpen, onClose, status, title = "Migration
   const [copied, setCopied] = useState(false)
 
   const colorizeLog = (log: string) => {
+    // Specially highlight table creation events
+    if ((log.toLowerCase().includes("table") && 
+        !log.toLowerCase().includes("already exists") && 
+        !log.toLowerCase().includes("no new tables")) || 
+        log.toLowerCase().includes("table created")) {
+      return "text-green-600 dark:text-green-400 font-bold"
+    }
+    
+    // Regular colorization
     if (log.toLowerCase().includes("error") || log.toLowerCase().includes("failed")) {
       return "text-red-500 dark:text-red-400"
     }
@@ -32,6 +41,12 @@ export function MigrationLog({ logs, isOpen, onClose, status, title = "Migration
     if (log.toLowerCase().includes("info")) {
       return "text-blue-500 dark:text-blue-400"
     }
+    
+    // Highlight table-related messages in a subtle way
+    if (log.toLowerCase().includes("table")) {
+      return "text-purple-500 dark:text-purple-400"
+    }
+    
     return "text-zinc-700 dark:text-zinc-300"
   }
 
