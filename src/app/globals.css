@@ -383,16 +383,6 @@
   animation: blink 1s infinite;
 }
 
-@keyframes blink {
-  0%,
-  100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0;
-  }
-}
-
 
 @keyframes blink {
   0%,
@@ -407,7 +397,6 @@
 .animate-blink {
   animation: blink 1s ease-in-out infinite;
 }
-
 
 .scrollable {
   overflow-y: auto;
@@ -438,19 +427,21 @@
   display: none;
 }
 
-
 html, body {
   height: 100%;
   margin: 0;
   padding: 0;
-  overflow: hidden;
 }
 
 html, body, #__next, main {
-  height: 100%;
+  min-height: 100%;
+}
+
+main {
   display: flex;
   flex-direction: column;
-  min-height: 100%;
+  flex: 1;
+  overflow-y: auto;
 }
 
 .editor-grid {
@@ -471,14 +462,12 @@ html, body, #__next, main {
   overflow: auto;
 }
 
-
 .overflow-auto, .scrollable {
   overflow: auto !important;
   -webkit-overflow-scrolling: touch; 
   scrollbar-width: thin;
   scrollbar-color: rgba(155, 155, 155, 0.5) transparent;
 }
-
 
 .overflow-auto::-webkit-scrollbar, 
 .scrollable::-webkit-scrollbar {
