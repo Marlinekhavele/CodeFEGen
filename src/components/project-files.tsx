@@ -222,7 +222,10 @@ export function ProjectFiles({
         </Button>
       </div>
       
-      <div className="p-2 overflow-auto" style={{ height: "calc(100vh)", width: "100%" }}>
+      <div className="p-2 overflow-auto mobile-scroll-container" style={{ 
+        height: "calc(100% - 56px)", 
+        width: "100%" 
+      }}>
         {files.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full py-6 px-2 text-center space-y-4 animate-pulse">
             <div className="rounded-full bg-zinc-800/50 backdrop-blur-sm p-4">

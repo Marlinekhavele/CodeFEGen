@@ -1153,13 +1153,13 @@ export default function BackendEditorClient({
           flex-direction: column;
           min-height: 0;
           overflow: auto;
-          height: calc(100vh - 180px); /* Adjusted to reclaim space */
+          height: calc(100vh - 180px); 
         }
         
         @media (max-width: 768px) {
           .editor-panel {
             display: none;
-            height: calc(100vh - 200px); /* Also adjusted for mobile */
+            height: calc(100vh - 200px);
             overflow: auto;
           }
           
@@ -1167,6 +1167,22 @@ export default function BackendEditorClient({
             display: flex;
             flex: 1;
             overflow: auto;
+          }
+        }
+      `}</style>
+      <style jsx global>{`
+        .editor-panel .project-files-container {
+          display: flex;
+          flex-direction: column;
+          height: 100%;
+          min-height: 0;
+        }
+      `}</style>
+      <style jsx global>{`
+        /* Mobile specific height adjustments */
+        @media (max-width: 768px) {
+          .project-files-container {
+            height: calc(100vh - 200px) !important;
           }
         }
       `}</style>
