@@ -273,64 +273,112 @@ export default function BackendEditorClient({
       const normalizedNewEndpointPath = newEndpointPath ? normalizePath(newEndpointPath) : ""
 
       if (endpointResult && endpointResult.length > 0) {
-        const endpointFiles = await Promise.all(
-          endpointResult.map(async (ep: EndpointListContent) => {
-            try {
-              const endpointAxios = createAxiosInstance('/endpoint', 'v1')
-              const resp = await endpointAxios.get('', {
-                params: {
-                  project_id: urlFriendlyName,
-                  endpoint_path: ep.path,
-                  method: ep.method,
-                },
-              })
-              const fileResult = resp.data?.data
-              const code = fileResult?.content_base64
-                ? atob(fileResult.content_base64)
-                : ""
-                
-              let fileName = ep.path.split("/").pop() || ep.path
-              fileName = fileName.replace(/^(GET|POST|PUT|DELETE)_/i, "")
+        const endpointFilesPromises = endpointResult.map(async (ep: EndpointListContent) => {
+          try {
+            const endpointAxios = createAxiosInstance('/endpoint', 'v1')
+            const resp = await endpointAxios.get('', {
+              params: {
+                project_id: urlFriendlyName,
+                endpoint_path: ep.path,
+                method: ep.method,
+              },
+            })
+            const fileResult = resp.data?.data
+            const code = fileResult?.content_base64
+              ? atob(fileResult.content_base64)
+              : ""
               
-              const fileId = `endpoint-${ep.path}-${ep.method}`
+            let fileName = ep.path.split("/").pop() || ep.path
+            fileName = fileName.replace(/^(GET|POST|PUT|DELETE)_/i, "")
+            
+            const fileId = `endpoint-${ep.path}-${ep.method}`
+            
+            const endpointFile: FileType = {
+              id: fileId,
+              name: fileName,
+              path: ep.path,
+              type: "endpoint" as const,
+              code,
+              method: ep.method as MethodType,
+            }
+            
+            // Normalize the endpoint path for comparison
+            const normalizedEpPath = normalizePath(ep.path)
+            
+            if (isPostCreation && normalizedNewEndpointPath && newEndpointMethod &&
+                normalizedEpPath === normalizedNewEndpointPath && ep.method.toUpperCase() === newEndpointMethod.toUpperCase()) {
+              newEndpointFile = endpointFile
+            }
+            
+            return endpointFile
+          } catch (error) {
+            let fileName = ep.path.split("/").pop() || ep.path
+            fileName = fileName.replace(/^(GET|POST|PUT|DELETE)_/i, "")
+            
+            const fileId = `endpoint-${ep.path}-${ep.method}`
+            
+            return {
+              id: fileId,
+              name: fileName,
+              path: ep.path,
+              type: "endpoint" as const,
+              code: "",
+              method: ep.method as MethodType,
+            }
+          }
+        });
+        
+        const endpointFiles = await Promise.all(endpointFilesPromises);
+        
+        // Group endpoints by path and handle duplicates
+        const endpointsByPath = new Map<string, FileType[]>();
+        
+        endpointFiles.forEach(file => {
+          if (!file) return;
+          const key = file.path;
+          if (!endpointsByPath.has(key)) {
+            endpointsByPath.set(key, []);
+          }
+          endpointsByPath.get(key)!.push(file);
+        });
+        
+        // For each path, handle duplicates with more specific rules
+        const filteredEndpointFiles: FileType[] = [];
+        
+        endpointsByPath.forEach((filesForPath, path) => {
+          if (filesForPath.length > 1) {
+            // First, check if we have the specific case: POST with code and GET without code
+            const postEndpoint = filesForPath.find(f => f.method?.toUpperCase() === 'POST' && f.code && f.code.trim() !== '');
+            const emptyGetEndpoint = filesForPath.find(f => f.method?.toUpperCase() === 'GET' && (!f.code || f.code.trim() === ''));
+            
+            if (postEndpoint && emptyGetEndpoint && filesForPath.length === 2) {
+              // If we have exactly a POST with code and a GET without code, only keep the POST
+              filteredEndpointFiles.push(postEndpoint);
+            } else {
+              // Otherwise, use the general rule: keep endpoints with code
+              const filesWithCode = filesForPath.filter(f => f.code && f.code.trim() !== '');
               
-              const endpointFile: FileType = {
-                id: fileId,
-                name: fileName,
-                path: ep.path,
-                type: "endpoint" as const,
-                code,
-                method: ep.method as MethodType,
-              }
-              
-              // Normalize the endpoint path for comparison
-              const normalizedEpPath = normalizePath(ep.path)
-              
-
-              if (isPostCreation && normalizedNewEndpointPath && newEndpointMethod &&
-                  normalizedEpPath === normalizedNewEndpointPath && ep.method.toUpperCase() === newEndpointMethod.toUpperCase()) {
-                newEndpointFile = endpointFile
-              }
-              
-              return endpointFile
-            } catch (error) {
-              let fileName = ep.path.split("/").pop() || ep.path
-              fileName = fileName.replace(/^(GET|POST|PUT|DELETE)_/i, "")
-              
-              const fileId = `endpoint-${ep.path}-${ep.method}`
-              
-              return {
-                id: fileId,
-                name: fileName,
-                path: ep.path,
-                type: "endpoint" as const,
-                code: "",
-                method: ep.method as MethodType,
+              if (filesWithCode.length > 0) {
+                // If we have endpoints with code, keep only those
+                filteredEndpointFiles.push(...filesWithCode);
+              } else {
+                // If all endpoints are empty, just keep one (preferring non-GET methods)
+                const nonGetEndpoint = filesForPath.find(f => f.method?.toUpperCase() !== 'GET');
+                if (nonGetEndpoint) {
+                  filteredEndpointFiles.push(nonGetEndpoint);
+                } else {
+                  // If there are only GET endpoints, just keep the first one
+                  filteredEndpointFiles.push(filesForPath[0]);
+                }
               }
             }
-          })
-        )
-        allFiles = [...allFiles, ...endpointFiles]
+          } else {
+            // If there's only one endpoint for this path, keep it regardless
+            filteredEndpointFiles.push(...filesForPath);
+          }
+        });
+        
+        allFiles = [...allFiles, ...filteredEndpointFiles];
       }
 
       if (modelResult && modelResult.length > 0) {
@@ -532,12 +580,20 @@ export default function BackendEditorClient({
   }, [urlFriendlyName])
 
   useEffect(() => {
+    if (endpointDetails?.method) {
+      // Store the method preference when a new endpoint is created
+      window.streamingEndpointMethod = endpointDetails.method;
+      
+    }
+  }, [endpointDetails]);
+
+  useEffect(() => {
     const handleCodeUpdate = (event: any) => {
       const { files, code } = event.detail
-
+  
       if (files) {
         const newFiles: FileType[] = []
-
+  
         const processFile = (
           fileKey: "endpoint" | "model" | "schema" | "migration" | "helpers" | "config",
           fileData: any,
@@ -547,53 +603,162 @@ export default function BackendEditorClient({
           const fileName = fileData.file_path?.split("/").pop() || fileKey
           const filePath = fileData.endpoint_path || fileData.file_path || `/${fileKey}`
           const fileCode = fileData.generated_code || ""
-          const fileMethod = (fileData.method as "GET" | "POST" | "PUT" | "DELETE") || "GET"
+          
+          // Extract method from file path for endpoints
+          let methodFromPath: string | undefined = undefined;
+          if (fileKey === "endpoint" && filePath) {
+            const postMatch = filePath.match(/\.post\./i) || filePath.match(/post_/i) || filePath.match(/_post/i);
+            const getMatch = filePath.match(/\.get\./i) || filePath.match(/get_/i) || filePath.match(/_get/i);
+            const putMatch = filePath.match(/\.put\./i) || filePath.match(/put_/i) || filePath.match(/_put/i);
+            const deleteMatch = filePath.match(/\.delete\./i) || filePath.match(/delete_/i) || filePath.match(/_delete/i);
+            
+            if (postMatch) methodFromPath = "POST";
+            else if (getMatch) methodFromPath = "GET";
+            else if (putMatch) methodFromPath = "PUT";
+            else if (deleteMatch) methodFromPath = "DELETE";
+          }
+          
+          // Determine method using the same priority logic as handleFileGenerated
+          let determinedMethod: MethodType | undefined;
+          if (fileKey === "endpoint") {
+            // Priority 1: Use the current streaming endpoint method (from user context)
+            if (window.streamingEndpointMethod) {
+              determinedMethod = window.streamingEndpointMethod as MethodType;
+            }
+            // Priority 2: Use method from fileData if available
+            else if (fileData.method) {
+              const streamMethod = fileData.method.toUpperCase();
+              if (["GET", "POST", "PUT", "DELETE"].includes(streamMethod)) {
+                determinedMethod = streamMethod as MethodType;
+              }
+            }
+            // Priority 3: Try to extract method from file path
+            else if (methodFromPath) {
+              determinedMethod = methodFromPath as MethodType;
+            }
+            // Last resort: Default to GET
+            else {
+              determinedMethod = "GET";
+              if (fileCode.trim() !== "") {
+                // Only warn if we couldn't extract the method from any available sources
+                // This warning will now only show when we truly have no method information
+                console.warn(`Endpoint at ${filePath} received code via stream without a specified method, and no global streaming method was set. Method could not be extracted from the path. Defaulting to GET.`);
+              }
+            }
+          }
+
+          // Ensure unique ID for endpoints by including path and method
+          const fileId = fileKey === "endpoint"
+            ? fileData.endpoint_id || `${fileKey}-${filePath}-${determinedMethod}`
+            : fileData.endpoint_id || fileData.entity_name || `${fileKey}-${filePath}-${Date.now()}`;
 
           newFiles.push({
-            id: fileData.endpoint_id || fileData.entity_name || `${fileKey}-${Date.now()}`,
+            id: fileId,
             name: fileName,
             path: filePath,
             type: fileKey,
             code: fileCode,
-            method: fileMethod,
+            method: determinedMethod,
           })
         }
-
+  
         if (files.endpoint) processFile("endpoint", files.endpoint)
         if (files.model) processFile("model", files.model)
         if (files.schema) processFile("schema", files.schema)
         if (files.migration) processFile("migration", files.migration)
         if (files.helpers) processFile("helpers", files.helpers)
         if (files.config) processFile("config", files.config)
-
+  
         if (newFiles.length > 0) {
-          setFiles((prev) => {
-            const merged = [...prev]
-            newFiles.forEach((newFile) => {
-              const existingFileIndex = merged.findIndex(
-                (f) => f.id === newFile.id || (f.type === newFile.type && f.path === newFile.path),
-              )
-              if (existingFileIndex >= 0) {
-                merged[existingFileIndex] = newFile
-              } else {
-                merged.push(newFile)
+          // Check if we have endpoint files with identical paths but different methods
+          const endpointsByPath = new Map<string, FileType[]>();
+          
+          // Group endpoints by path to identify duplicates
+          newFiles.forEach(file => {
+            if (file.type === "endpoint") {
+              const normalizedPath = normalizePath(file.path);
+              if (!endpointsByPath.has(normalizedPath)) {
+                endpointsByPath.set(normalizedPath, []);
               }
-            })
-            return merged
-          })
-
-          const endpointFile = newFiles.find((f) => f.type === "endpoint")
+              endpointsByPath.get(normalizedPath)?.push(file);
+            }
+          });
+          
+          // For endpoints with the same path, filter and keep the most appropriate one
+          const filteredNewFiles = newFiles.filter(file => {
+            // If not an endpoint, keep it
+            if (file.type !== "endpoint") return true;
+            
+            const normalizedPath = normalizePath(file.path);
+            const endpointsWithSamePath = endpointsByPath.get(normalizedPath) || [];
+            
+            // If only one endpoint exists for this path, keep it
+            if (endpointsWithSamePath.length <= 1) return true;
+            
+            // Here's the key logic:
+            // If multiple endpoints exist for the same path:
+            
+            // 1. If a user-specified method (streamingEndpointMethod) exists, prioritize that method
+            if (window.streamingEndpointMethod && 
+                file.method?.toUpperCase() === window.streamingEndpointMethod.toUpperCase()) {
+              return true;
+            }
+            
+            // 2. If no user preference exists, prioritize POST, PUT, DELETE over GET
+            if (file.method?.toUpperCase() === "GET") {
+              // If there's a POST/PUT/DELETE endpoint with same path, don't include this GET
+              const hasNonGetEndpoint = endpointsWithSamePath.some(
+                e => e.method && ["POST", "PUT", "DELETE"].includes(e.method.toUpperCase())
+              );
+              if (hasNonGetEndpoint) {
+                return false;
+              }
+            }
+            
+            return true;
+          });
+          
+          // Update files state with our filtered list
+          setFiles((prev) => {
+            const merged = [...prev];
+            
+            filteredNewFiles.forEach((newFile) => {
+              // For endpoints, check both path and method to avoid duplicates
+              const existingFileIndex = merged.findIndex(f => {
+                if (f.type === "endpoint" && newFile.type === "endpoint") {
+                  return f.path === newFile.path && f.method === newFile.method;
+                }
+                return f.id === newFile.id || (f.type === newFile.type && f.path === newFile.path);
+              });
+              
+              if (existingFileIndex >= 0) {
+                merged[existingFileIndex] = newFile;
+              } else {
+                merged.push(newFile);
+              }
+            });
+            
+            return merged;
+          });
+  
+          // Select the most appropriate file to display
+          const endpointFile = filteredNewFiles.find(f => 
+            f.type === "endpoint" && 
+            (!window.streamingEndpointMethod || 
+             f.method?.toUpperCase() === window.streamingEndpointMethod.toUpperCase())
+          );
+          
           if (endpointFile) {
-            setSelectedFile(endpointFile.id)
-            setCurrentCode(endpointFile.code)
-          } else if (newFiles.length > 0) {
-            setSelectedFile(newFiles[0].id)
-            setCurrentCode(newFiles[0].code)
+            setSelectedFile(endpointFile.id);
+            setCurrentCode(endpointFile.code);
+          } else if (filteredNewFiles.length > 0) {
+            setSelectedFile(filteredNewFiles[0].id);
+            setCurrentCode(filteredNewFiles[0].code);
           }
-
-          setStreamingCode("")
+  
+          setStreamingCode("");
         }
-
+  
         const updatedGeneratedData: GeneratedDataType = {}
         if (files.endpoint) updatedGeneratedData.endpoint = files.endpoint
         if (files.model) updatedGeneratedData.model = files.model
@@ -601,26 +766,27 @@ export default function BackendEditorClient({
         if (files.migration) updatedGeneratedData.migration = files.migration
         if (files.helpers) updatedGeneratedData.helpers = files.helpers
         if (files.config) updatedGeneratedData.config = files.config
-
+  
         if (generatedData) {
           if (generatedData.project_id) updatedGeneratedData.project_id = generatedData.project_id
           if (generatedData.git_results) updatedGeneratedData.git_results = generatedData.git_results
         }
-
+  
         setGeneratedData(updatedGeneratedData)
       }
-
+  
       if (code && !files) {
         setStreamingCode(code)
         if (!selectedFile) {
           setCurrentCode(code)
         }
       }
-
+  
       setIsGenerating(false)
     }
-
-    const handleFileGenerated = (event: any) => {
+  
+    // Renamed this handler to avoid conflict
+    const handleGlobalFileEvent = (event: any) => {
       const { file } = event.detail
       if (file && file.type) {
         if (["endpoint", "model", "schema", "migration", "helpers", "config"].includes(file.type)) {
@@ -632,7 +798,7 @@ export default function BackendEditorClient({
               return [...prev, file]
             }
           })
-
+  
           setGeneratedData((prev) => {
             const updated = { ...prev } as GeneratedDataType
             if (file.type === "endpoint") {
@@ -694,21 +860,21 @@ export default function BackendEditorClient({
         }
       }
     }
-
+  
     const handleCodeGenerationStart = () => {
       ("Code generation started")
       setIsGenerating(true)
     }
-
+  
     window.addEventListener("code-update", handleCodeUpdate)
     window.addEventListener("code-generation-start", handleCodeGenerationStart)
-    window.addEventListener("file-generated", handleFileGenerated)
-
+    window.addEventListener("file-generated", handleGlobalFileEvent) // Use the renamed handler
+  
     return () => {
       window.removeEventListener("code-update", handleCodeUpdate)
       window.removeEventListener("code-generation-start", handleCodeGenerationStart)
-      window.removeEventListener("file-generated", handleFileGenerated)
-      window.streamingEndpointMethod = undefined
+      window.removeEventListener("file-generated", handleGlobalFileEvent) // Use the renamed handler
+      window.streamingEndpointMethod = undefined;
     }
   }, [selectedFile, generatedData])
 
@@ -848,9 +1014,10 @@ export default function BackendEditorClient({
     }
   }, [fileAnimationQueue, isAnimatingFile]); // Dependencies: queue and animation status
 
+  // This is the handleFileGenerated function passed to AIChat and responsible for the animation queue.
   const handleFileGenerated = (file: FileType) => { 
     // @ts-ignore
-    (`BEC: handleFileGenerated received raw file - Name: ${file.name}, Path: ${file.path || file.file_path}, Code present: ${!!file.code}`);
+    (`BEC: handleFileGenerated (AIChat prop) received raw file - Name: ${file.name}, Path: ${file.path || file.file_path}, Code present: ${!!file.code}`);
 
     let fileName = file.name || (file.file_path ? (file.file_path.split('/').pop() || 'unknown_name_from_path') : 'unknown_name');
     // @ts-ignore
@@ -858,41 +1025,97 @@ export default function BackendEditorClient({
     
     const fileId = file.id || `${file.type}-${filePath}-${file.method || Date.now()}`;
 
+    // Attempt to extract method from the file path if it's an endpoint
+    let methodFromPath = undefined;
+    if (file.type === "endpoint" && filePath) {
+      const postMatch = filePath.match(/\.post\./i) || filePath.match(/post_/i) || filePath.match(/_post/i);
+      const getMatch = filePath.match(/\.get\./i) || filePath.match(/get_/i) || filePath.match(/_get/i);
+      const putMatch = filePath.match(/\.put\./i) || filePath.match(/put_/i) || filePath.match(/_put/i);
+      const deleteMatch = filePath.match(/\.delete\./i) || filePath.match(/delete_/i) || filePath.match(/_delete/i);
+      
+      if (postMatch) methodFromPath = "POST";
+      else if (getMatch) methodFromPath = "GET";
+      else if (putMatch) methodFromPath = "PUT";
+      else if (deleteMatch) methodFromPath = "DELETE";
+    }
+
+    // More accurate method determination with detailed logging
+    const determinedMethod = 
+      // Priority 1: Use the current streaming endpoint method (from user context)
+      (file.type === "endpoint" && window.streamingEndpointMethod) ? 
+        window.streamingEndpointMethod as MethodType :
+      // Priority 2: Use method from file if available
+      file.method ? 
+        file.method as MethodType :
+      // Priority 3: Try to extract method from file path
+      (file.type === "endpoint" && methodFromPath) ? 
+        methodFromPath as MethodType :
+      // Last resort: Default to GET only for endpoints that require a method
+      file.type === "endpoint" ? 
+        "GET" as MethodType : 
+        undefined;
+    
+    // Log the method determination for debugging
+    if (file.type === "endpoint") {
+      console.log(`Method determination for ${filePath}:
+        - window.streamingEndpointMethod: ${window.streamingEndpointMethod || 'undefined'}
+        - file.method: ${file.method || 'undefined'}
+        - methodFromPath: ${methodFromPath || 'undefined'}
+        - Final determined method: ${determinedMethod || 'undefined'}`
+      );
+    }
+
     const fileWithCorrectProperties: FileType = {
       ...file,
       id: fileId,
       name: fileName,
       path: filePath,
-      code: file.code || "", 
-      method: file.method || (file.type === 'endpoint' ? 'GET' : undefined) as MethodType | undefined,
+      code: file.code || "",
+      method: determinedMethod,
     };
     // @ts-ignore
     (`BEC: Processed file for queue - ID: ${fileWithCorrectProperties.id}, Name: ${fileWithCorrectProperties.name}, Code length: ${fileWithCorrectProperties.code?.length}`);
 
     setFiles((prevFiles) => {
       const getFileKey = (f: FileType) => {
-        if (f.type === "endpoint" && f.method) return `${f.type}:${f.path}:${f.method}`;
-        // @ts-ignore
-        if (f.path && (f.path.startsWith(`${f.type}/`) || f.path.startsWith(`/${f.type}/`))) return f.path;
-        // @ts-ignore
+        // For endpoints: if we're currently streaming a specific method for this path,
+        // ALWAYS use that method for key generation to prevent duplicates
+        if (f.type === "endpoint") {
+          // If this path matches what we're currently streaming and we know the intended method,
+          // use the streaming method in the key instead of whatever method is in the file
+          if (window.streamingEndpointMethod && endpointDetails?.endpointPath &&
+              normalizePath(f.path) === normalizePath(endpointDetails.endpointPath)) {
+            return `${f.type}:${f.path}:${window.streamingEndpointMethod}`;
+          }
+          // Otherwise use the file's own method if available
+          else if (f.method) {
+            return `${f.type}:${f.path}:${f.method}`;
+          }
+        }
+        
+        // Existing path-based logic
+        if (f.path && (f.path.startsWith(`${f.type}/`) || f.path.startsWith(`/${f.type}/`))) {
+          return f.path;
+        }
+        
         return `${f.type}:${f.path || f.name}`;
       };
+      
       const newFileKey = getFileKey(fileWithCorrectProperties);
+      // rest of your existing code
       const existingIndex = prevFiles.findIndex(pf => getFileKey(pf) === newFileKey);
-
-      let updatedFiles;
+      // ...
       if (existingIndex >= 0) {
         (`BEC: Updating existing file in setFiles. Key: ${newFileKey}`);
         const existingId = prevFiles[existingIndex].id;
         // Preserve the original ID if updating, but take all other new properties
-        updatedFiles = prevFiles.map((pf, idx) =>
+        return prevFiles.map((pf, idx) =>
           idx === existingIndex ? { ...fileWithCorrectProperties, id: existingId } : pf
         );
       } else {
         (`BEC: Adding new file in setFiles. Key: ${newFileKey}`);
-        updatedFiles = [...prevFiles, fileWithCorrectProperties];
+        return [...prevFiles, fileWithCorrectProperties];
       }
-      return updatedFiles;
     });
 
     setFileAnimationQueue(prevQueue => {
@@ -915,7 +1138,11 @@ export default function BackendEditorClient({
     setIsEndpointCreating(true)
     setIsEndpointModalOpen(true)
     setEndpointDetails(details)
-
+    
+    // Save the method of the endpoint being created to use later for filtering
+    const createdMethod = details.method;
+    const createdPath = details.endpointPath;
+  
     const endpointService = new EndPointService()
     endpointService
       .newEndpointCreation(
@@ -928,7 +1155,33 @@ export default function BackendEditorClient({
         // Add a slight delay to ensure the backend has updated
         return new Promise<void>((resolve) => {
           setTimeout(() => {
-            fetchEndpoints(true, details.endpointPath, details.method).then(() => resolve())
+            // Modified to target only the specific endpoint that was created
+            fetchEndpoints(true, details.endpointPath, details.method)
+              .then((fetchedEndpoints) => {
+                // Filter out automatically created empty GET endpoints if we just created a different method
+                if (createdMethod !== "GET") {
+                  setFiles(prevFiles => {
+                    return prevFiles.filter(file => {
+                      // Keep the file if:
+                      // 1. It's not an endpoint, OR
+                      // 2. It doesn't match the path we just created an endpoint for, OR
+                      // 3. It matches the method we explicitly created
+                      // This filters out the auto-generated empty GET endpoint
+                      if (file.type !== "endpoint") return true;
+                      if (normalizePath(file.path) !== normalizePath(createdPath)) return true;
+                      if (file.method?.toUpperCase() === createdMethod.toUpperCase()) return true;
+                      
+                      // Extra check: keep non-GET methods or GET methods with actual code
+                      if (file.method?.toUpperCase() !== "GET") return true;
+                      if (file.method?.toUpperCase() === "GET" && file.code && file.code.trim() !== "") return true;
+                      
+                      // Otherwise, filter out this file (empty GET with matching path)
+                      return false;
+                    });
+                  });
+                }
+                resolve();
+              });
           }, 1000) // 1-second delay
         })
       })
@@ -947,7 +1200,7 @@ export default function BackendEditorClient({
           if (window.innerWidth <= 768) {
             setTimeout(() => setActiveMobilePanel("chat"), 500)
           }
-        }, 3000)
+        }, 1000)
       })
       .catch((error) => {
         setIsEndpointCreating(false)
@@ -1153,7 +1406,7 @@ export default function BackendEditorClient({
           flex-direction: column;
           min-height: 0;
           overflow: auto;
-          height: calc(100vh - 180px); 
+          height: calc(100vh - 56px); 
         }
         
         @media (max-width: 768px) {

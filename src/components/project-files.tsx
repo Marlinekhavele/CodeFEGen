@@ -165,7 +165,13 @@ export function ProjectFiles({
         ? `${file.type}:${file.name}:${file.method}`
         : `${file.type}:${file.name}`;
       
-      if (!uniqueFiles.has(key)) {
+      // If the entry already exists, only replace it if the current file has code and the existing one doesn't
+      if (uniqueFiles.has(key)) {
+        const existingFile = uniqueFiles.get(key)!;
+        if (!existingFile.code && file.code) {
+          uniqueFiles.set(key, file);
+        }
+      } else {
         uniqueFiles.set(key, file);
       }
     }
