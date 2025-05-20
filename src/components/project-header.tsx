@@ -48,8 +48,8 @@ export function ProjectHeader({
 
   return (
     <>
-      <header className="sticky top-0 z-50 w-full border-b border-zinc-200 bg-zinc-100/80 backdrop-blur-sm dark:border-zinc-800 dark:bg-zinc-950/80 ">
-        <div className="container flex h-16 items-center justify-between">
+      <header className="sticky top-0 z-50 w-full border-b border-zinc-200 bg-zinc-100/80 backdrop-blur-sm dark:border-zinc-800 dark:bg-zinc-950/80">
+        <div className="container flex h-14 items-center justify-between px-4">
           <div className="flex items-center gap-3">
             <Link href="/" className="flex items-center gap-2">
               <Image src="/codeBE-logo.png" alt="CodeBEgen Logo" width={30} height={30} />
@@ -62,23 +62,25 @@ export function ProjectHeader({
         </div>
       </header>
 
-      <div className="flex items-center justify-between m-3">
-        <div className="flex items-center gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between mx-3 my-2 gap-3">
+        <div className="flex flex-wrap items-center gap-4 mb-1 sm:mb-0">
           <Link
             href="/create-backend"
-            className="inline-flex items-center gap-2 text-zinc-600 hover:text-[#7dff00] dark:text-zinc-400 dark:hover:text-[#7dff00]"
+            className="inline-flex items-center gap-2 text-zinc-600 hover:text-[#7dff00] dark:text-zinc-400 dark:hover:text-[#7dff00] text-sm"
           >
             <ArrowLeft className="h-4 w-4" />
             Back
           </Link>
-          <h1 className="text-2xl font-medium text-zinc-900 dark:text-white">{projectName}</h1>
+            <h1 className="text-lg sm:text-xl font-medium text-zinc-900 dark:text-white truncate max-w-[200px] sm:max-w-full">
+            {projectName}
+          </h1>
           {isGenerating && (
             <span className="text-xs bg-[#7dff00]/20 text-[#7dff00] px-2 py-1 rounded-full animate-pulse">
               Generating code...
             </span>
           )}
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
@@ -89,11 +91,11 @@ export function ProjectHeader({
                   onClick={onCopyCode}
                 >
                   <Copy className="h-4 w-4 mr-2" />
-                  Copy
+                  <span className="hidden sm:inline">Copy</span>
                 </Button>
               </TooltipTrigger>
               <TooltipContent>
-                <p>Copy code to clipboard</p>
+                <p className="text-white">Copy code to clipboard</p>
               </TooltipContent>
             </Tooltip>
 
@@ -106,11 +108,11 @@ export function ProjectHeader({
                   onClick={onDeleteFile}
                 >
                   <Trash2 className="h-4 w-4 mr-2" />
-                  Delete
+                  <span className="hidden sm:inline">Delete</span>
                 </Button>
               </TooltipTrigger>
               <TooltipContent>
-                <p>Delete current file</p>
+                <p className="text-white">Delete current file</p>
               </TooltipContent>
             </Tooltip>
 
@@ -123,11 +125,11 @@ export function ProjectHeader({
                   onClick={onDownloadFile}
                 >
                   <Play className="h-4 w-4 mr-2" />
-                  Download
+                  <span className="hidden sm:inline">Download</span>
                 </Button>
               </TooltipTrigger>
               <TooltipContent>
-                <p>Download your backend files</p>
+                <p className="text-white">Download your backend files</p>
               </TooltipContent>
             </Tooltip>
 
@@ -143,7 +145,7 @@ export function ProjectHeader({
                     onClick={onRunMigrations}
                   >
                     <Database className="h-4 w-4 mr-2" />
-                    Run Migrations
+                    <span className="hidden sm:inline">Run Migrations</span>
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>
@@ -160,11 +162,11 @@ export function ProjectHeader({
                   onClick={onSaveFile}
                 >
                   <Save className="h-4 w-4 mr-2" />
-                  Save
+                  <span className="hidden sm:inline">Save</span>
                 </Button>
               </TooltipTrigger>
               <TooltipContent>
-                <p>Save changes</p>
+                <p className="text-white">Save changes</p>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
@@ -172,17 +174,17 @@ export function ProjectHeader({
       </div>
 
       {/* Project URL Display */}
-      <div className="mb-4 p-3 bg-white border border-zinc-200 rounded-md flex items-center justify-between dark:bg-zinc-900 dark:border-zinc-800">
-        <div className="flex items-center">
-          <span className="text-sm font-medium text-zinc-500 dark:text-zinc-400 mr-2">Project URL:</span>
-          <code className="text-sm bg-zinc-100 px-2 py-1 rounded text-zinc-800 dark:bg-zinc-800 dark:text-zinc-300">
+      <div className="mb-2 mx-3 p-2 bg-white border border-zinc-200 rounded-md flex flex-col sm:flex-row items-start sm:items-center justify-between dark:bg-zinc-900 dark:border-zinc-800">
+        <div className="flex flex-col sm:flex-row sm:items-center mb-2 sm:mb-0 w-full sm:w-auto">
+          <span className="text-sm font-medium text-zinc-500 dark:text-zinc-400 mr-2 mb-1 sm:mb-0">Project URL:</span>
+          <code className="text-xs sm:text-sm bg-zinc-100 px-2 py-1 rounded text-zinc-800 dark:bg-zinc-800 dark:text-zinc-300 w-full sm:w-auto overflow-x-auto">
             https://api.codebegen.com/{urlFriendlyName}
           </code>
         </div>
         <Button
           variant="ghost"
           size="sm"
-          className="text-zinc-500 hover:bg-[#7dff00] hover:text-black dark:text-zinc-400 dark:hover:bg-[#7dff00] dark:hover:text-black"
+          className="text-zinc-500 hover:bg-[#7dff00] hover:text-black dark:text-zinc-400 dark:hover:bg-[#7dff00] dark:hover:text-black mt-2 sm:mt-0"
           onClick={() => {
             navigator.clipboard.writeText(`https://api.codebegen.com/${urlFriendlyName}`)
             toast({
