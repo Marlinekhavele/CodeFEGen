@@ -45,6 +45,15 @@ type TestResponse = {
   timestamp: string
 }
 
+// New interface for structured error responses
+type ErrorDetails = {
+  status_code?: number
+  status?: boolean
+  message?: string
+  detail?: string
+  [key: string]: any 
+}
+
 export function TestEndpoint({ method, endpoint, projectId, theme }: TestEndpointProps) {
   const [endpointUrl, setEndpointUrl] = useState(`http://${projectId}${endpoint}`)
   const [httpMethod, setHttpMethod] = useState(method)
@@ -55,7 +64,10 @@ export function TestEndpoint({ method, endpoint, projectId, theme }: TestEndpoin
   const [isLoading, setIsLoading] = useState(false)
   const [response, setResponse] = useState<TestResponse | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [errorDetails, setErrorDetails] = useState<ErrorDetails | null>(null)
   const [bodyFormat, setBodyFormat] = useState<"json" | "text">("json")
+  // New state for terminal mode
+  const [terminalMode, setTerminalMode] = useState(true) 
 
   const addHeader = () => {
     setHeaders([...headers, { key: "", value: "" }])
@@ -93,6 +105,7 @@ export function TestEndpoint({ method, endpoint, projectId, theme }: TestEndpoin
     setIsLoading(true)
     setError(null)
     setResponse(null)
+    setErrorDetails(null) // Reset error details
 
     try {
       // Create axios instance
@@ -169,10 +182,30 @@ export function TestEndpoint({ method, endpoint, projectId, theme }: TestEndpoin
 
         setResponse(testResponse)
       } else {
+        // Extract structured error details if available
+        if (result.data) {
+          setErrorDetails({
+            status_code: result.data.status_code,
+            status: result.data.status,
+            message: result.data.message,
+            detail: result.data.detail
+          });
+        }
         throw new Error(result.data?.message || "Failed to test endpoint")
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("Error testing endpoint:", err)
+      
+      // Try to extract error details from the response if available
+      if (err.response?.data) {
+        setErrorDetails({
+          status_code: err.response.data.status_code || err.response.status,
+          status: err.response.data.status !== undefined ? err.response.data.status : false,
+          message: err.response.data.message || err.message,
+          detail: err.response.data.detail || null
+        });
+      }
+      
       setError(err instanceof Error ? err.message : "An unknown error occurred")
     } finally {
       setIsLoading(false)
@@ -202,21 +235,51 @@ export function TestEndpoint({ method, endpoint, projectId, theme }: TestEndpoin
   }
 
   return (
-    <div className="flex flex-col h-full overflow-hidden">
-      <div className="flex flex-col p-4 space-y-4 overflow-auto scrollable">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-lg">Test Endpoint</CardTitle>
-            <CardDescription>Test an API endpoint by sending an HTTP request to the specified URL.</CardDescription>
+    <div className={`flex flex-col h-full overflow-hidden ${terminalMode ? 'font-mono' : ''}`}>
+      <div className={`flex flex-col p-4 space-y-4 overflow-auto scrollable ${
+        terminalMode ? 'bg-zinc-900 text-green-400 dark:bg-black' : ''
+      }`}>
+        {/* Terminal header with toggle */}
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center">
+            <div className={`h-3 w-3 rounded-full ${terminalMode ? 'bg-red-500' : 'bg-red-200'} mr-2`}></div>
+            <div className={`h-3 w-3 rounded-full ${terminalMode ? 'bg-yellow-500' : 'bg-yellow-200'} mr-2`}></div>
+            <div className={`h-3 w-3 rounded-full ${terminalMode ? 'bg-green-500' : 'bg-green-200'} mr-2`}></div>
+            <span className={terminalMode ? 'text-white text-sm ml-2' : 'text-sm ml-2'}>API-Terminal</span>
+          </div>
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={() => setTerminalMode(!terminalMode)}
+            className={terminalMode ? 'text-gray-400 hover:text-white' : ''}
+          >
+            {terminalMode ? "Standard View" : "Terminal View"}
+          </Button>
+        </div>
+
+        <Card className={terminalMode ? 'border-green-500/30 bg-zinc-800 shadow-lg shadow-green-500/10' : ''}>
+          <CardHeader className={terminalMode ? 'pb-2 border-b border-green-500/30 bg-zinc-900' : 'pb-2'}>
+            <CardTitle className={terminalMode ? 'text-lg text-green-400' : 'text-lg'}>
+              {terminalMode && '> '}Test Endpoint
+            </CardTitle>
+            <CardDescription className={terminalMode ? 'text-gray-400 text-sm' : ''}>
+              {terminalMode && '$ '}Test an API endpoint by sending an HTTP request to the specified URL.
+            </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className={terminalMode ? 'pt-4 text-green-300' : ''}>
             <div className="space-y-4">
               <div className="flex flex-col space-y-2">
-                <Label htmlFor="endpoint-url">Endpoint URL</Label>
+                <Label htmlFor="endpoint-url" className={terminalMode ? 'text-gray-400' : ''}>
+                  {terminalMode && '$ '}Endpoint URL
+                </Label>
                 <div className="flex space-x-2">
                   <div className="w-24">
                     <select
-                      className="w-full h-10 px-3 py-2 text-sm border rounded-md border-input bg-background"
+                      className={`w-full h-10 px-3 py-2 text-sm border rounded-md ${
+                        terminalMode 
+                          ? 'bg-black border-green-500/50 text-green-400 focus:border-green-400 focus:ring-green-500/30' 
+                          : 'border-input bg-background'
+                      }`}
                       value={httpMethod}
                       onChange={(e) => setHttpMethod(e.target.value)}
                     >
@@ -234,24 +297,51 @@ export function TestEndpoint({ method, endpoint, projectId, theme }: TestEndpoin
                     value={endpointUrl}
                     onChange={(e) => setEndpointUrl(e.target.value)}
                     placeholder="https://api.example.com/endpoint"
-                    className="flex-1"
+                    className={`flex-1 ${
+                      terminalMode 
+                        ? 'bg-black border-green-500/50 text-green-400 focus:border-green-400 placeholder:text-green-700'
+                        : ''
+                    }`}
                   />
-                  <Button onClick={handleSendRequest} disabled={isLoading} className="w-24 text-white">
-                    {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4 mr-2" />}
+                  <Button 
+                    onClick={handleSendRequest} 
+                    disabled={isLoading} 
+                    className={`w-24 ${
+                      terminalMode 
+                        ? 'bg-green-700 hover:bg-green-600 text-black border border-green-500'
+                        : 'text-white'
+                    }`}
+                  >
+                    {isLoading ? (
+                      <Loader2 className={`h-4 w-4 animate-spin ${terminalMode ? 'text-black' : ''}`} />
+                    ) : (
+                      <Send className={`h-4 w-4 mr-2 ${terminalMode ? 'text-black' : ''}`} />
+                    )}
                     {isLoading ? "Sending" : "Send"}
                   </Button>
                 </div>
               </div>
 
               <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as any)}>
-                <TabsList className="grid w-full grid-cols-3">
-                  <TabsTrigger value="params" className="tab-accent">
+                <TabsList className={`grid w-full grid-cols-3 ${
+                  terminalMode ? 'bg-zinc-800 border border-green-500/30' : ''
+                }`}>
+                  <TabsTrigger 
+                    value="params" 
+                    className={terminalMode ? 'data-[state=active]:bg-green-600 data-[state=active]:text-black' : 'tab-accent'}
+                  >
                     Query Params
                   </TabsTrigger>
-                  <TabsTrigger value="headers" className="tab-accent">
+                  <TabsTrigger 
+                    value="headers" 
+                    className={terminalMode ? 'data-[state=active]:bg-green-600 data-[state=active]:text-black' : 'tab-accent'}
+                  >
                     Headers
                   </TabsTrigger>
-                  <TabsTrigger value="body" className="tab-accent">
+                  <TabsTrigger 
+                    value="body" 
+                    className={terminalMode ? 'data-[state=active]:bg-green-600 data-[state=active]:text-black' : 'tab-accent'}
+                  >
                     Body
                   </TabsTrigger>
                 </TabsList>
@@ -263,25 +353,38 @@ export function TestEndpoint({ method, endpoint, projectId, theme }: TestEndpoin
                           value={param.key}
                           onChange={(e) => updateQueryParam(index, "key", e.target.value)}
                           placeholder="Parameter name"
-                          className="flex-1"
+                          className={`flex-1 ${
+                            terminalMode 
+                              ? 'bg-black border-green-500/50 text-green-400 focus:border-green-400 placeholder:text-green-700'
+                              : ''
+                          }`}
                         />
                         <Input
                           value={param.value}
                           onChange={(e) => updateQueryParam(index, "value", e.target.value)}
                           placeholder="Value"
-                          className="flex-1"
+                          className={`flex-1 ${
+                            terminalMode 
+                              ? 'bg-black border-green-500/50 text-green-400 focus:border-green-400 placeholder:text-green-700'
+                              : ''
+                          }`}
                         />
                         <Button
                           variant="ghost"
                           size="icon"
                           onClick={() => removeQueryParam(index)}
-                          className="h-10 w-10"
+                          className={`h-10 w-10 ${terminalMode ? 'text-green-400 hover:text-white' : ''}`}
                         >
-                          <X className="h-4 w-4" />
+                          <X className={`h-4 w-4 ${terminalMode ? 'text-green-400' : ''}`} />
                         </Button>
                       </div>
                     ))}
-                    <Button variant="outline" size="sm" onClick={addQueryParam} className="mt-2">
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={addQueryParam} 
+                      className={`mt-2 ${terminalMode ? 'border-green-500 text-green-400 hover:bg-green-600 hover:text-black' : ''}`}
+                    >
                       Add Parameter
                     </Button>
                   </div>
@@ -294,20 +397,38 @@ export function TestEndpoint({ method, endpoint, projectId, theme }: TestEndpoin
                           value={header.key}
                           onChange={(e) => updateHeader(index, "key", e.target.value)}
                           placeholder="Header name"
-                          className="flex-1"
+                          className={`flex-1 ${
+                            terminalMode 
+                              ? 'bg-black border-green-500/50 text-green-400 focus:border-green-400 placeholder:text-green-700'
+                              : ''
+                          }`}
                         />
                         <Input
                           value={header.value}
                           onChange={(e) => updateHeader(index, "value", e.target.value)}
                           placeholder="Value"
-                          className="flex-1"
+                          className={`flex-1 ${
+                            terminalMode 
+                              ? 'bg-black border-green-500/50 text-green-400 focus:border-green-400 placeholder:text-green-700'
+                              : ''
+                          }`}
                         />
-                        <Button variant="ghost" size="icon" onClick={() => removeHeader(index)} className="h-10 w-10">
-                          <X className="h-4 w-4" />
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          onClick={() => removeHeader(index)} 
+                          className={`h-10 w-10 ${terminalMode ? 'text-green-400 hover:text-white' : ''}`}
+                        >
+                          <X className={`h-4 w-4 ${terminalMode ? 'text-green-400' : ''}`} />
                         </Button>
                       </div>
                     ))}
-                    <Button variant="outline" size="sm" onClick={addHeader} className="mt-2">
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={addHeader} 
+                      className={`mt-2 ${terminalMode ? 'border-green-500 text-green-400 hover:bg-green-600 hover:text-black' : ''}`}
+                    >
                       Add Header
                     </Button>
                   </div>
@@ -315,13 +436,19 @@ export function TestEndpoint({ method, endpoint, projectId, theme }: TestEndpoin
                 <TabsContent value="body" className="p-4 border rounded-md mt-2">
                   <div className="space-y-4">
                     <div className="flex items-center space-x-4">
-                      <Label>Format:</Label>
-                      <div className="flex rounded-md overflow-hidden border border-zinc-200 dark:border-zinc-700">
+                      <Label className={terminalMode ? 'text-gray-400' : ''}>Format:</Label>
+                      <div className={`flex rounded-md overflow-hidden border ${
+                        terminalMode ? 'border-green-500/30' : 'border-zinc-200 dark:border-zinc-700'
+                      }`}>
                         <Button
                           variant={bodyFormat === "json" ? "secondary" : "ghost"}
                           size="sm"
                           onClick={() => setBodyFormat("json")}
-                          className="rounded-none border-r border-zinc-200 dark:border-zinc-700 h-8"
+                          className={`rounded-none border-r ${
+                            terminalMode 
+                              ? 'border-green-500/30 h-8 text-green-400 data-[state=active]:bg-green-600 data-[state=active]:text-black' 
+                              : 'border-zinc-200 dark:border-zinc-700 h-8'
+                          }`}
                         >
                           <span className="text-xs">JSON</span>
                         </Button>
@@ -329,13 +456,17 @@ export function TestEndpoint({ method, endpoint, projectId, theme }: TestEndpoin
                           variant={bodyFormat === "text" ? "secondary" : "ghost"}
                           size="sm"
                           onClick={() => setBodyFormat("text")}
-                          className="rounded-none h-8"
+                          className={`rounded-none ${
+                            terminalMode 
+                              ? 'h-8 text-green-400 data-[state=active]:bg-green-600 data-[state=active]:text-black' 
+                              : 'h-8'
+                          }`}
                         >
                           <span className="text-xs">Text</span>
                         </Button>
                       </div>
                     </div>
-                    <div className="h-64 border rounded-md">
+                    <div className={`h-64 border rounded-md ${terminalMode ? 'border-green-500/30' : ''}`}>
                       <Editor
                         language={bodyFormat === "json" ? "json" : "plaintext"}
                         value={requestBody}
@@ -343,13 +474,14 @@ export function TestEndpoint({ method, endpoint, projectId, theme }: TestEndpoin
                         theme={theme === "dark" ? "vs-dark" : "light"}
                         options={{
                           minimap: { enabled: false },
-                          fontSize: 14,
+                          fontSize: 12,
                           lineNumbers: "on",
                           scrollBeyondLastLine: false,
                           automaticLayout: true,
                           tabSize: 2,
                           wordWrap: "on",
                         }}
+                        className={terminalMode ? 'bg-black text-green-400' : ''}
                       />
                     </div>
                   </div>
@@ -359,58 +491,169 @@ export function TestEndpoint({ method, endpoint, projectId, theme }: TestEndpoin
           </CardContent>
         </Card>
 
+        {/* Updated error card to display structured error details */}
         {error && (
-          <Card className="border-red-300 dark:border-red-800">
-            <CardHeader className="pb-2 bg-red-50 dark:bg-red-900/20">
-              <CardTitle className="text-lg text-red-700 dark:text-red-300">Error</CardTitle>
+          <Card className={terminalMode 
+            ? 'border-red-500/30 bg-zinc-800 shadow-lg shadow-red-500/20' 
+            : 'border-red-300 dark:border-red-800'
+          }>
+            <CardHeader className={terminalMode 
+              ? 'pb-2 bg-zinc-900/80 border-b border-red-500/30' 
+              : 'pb-2 bg-red-50 dark:bg-red-900/20'
+            }>
+              <div className="flex items-center justify-between">
+                <CardTitle className={terminalMode 
+                  ? 'text-lg text-red-400' 
+                  : 'text-lg text-red-700 dark:text-red-300'
+                }>
+                  {terminalMode && '! '}Error
+                </CardTitle>
+                {errorDetails?.status_code && (
+                  <Badge className={terminalMode 
+                    ? 'bg-red-900/50 text-red-300 border border-red-500/50' 
+                    : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300'
+                  }>
+                    Status {errorDetails.status_code}
+                  </Badge>
+                )}
+              </div>
             </CardHeader>
-            <CardContent className="pt-4">
-              <p className="text-red-700 dark:text-red-300">{error}</p>
+            <CardContent className={terminalMode ? 'pt-4 text-red-300' : 'pt-4'}>
+              {/* Display error message */}
+              <p className={terminalMode 
+                ? 'font-medium mb-2 text-red-400' 
+                : 'text-red-700 dark:text-red-300 font-medium mb-2'
+              }>
+                {terminalMode && '$ '}{error}
+              </p>
+              
+              {/* Display structured error details */}
+              {errorDetails && (
+                <div className={`mt-4 space-y-2 pt-4 text-sm ${
+                  terminalMode ? 'border-t border-red-500/30' : 'border-t'
+                }`}>
+                  {errorDetails.message && errorDetails.message !== error && (
+                    <div className="mb-2">
+                      <span className={terminalMode ? 'font-medium text-gray-400' : 'font-medium'}>Message: </span>
+                      <span className={terminalMode ? 'text-red-300' : ''}>{errorDetails.message}</span>
+                    </div>
+                  )}
+                  
+                  {errorDetails.detail && (
+                    <div>
+                      <span className={terminalMode ? 'font-medium text-gray-400' : 'font-medium'}>Details: </span>
+                      <span className={`whitespace-pre-wrap font-mono ${
+                        terminalMode ? 'text-red-200 text-xs bg-zinc-900/50 p-1 block mt-1 rounded border-l-2 border-red-500' : 'text-xs'
+                      }`}>
+                        {errorDetails.detail}
+                      </span>
+                    </div>
+                  )}
+                  
+                  {/* Display any other error properties */}
+                  {Object.entries(errorDetails).map(([key, value]) => {
+                    // Skip already displayed fields and null/undefined values
+                    if (
+                      ['status_code', 'status', 'message', 'detail'].includes(key) || 
+                      value === null || 
+                      value === undefined
+                    ) {
+                      return null;
+                    }
+                    return (
+                      <div key={key}>
+                        <span className={terminalMode ? 'font-medium text-gray-400' : 'font-medium'}>
+                          {key.charAt(0).toUpperCase() + key.slice(1)}:
+                        </span>
+                        <span className={terminalMode ? 'text-red-300 ml-2' : 'ml-2'}>
+                          {typeof value === 'object' ? JSON.stringify(value) : value.toString()}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </CardContent>
           </Card>
         )}
 
         {response && (
-          <Card>
-            <CardHeader className="pb-2">
+          <Card className={terminalMode ? 'border-cyan-500/30 bg-zinc-800 shadow-lg shadow-cyan-500/10' : ''}>
+            <CardHeader className={terminalMode ? 'pb-2 border-b border-cyan-500/30 bg-zinc-900/80' : 'pb-2'}>
               <div className="flex items-center justify-between">
-                <CardTitle className="text-lg">Response</CardTitle>
+                <CardTitle className={terminalMode ? 'text-lg text-cyan-400' : 'text-lg'}>
+                  {terminalMode && '> '}Response
+                </CardTitle>
                 <div className="flex items-center space-x-2">
-                  <Badge className={getStatusColor(response.statusCode)}>{response.statusCode}</Badge>
-                  <Badge variant="outline">{Math.round(response.elapsedTime)}ms</Badge>
-                  <Badge variant="outline">{(response.size / 1024).toFixed(2)} KB</Badge>
+                  <Badge className={terminalMode 
+                    ? `${response.statusCode < 400 ? 'bg-green-900/50 text-green-300 border border-green-500/50' : 'bg-red-900/50 text-red-300 border border-red-500/50'}`
+                    : getStatusColor(response.statusCode)
+                  }>
+                    {response.statusCode}
+                  </Badge>
+                  <Badge variant={terminalMode ? 'outline' : 'outline'} className={terminalMode 
+                    ? 'text-cyan-300 border-cyan-500/50' : ''
+                  }>
+                    {Math.round(response.elapsedTime)}ms
+                  </Badge>
+                  <Badge variant={terminalMode ? 'outline' : 'outline'} className={terminalMode 
+                    ? 'text-cyan-300 border-cyan-500/50' : ''
+                  }>
+                    {(response.size / 1024).toFixed(2)} KB
+                  </Badge>
                 </div>
               </div>
             </CardHeader>
-            <CardContent className="pt-4">
-              <Accordion type="single" collapsible defaultValue="body">
-                <AccordionItem value="body">
-                  <AccordionTrigger>Response Body</AccordionTrigger>
+            <CardContent className={terminalMode ? 'pt-4 text-cyan-300' : 'pt-4'}>
+              <Accordion type="single" collapsible defaultValue="body" className={terminalMode ? 'border-cyan-500/30' : ''}>
+                <AccordionItem value="body" className={terminalMode ? 'border-cyan-500/20' : ''}>
+                  <AccordionTrigger className={terminalMode ? 'text-cyan-300 hover:text-cyan-100' : ''}>
+                    {terminalMode && '$ '}Response Body
+                  </AccordionTrigger>
                   <AccordionContent>
-                    <div className="mt-2 border rounded-md overflow-hidden">
+                    <div className={`mt-2 overflow-hidden ${
+                      terminalMode ? 'border border-cyan-500/30 rounded-md' : 'border rounded-md'
+                    }`}>
                       {response.contentType.includes("application/json") ? (
                         <SyntaxHighlighter
                           language="json"
-                          style={theme === "dark" ? vscDarkPlus : vs}
-                          customStyle={{ margin: 0, borderRadius: 0 }}
+                          style={theme === "dark" || terminalMode ? vscDarkPlus : vs}
+                          customStyle={{ 
+                            margin: 0, 
+                            borderRadius: 0,
+                            fontSize: terminalMode ? '13px' : undefined,
+                            backgroundColor: terminalMode ? 'rgb(15, 15, 15)' : undefined
+                          }}
                         >
                           {response.responseBody}
                         </SyntaxHighlighter>
                       ) : (
-                        <div className="p-4 whitespace-pre-wrap font-mono text-sm">{response.responseBody}</div>
+                        <div className={`p-4 whitespace-pre-wrap font-mono ${
+                          terminalMode ? 'text-sm bg-zinc-900/70 text-cyan-200' : 'text-sm'
+                        }`}>
+                          {response.responseBody}
+                        </div>
                       )}
                     </div>
                   </AccordionContent>
                 </AccordionItem>
-                <AccordionItem value="headers">
-                  <AccordionTrigger>Response Headers</AccordionTrigger>
+                <AccordionItem value="headers" className={terminalMode ? 'border-cyan-500/20' : ''}>
+                  <AccordionTrigger className={terminalMode ? 'text-cyan-300 hover:text-cyan-100' : ''}>
+                    {terminalMode && '$ '}Response Headers
+                  </AccordionTrigger>
                   <AccordionContent>
-                    <div className="mt-2 border rounded-md overflow-hidden scrollable">
-                      <div className="divide-y">
+                    <div className={`mt-2 overflow-hidden scrollable ${
+                      terminalMode ? 'border border-cyan-500/30 rounded-md' : 'border rounded-md'
+                    }`}>
+                      <div className={terminalMode ? 'divide-y divide-cyan-900/30' : 'divide-y'}>
                         {Object.entries(response.responseHeaders).map(([key, value]) => (
                           <div key={key} className="flex py-2 px-4">
-                            <div className="font-medium w-1/3">{key}</div>
-                            <div className="text-zinc-600 dark:text-zinc-400">{value}</div>
+                            <div className={terminalMode ? 'font-medium w-1/3 text-gray-400' : 'font-medium w-1/3'}>
+                              {key}
+                            </div>
+                            <div className={terminalMode ? 'text-cyan-300' : 'text-zinc-600 dark:text-zinc-400'}>
+                              {value}
+                            </div>
                           </div>
                         ))}
                       </div>

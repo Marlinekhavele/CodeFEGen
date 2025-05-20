@@ -34,11 +34,9 @@ export class WebSocketHandler extends EventEmitter {
     }
     
     try {
-      console.log('Connecting to WebSocket:', this.url);
       this.ws = new WebSocket(this.url);
       
       this.ws.onopen = () => {
-        console.log('WebSocket connected:', this.url);
         this.reconnectAttempts = 0;
         this.emit(CodeStreamEventType.CONNECTED);
       };
@@ -47,7 +45,6 @@ export class WebSocketHandler extends EventEmitter {
         try {
           // Try to parse as JSON first
           const data = JSON.parse(event.data);
-          console.log('Received WebSocket JSON:', data);
           
           // Handle different message types based on the status field
           if (data.status === 'connected') {
@@ -81,12 +78,12 @@ export class WebSocketHandler extends EventEmitter {
       };
       
       this.ws.onclose = (event) => {
-        console.log(`WebSocket closed with code ${event.code}`);
+        (`WebSocket closed with code ${event.code}`);
         this.emit(CodeStreamEventType.CLOSE, event);
         
         // Attempt reconnection if not closed normally
         if (event.code !== 1000 && this.reconnectAttempts < this.maxReconnectAttempts) {
-          console.log(`Attempting reconnect (${this.reconnectAttempts + 1}/${this.maxReconnectAttempts})`);
+          (`Attempting reconnect (${this.reconnectAttempts + 1}/${this.maxReconnectAttempts})`);
           setTimeout(() => {
             this.reconnectAttempts++;
             this.connect();
@@ -107,7 +104,6 @@ export class WebSocketHandler extends EventEmitter {
     }
     
     try {
-      console.log('Sending data via WebSocket:', data);
       this.ws.send(JSON.stringify(data));
     } catch (error) {
       console.error('Error sending data:', error);

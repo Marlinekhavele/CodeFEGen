@@ -1,7 +1,8 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useCallback } from "react"
 import { Editor } from "@monaco-editor/react"
+import { MonacoEditor as CustomMonacoEditor } from "@/components/monaco-editor"; 
 import type { FileType } from "@/types"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import EndPointService from "@/app/api/services/endpoint-service"
@@ -20,9 +21,11 @@ type FileContentProps = {
   onCodeChange: (value: string) => void
   theme?: string
   streamingCode?: string
+  streaming?: boolean
+  onStreamComplete?: () => void
   projectId?: string
-  activeTab?: string  // Prop for current active tab
-  setActiveTab?: (tab: string) => void  // Prop for setting active tab
+  activeTab?: string 
+  setActiveTab?: (tab: string) => void  
 }
 
 export function FileContent({
@@ -32,124 +35,110 @@ export function FileContent({
   onCodeChange,
   theme,
   streamingCode = "",
+  streaming = false,
+  onStreamComplete,
   projectId,
-  activeTab = "code",  // Default to code tab
-  setActiveTab = () => {},  // Default empty function
+  activeTab = "code", 
+  setActiveTab = () => {},  
 }: FileContentProps) {
   
   // State for documentation content
   const [documentation, setDocumentation] = useState<string>("# Select a file to view its documentation")
   const [isLoadingDocs, setIsLoadingDocs] = useState(false)
-  const [refreshKey, setRefreshKey] = useState(0) // Used to force refresh documentation
+  const [refreshKey, setRefreshKey] = useState(0)
   const [docFetchError, setDocFetchError] = useState<string | null>(null)
   const [viewMode, setViewMode] = useState<"rendered" | "source">("rendered")
-  
-  // Add state to handle database file detection
   const [isDatabaseFile, setIsDatabaseFile] = useState(false)
-  
-  // Find the selected file
-  const file = files.find((f) => f.id === selectedFile)
+  const [currentFileForEditor, setCurrentFileForEditor] = useState<FileType | null>(null)
+  const [language, setLanguage] = useState("python") 
+  const [isGenerating, setIsGenerating] = useState(false)
+  const [isEndpointCreating, setIsEndpointCreating] = useState(false)
 
-  // Get entity name from the file
+  // Memoize onStreamComplete to prevent re-renders in CodeStreamEffect
+  const handleStreamComplete = useCallback(() => {
+    onStreamComplete?.()
+  }, [onStreamComplete])
+  
+  const findSelectedFile = () => {
+    let foundFile = files.find((f) => f.id === selectedFile)
+    if (!foundFile && selectedFile) {
+      const methodMatch = selectedFile.match(/-(GET|POST|PUT|DELETE)$/i)
+      if (methodMatch) {
+        const baseId = selectedFile.split('-').slice(0, -1).join('-')
+        foundFile = files.find((f) => f.id === baseId)
+      }
+    }
+    return foundFile
+  }
+  
   const getEntityName = (file: FileType | undefined) => {
     if (!file) return null
-    
-    // Try to extract entity name from file path or name
     const fileName = file.name || file.path?.split("/").pop() || ""
-    
-    // For endpoints, try to extract entity name from the path or filename
     if (file.type === "endpoint") {
       const withoutExtension = fileName.replace(/\.[^/.]+$/, "")
-      
-      // Check if it follows pattern "resource.method.py" (like order.get.py)
       const resourceMethodPattern = withoutExtension.match(/^(.+)\.(get|post|put|delete)$/i)
       if (resourceMethodPattern) {
-        return resourceMethodPattern[1] // Return the resource name part
+        return resourceMethodPattern[1]
       }
-      
-      // Check if it follows pattern "method_resource.py" (like get_order.py)
       const methodResourcePattern = withoutExtension.match(/^(get|post|put|delete)[_-](.+)$/i)
       if (methodResourcePattern) {
-        return methodResourcePattern[2] // Return the resource name part
+        return methodResourcePattern[2] 
       }
-      
-      // If no special pattern, just return the name without extension
-      // Remove any HTTP method prefix if it exists
       return withoutExtension.replace(/^(get|post|put|delete)[_-]?/i, "")
     }
-    
     return null
   }
   
-  // Find relevant documentation file for the selected file
   const findDocumentationForFile = () => {
     if (!file) return null
-    
     const entityName = getEntityName(file)
-    
     if (entityName) {
-      // Look for different possible documentation file naming patterns
       const possibleDocFiles = files.filter(f => 
         f.type === "api_docs" && (
-          // Check for exact entity name match
           f.path?.includes(`${entityName}.md`) || 
-          // Check for HTTP method + entity name
           (file.method && f.path?.includes(`${entityName}.${file.method?.toLowerCase()}.md`)) ||
-          // Check for full filename match (without extension)
           (file.name && f.path?.includes(`${file.name.replace(/\.[^/.]+$/, "")}.md`))
         )
       )
-      
-      // If we found any matching doc files, use the first one
       if (possibleDocFiles.length > 0) {
-        console.log(`Found documentation file for ${entityName}:`, possibleDocFiles[0].path)
         return possibleDocFiles[0]
       }
-      
-      // Log when we can't find a matching doc file
-      console.log(`No documentation file found for entity: ${entityName}, looking for generic API docs`)
     }
-    
-    // If no entity-specific doc found and this is an endpoint, try using api.md as fallback
     if (file.type === "endpoint") {
       const apiDoc = files.find(f => f.type === "api_docs" && f.path?.includes("api.md"))
       if (apiDoc) {
-        console.log("Using api.md as fallback documentation")
+        ("Using api.md as fallback documentation")
         return apiDoc
       }
     }
-    
     return null
   }
 
-  // Debug logs to help identify issues
+  const file = findSelectedFile()
+
   useEffect(() => {
-    // Add debug logging for code tab too
     if (selectedFile) {
-      console.log("FileContent component - selected file:", {
-        selectedFile,
-        fileExists: !!file,
-        fileName: file?.name,
-        filePath: file?.path,
-        fileType: file?.type,
-        codeLength: currentCode?.length,
-        hasCode: !!currentCode,
-        activeTab
-      })
     }
   }, [selectedFile, file, currentCode, activeTab])
 
-  // Check if the selected file is a database file - FIXED HERE
   useEffect(() => {
     if (selectedFile) {
-      const selectedFileObj = files.find(f => f.id === selectedFile);
-      setIsDatabaseFile(selectedFileObj?.type === "database");
+      const selectedFileObj = files.find(f => f.id === selectedFile)
+      setIsDatabaseFile(selectedFileObj?.type === "database")
     } else {
-      setIsDatabaseFile(false);
+      setIsDatabaseFile(false)
     }
-  }, [selectedFile, files]);
+  }, [selectedFile, files])
 
-  // Fetch documentation when tab changes to docs or selected file changes
+  useEffect(() => {
+    if (selectedFile) {
+      const foundFile = files.find((f) => f.id === selectedFile)
+      setCurrentFileForEditor(foundFile || null)
+    } else {
+      setCurrentFileForEditor(null)
+    }
+  }, [selectedFile, files])
+
   useEffect(() => {
     if (activeTab === "docs") {
       setIsLoadingDocs(true)
@@ -159,43 +148,29 @@ export function FileContent({
       const docFile = findDocumentationForFile()
       const entityName = getEntityName(file)
 
-      // First try to use the specific doc file if it exists in the files array
       if (docFile && docFile.code) {
-        console.log(`Using documentation for ${entityName || 'API'}:`, docFile.name || docFile.path)
         setDocumentation(docFile.code)
         setIsLoadingDocs(false)
         return
       }
 
-      // If no specific doc file exists, try to fetch from backend
       const fetchDocumentation = async () => {
         try {
-          // Try to fetch documentation using the endpoint service
           const endpointService = new EndPointService()
-          
-          // First try to fetch entity-specific doc
           let docContent = ""
           if (entityName) {
             try {
-              // Try with original entity name
               docContent = await endpointService.getDoc(projectId || "", `${entityName}.md`)
-              console.log(`Found ${entityName}.md on server`)
             } catch (entityError) {
-              console.log(`No doc for ${entityName}.md, trying other variations`)
-              
-              // If HTTP method is available, try with method suffix
               if (file?.method) {
                 try {
                   docContent = await endpointService.getDoc(projectId || "", `${entityName}.${file.method.toLowerCase()}.md`)
-                  console.log(`Found ${entityName}.${file.method.toLowerCase()}.md on server`)
                 } catch (methodError) {
-                  console.log(`No doc with method suffix found, falling back to api.md`)
                 }
               }
             }
           }
           
-          // If no entity-specific doc, fall back to api.md
           if (!docContent || !docContent.trim()) {
             docContent = await endpointService.getDoc(projectId || "", "api.md")
           }
@@ -212,10 +187,8 @@ export function FileContent({
           console.error("Documentation fetch failed:", error)
           setDocFetchError(error instanceof Error ? error.message : String(error))
 
-          // If we have any API docs file in the files array, use it as fallback
           const anyApiDoc = files.find((f) => f.type === "api_docs")
           if (anyApiDoc && anyApiDoc.code) {
-            console.log("Using fallback API docs:", anyApiDoc.name || anyApiDoc.path)
             setDocumentation(anyApiDoc.code)
           } else {
             setDocumentation(
@@ -234,36 +207,21 @@ export function FileContent({
 
   const getCleanFileName = (file: FileType | undefined) => {
     if (!file) return "Untitled"
-
-    // Start with the name or path
     let fileName = file.name || ""
-
     if (!fileName && file.path) {
-      // Extract just the filename from the path
       fileName = file.path.split("/").pop() || file.path
     }
-
     fileName = fileName.replace(/\.(get|post|put|delete)\./i, ".")
-
-    // For endpoints, create a clean name
     if (file.type === "endpoint") {
-      // Extract the base name without extension
       const baseName = fileName.replace(/\.[^/.]+$/, "")
-
-      // Get just the base name (also remove HTTP method if it's a prefix)
       const cleanBase = baseName.replace(/^(get|post|put|delete)[-_]?/i, "")
-
-      // Add the .py extension for Python files
       return cleanBase + ".py"
     }
-
     return fileName
   }
 
-  // Determine what language to use for syntax highlighting
   const getLanguage = () => {
     if (!file) {
-      // If no file is selected but we have streaming code, try to detect language
       if (streamingCode) {
         if (streamingCode.includes("def ") && streamingCode.includes(":")) return "python"
         if (streamingCode.includes("import React") || streamingCode.includes("export default")) return "javascript"
@@ -271,19 +229,10 @@ export function FileContent({
         if (streamingCode.includes("interface ") || streamingCode.includes("class ")) return "typescript"
         return "python"
       }
-      return "python" // Default
+      return "python"
     }
 
-    // Add debug logging for language detection
-    console.log("Detecting language for:", {
-      fileName: file.name,
-      filePath: file.path,
-      fileType: file.type
-    })
-
     const filePath = file.path || ""
-
-    // Determine by extension
     if (filePath.endsWith(".py")) return "python"
     if (filePath.endsWith(".js")) return "javascript"
     if (filePath.endsWith(".ts")) return "typescript"
@@ -291,22 +240,16 @@ export function FileContent({
     if (filePath.endsWith(".sql")) return "sql"
     if (filePath.endsWith(".json")) return "json"
     if (filePath.endsWith(".md")) return "markdown"
-
-    // Determine by type
     if (file.type === "model" || file.type === "schema" || file.type === "endpoint") {
       return "python"
     }
-    return "python" // Default
+    return "python"
   }
 
-  // Get method badge for endpoint
   const getMethodBadge = (path: string) => {
     if (!file || !file.method) return null
-
     const method = file.method.toUpperCase()
-
     let badgeClass = "text-xs px-1.5 py-0.5 rounded-sm "
-
     switch (method) {
       case "GET":
         badgeClass += "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300"
@@ -323,41 +266,28 @@ export function FileContent({
       default:
         badgeClass += "bg-gray-100 text-gray-700 dark:bg-gray-900 dark:text-gray-300"
     }
-
     return <span className={badgeClass}>{method}</span>
   }
 
-  // Get endpoint path for testing
   const getEndpointPath = () => {
     if (!file || file.type !== "endpoint") return ""
-
-    // Extract path from file name or path
     const filePath = file.path || file.name || ""
     const fileName = filePath.split("/").pop() || ""
-
-    // Extract method and path from filename
-    const methodMatch = fileName.match(/\.(get|post|put|delete)\./i)
+    const methodMatch = fileName.match(/\.(get|post|put|delete)\.py$/i)
     const method = methodMatch ? methodMatch[1].toUpperCase() : file.method?.toUpperCase() || "GET"
-
-    // Get base path from filename (remove extension and method)
     const basePath = fileName.replace(/\.(get|post|put|delete)\.py$/i, "")
-
     return `/${basePath}`
   }
 
-  // Get documentation title based on selected file
   const getDocumentationTitle = () => {
     if (!file) return "API Documentation"
-    
     const entityName = getEntityName(file)
     if (entityName) {
       return `${entityName} Documentation`
     }
-    
     return file.type === "endpoint" ? "Endpoint Documentation" : "API Documentation"
   }
 
-  // Render database viewer if the file is a database file
   if (isDatabaseFile && selectedFile) {
     return (
       <div className="rounded-lg overflow-hidden border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 h-full flex flex-col">
@@ -367,18 +297,50 @@ export function FileContent({
           theme={theme} 
         />
       </div>
-    );
+    )
   }
 
+  const getLanguageFromFile = (selectedFile: string | null, files: FileType[]) => {
+    const file = files.find((f) => f.id === selectedFile)
+    if (!file) {
+      if (streamingCode) {
+        if (streamingCode.includes("def ") && streamingCode.includes(":")) return "python"
+        if (streamingCode.includes("import React") || streamingCode.includes("export default")) return "javascript"
+        if (streamingCode.includes("func ") && streamingCode.includes("package ")) return "go"
+        if (streamingCode.includes("interface ") || streamingCode.includes("class ")) return "typescript"
+        return "python"
+      }
+      return "python"
+    }
+    const filePath = file.path || ""
+    if (filePath.endsWith(".py")) return "python"
+    if (filePath.endsWith(".js")) return "javascript"
+    if (filePath.endsWith(".ts")) return "typescript"
+    if (filePath.endsWith(".go")) return "go"
+    if (filePath.endsWith(".sql")) return "sql"
+    if (filePath.endsWith(".json")) return "json"
+    if (filePath.endsWith(".md")) return "markdown"
+    if (file.type === "model" || file.type === "schema" || file.type === "endpoint") {
+      return "python"
+    }
+    return "python"
+  }
+
+  const handleCodeChangeInternal = (newCode: string) => {
+    if (onCodeChange) {
+      onCodeChange(newCode)
+    }
+  }
+  
   return (
     <div className="rounded-lg overflow-hidden border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 h-full flex flex-col">
       <Tabs
         defaultValue="code"
         value={activeTab}
-        className="flex-1 h-full"
+        className="flex-1 h-full flex flex-col"
         onValueChange={(value) => setActiveTab(value)}
       >
-        <div className="flex items-center justify-between border-b border-zinc-200 px-4 py-2 bg-white dark:border-zinc-800 dark:bg-zinc-950">
+        <div className="flex items-center justify-between border-b border-zinc-200 px-4 py-1.5 bg-white dark:border-zinc-800 dark:bg-zinc-950">
           <div className="flex items-center gap-2">
             {selectedFile && (
               <>
@@ -395,7 +357,6 @@ export function FileContent({
               </span>
             )}
           </div>
-
           <TabsList className="h-9 bg-zinc-100 dark:bg-zinc-800">
             <TabsTrigger
               value="code"
@@ -417,151 +378,144 @@ export function FileContent({
             </TabsTrigger>
           </TabsList>
         </div>
-
-        <TabsContent value="code" className="flex-1 h-[calc(100%-48px)] data-[state=active]:h-[calc(100%-48px)]">
-          {selectedFile || streamingCode ? (
-            <>
-              {console.log("Rendering editor with:", { 
-                language: getLanguage(),
-                codeLength: selectedFile ? currentCode?.length : streamingCode?.length,
-                isSelectedFile: !!selectedFile,
-                selectedFileId: selectedFile
-              })}
-              <Editor
-                language={getLanguage()}
-                value={selectedFile ? currentCode : streamingCode}
-                onChange={(value) => value !== undefined && onCodeChange(value)}
-                theme={theme === "dark" ? "vs-dark" : "light"}
-                options={{
-                  minimap: { enabled: false },
-                  fontSize: 14,
-                  lineNumbers: "on",
-                  scrollBeyondLastLine: false,
-                  automaticLayout: true,
-                  tabSize: 2,
-                  wordWrap: "on",
-                  readOnly: !selectedFile && !!streamingCode,
-                }}
-              />
-            </>
-          ) : (
-            <div className="flex items-center justify-center h-full text-zinc-500 dark:text-zinc-400">
-              <p>Select a file to view or edit its content, or use the AI chat to generate code</p>
-            </div>
-          )}
-        </TabsContent>
-
-        <TabsContent value="test" className="flex-1 h-[calc(100%-48px)]">
-          {file?.type === "endpoint" ? (
-              <TestEndpoint
-                method={file.method?.toUpperCase() || "GET"}
-                endpoint={getEndpointPath()}
-                projectId={projectId || ""}
-                theme={theme}
+        <div className="flex-1 overflow-hidden">
+          <TabsContent 
+            value="code" 
+            className="flex-1 h-[calc(100%-42px)] data-[state=active]:h-[calc(100%-42px)] overflow-auto"
+          >
+            {selectedFile || streamingCode ? (
+              <CustomMonacoEditor
+                code={currentCode || ""} 
+                language={getLanguageFromFile(selectedFile, files)}
+                onChange={handleCodeChangeInternal}
+                theme={theme === "dark" ? "vs-dark" : "vs-light"}
+                streaming={streaming}
+                streamingCode={streamingCode}
+                onStreamComplete={handleStreamComplete}
+                readOnly={isGenerating || isEndpointCreating} 
               />
             ) : (
-              <div className="flex items-center justify-center h-full p-4 text-zinc-500 dark:text-zinc-400">
-                <p>Select an endpoint file to test it</p>
+              <div className="flex items-center justify-center h-full text-zinc-500 dark:text-zinc-400">
+                <p>Select a file to view or edit its content, or use the AI chat to generate code</p>
               </div>
             )}
-        </TabsContent>
-
-        <TabsContent value="docs" className="flex-1 h-[calc(100%-48px)]">
-          <div className="flex flex-col h-full">
-            <div className="flex justify-between p-2 border-b border-zinc-200 dark:border-zinc-800">
-              <div className="text-sm text-zinc-500 dark:text-zinc-400">
-                {docFetchError ? (
-                  <span className="text-amber-500">Using locally generated documentation</span>
-                ) : (
-                  <span>{getDocumentationTitle()}</span>
-                )}
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="flex rounded-md overflow-hidden border border-zinc-200 dark:border-zinc-700">
+          </TabsContent>
+          <TabsContent 
+            value="test" 
+            className="flex-1 h-[calc(100%-42px)] overflow-auto"
+          >
+            {file?.type === "endpoint" ? (
+                <TestEndpoint
+                  method={file.method?.toUpperCase() || "GET"}
+                  endpoint={getEndpointPath()}
+                  projectId={projectId || ""}
+                  theme={theme}
+                />
+              ) : (
+                <div className="flex items-center justify-center h-full p-4 text-zinc-500 dark:text-zinc-400">
+                  <p>Select an endpoint file to test it</p>
+                </div>
+              )}
+          </TabsContent>
+          <TabsContent 
+            value="docs" 
+            className="flex-1 h-[calc(100%-42px)] overflow-auto"
+          >
+            <div className="flex flex-col h-full">
+              <div className="flex justify-between p-2 border-b border-zinc-200 dark:border-zinc-800">
+                <div className="text-sm text-zinc-500 dark:text-zinc-400">
+                  {docFetchError ? (
+                    <span className="text-amber-500">Using locally generated documentation</span>
+                  ) : (
+                    <span>{getDocumentationTitle()}</span>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="flex rounded-md overflow-hidden border border-zinc-200 dark:border-zinc-700">
+                    <Button
+                      variant={viewMode === "rendered" ? "secondary" : "ghost"}
+                      size="sm"
+                      onClick={() => setViewMode("rendered")}
+                      className="rounded-none border-r border-zinc-200 dark:border-zinc-700 h-8"
+                    >
+                      <FileText className="h-4 w-4 mr-1" />
+                      <span className="text-xs">Rendered</span>
+                    </Button>
+                    <Button
+                      variant={viewMode === "source" ? "secondary" : "ghost"}
+                      size="sm"
+                      onClick={() => setViewMode("source")}
+                      className="rounded-none h-8"
+                    >
+                      <Code className="h-4 w-4 mr-1" />
+                      <span className="text-xs">Source</span>
+                    </Button>
+                  </div>
                   <Button
-                    variant={viewMode === "rendered" ? "secondary" : "ghost"}
+                    variant="ghost"
                     size="sm"
-                    onClick={() => setViewMode("rendered")}
-                    className="rounded-none border-r border-zinc-200 dark:border-zinc-700 h-8"
+                    onClick={() => setRefreshKey((prev) => prev + 1)}
+                    disabled={isLoadingDocs}
                   >
-                    <FileText className="h-4 w-4 mr-1" />
-                    <span className="text-xs">Rendered</span>
-                  </Button>
-                  <Button
-                    variant={viewMode === "source" ? "secondary" : "ghost"}
-                    size="sm"
-                    onClick={() => setViewMode("source")}
-                    className="rounded-none h-8"
-                  >
-                    <Code className="h-4 w-4 mr-1" />
-                    <span className="text-xs">Source</span>
+                    {isLoadingDocs ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                    <span className="ml-2 text-xs">Refresh</span>
                   </Button>
                 </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setRefreshKey((prev) => prev + 1)}
-                  disabled={isLoadingDocs}
-                >
-                  {isLoadingDocs ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-                  <span className="ml-2 text-xs">Refresh</span>
-                </Button>
               </div>
+              {isLoadingDocs ? (
+                <div className="flex items-center justify-center h-full p-4">
+                  <Loader2 className="h-8 w-8 animate-spin text-[#7dff00]" />
+                </div>
+              ) : viewMode === "source" ? (
+                <Editor
+                  language="markdown"
+                  value={documentation}
+                  theme={theme === "dark" ? "vs-dark" : "light"}
+                  options={{
+                    minimap: { enabled: false },
+                    fontSize: 14,
+                    lineNumbers: "off",
+                    scrollBeyondLastLine: false,
+                    automaticLayout: true,
+                    tabSize: 2,
+                    wordWrap: "on",
+                    readOnly: true,
+                    domReadOnly: true,
+                    contextmenu: false,
+                  }}
+                />
+              ) : (
+                <div className="overflow-auto h-full p-6 bg-white dark:bg-zinc-900">
+                  <div className="max-w-3xl mx-auto prose dark:prose-invert prose-headings:border-b prose-headings:border-zinc-200 dark:prose-headings:border-zinc-800 prose-headings:pb-2 prose-headings:mb-4">
+                    <ReactMarkdown
+                      components={{
+                        code({ inline, className, children, ...props }: { inline?: boolean; className?: string; children?: React.ReactNode }) {
+                          const match = /language-(\w+)/.exec(className ?? "")
+                          return !inline && match ? (
+                            <SyntaxHighlighter
+                              style={theme === "dark" ? vscDarkPlus : vs}
+                              language={match[1]}
+                              PreTag="div"
+                              {...props}
+                            >
+                              {String(children).replace(/\n$/, "")}
+                            </SyntaxHighlighter>
+                          ) : (
+                            <code className={className} {...props}>
+                              {children}
+                            </code>
+                          )
+                        },
+                      }}
+                    >
+                      {documentation}
+                    </ReactMarkdown>
+                  </div>
+                </div>
+              )}
             </div>
-
-            {isLoadingDocs ? (
-              <div className="flex items-center justify-center h-full p-4">
-                <Loader2 className="h-8 w-8 animate-spin text-[#7dff00]" />
-              </div>
-            ) : viewMode === "source" ? (
-              <Editor
-                language="markdown"
-                value={documentation}
-                theme={theme === "dark" ? "vs-dark" : "light"}
-                options={{
-                  minimap: { enabled: false },
-                  fontSize: 14,
-                  lineNumbers: "off",
-                  scrollBeyondLastLine: false,
-                  automaticLayout: true,
-                  tabSize: 2,
-                  wordWrap: "on",
-                  readOnly: true,
-                  domReadOnly: true,
-                  contextmenu: false,
-                }}
-              />
-            ) : (
-              <div className="overflow-auto h-full p-6 bg-white dark:bg-zinc-900">
-                <div className="max-w-3xl mx-auto prose dark:prose-invert prose-headings:border-b prose-headings:border-zinc-200 dark:prose-headings:border-zinc-800 prose-headings:pb-2 prose-headings:mb-4">
-                  <ReactMarkdown
-                    components={{
-                      code({ inline, className, children, ...props }: { inline?: boolean; className?: string; children?: React.ReactNode }) {
-                        const match = /language-(\w+)/.exec(className ?? "")
-                        return !inline && match ? (
-                          <SyntaxHighlighter
-                            style={theme === "dark" ? vscDarkPlus : vs}
-                            language={match[1]}
-                            PreTag="div"
-                            {...props}
-                          >
-                            {String(children).replace(/\n$/, "")}
-                          </SyntaxHighlighter>
-                        ) : (
-                          <code className={className} {...props}>
-                            {children}
-                          </code>
-                        )
-                      },
-                    }}
-                  >
-                    {documentation}
-                  </ReactMarkdown>
-                </div>
-              </div>
-            )}
-          </div>
-        </TabsContent>
+          </TabsContent>
+        </div>
       </Tabs>
     </div>
   )
