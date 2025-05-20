@@ -1,13 +1,14 @@
 "use client"
 
-import React, { useState, useEffect } from "react"
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogDescription, 
-  DialogFooter, 
-  DialogHeader, 
-  DialogTitle 
+import type React from "react"
+import { useState, useEffect } from "react"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
 } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
@@ -29,62 +30,64 @@ interface EndpointModalProps {
   isOpen: boolean
   onClose: () => void
   onSubmit: (details: EndpointDetails) => void
-  projectLanguage?: string  
+  projectLanguage?: string
   projectFramework?: string
   isLoading?: boolean
 }
 
-export function EndpointModal({ 
-  isOpen, 
-  onClose, 
-  onSubmit, 
-  projectLanguage = "python", 
+export function EndpointModal({
+  isOpen,
+  onClose,
+  onSubmit,
+  projectLanguage = "python",
   projectFramework = "FastAPI",
-  isLoading = false
+  isLoading = false,
 }: EndpointModalProps) {
   const [language, setLanguage] = useState<string>(projectLanguage)
   const [framework, setFramework] = useState<string>(projectFramework)
   const [endpointPath, setEndpointPath] = useState<string>("/api/")
   const [method, setMethod] = useState<string>("GET")
   const [description, setDescription] = useState<string>("")
+  const [internalOpen, setInternalOpen] = useState(isOpen)
+
+  // Sync internal state with props
+  useEffect(() => {
+    setInternalOpen(isOpen || isLoading)
+  }, [isOpen, isLoading])
 
   // Reset fields when modal opens
   useEffect(() => {
     if (isOpen) {
       setLanguage(projectLanguage)
       setFramework(projectFramework)
-      setEndpointPath("")
+      setEndpointPath("/api/")
       setMethod("GET")
       setDescription("")
     }
   }, [isOpen, projectLanguage, projectFramework])
 
-
   const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    // Submit details but DON'T close or reset the form yet
-    // The parent component will control when to close the modal
+    e.preventDefault()
+    setInternalOpen(true)
     onSubmit({
       language,
       framework,
       endpointPath,
       method,
-      description
-    });
+      description,
+    })
   }
 
   const resetForm = () => {
     setLanguage(projectLanguage)
     setFramework(projectFramework)
-    setEndpointPath("")
+    setEndpointPath("/api/")
     setMethod("GET")
     setDescription("")
   }
 
   const handleLanguageChange = (value: string) => {
     setLanguage(value)
-    // Reset framework to the first option of the new language
     const languageFrameworks = frameworks[value as keyof typeof frameworks]
     if (languageFrameworks && languageFrameworks.length > 0) {
       setFramework(languageFrameworks[0].value)
@@ -92,44 +95,40 @@ export function EndpointModal({
   }
 
   return (
-    <Dialog open={isOpen || isLoading} onOpenChange={(open) => {
-      if (!open && !isLoading) {
+    <Dialog
+      open={internalOpen}
+      onOpenChange={(open) => {
+        if (!open && !isLoading) {
+          setInternalOpen(false)
           onClose()
           resetForm()
-      }
-    }}>
+        } else {
+          setInternalOpen(true)
+        }
+      }}
+    >
       <DialogContent className="sm:max-w-[425px] overflow-hidden">
-        {/* Loading Overlay */}
         {isLoading && (
           <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm rounded-md">
             <div className="flex flex-col items-center space-y-4">
               <Loader2 className="h-8 w-8 text-white animate-spin" />
-              <span>Creating Endpoint Path...</span>
-              <div className="w-32 h-4 bg-gray-300 rounded animate-pulse" />
-              <div className="w-24 h-4 bg-gray-300 rounded animate-pulse" />
+              <span className="text-white font-medium">Creating Endpoint...</span>
             </div>
           </div>
         )}
         <DialogHeader>
           <DialogTitle>Create New Endpoint</DialogTitle>
           <DialogDescription>
-            Enter the technical details for your new endpoint. You will be able to describe its functionality in the AI chat afterwards.
+            Enter the technical details for your new endpoint. You will be able to describe its functionality in the AI
+            chat afterwards.
           </DialogDescription>
         </DialogHeader>
-        <form 
-          onSubmit={handleSubmit} 
-          noValidate 
-          className={isLoading ? "opacity-30 pointer-events-none" : ""}
-        >
+        <form onSubmit={handleSubmit} noValidate className={isLoading ? "opacity-30 pointer-events-none" : ""}>
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="language">Language</Label>
-                <Select 
-                  value={language} 
-                  onValueChange={handleLanguageChange}
-                  disabled={isLoading}
-                >
+                <Select value={language} onValueChange={handleLanguageChange} disabled={isLoading}>
                   <SelectTrigger id="language">
                     <SelectValue placeholder="Select language" />
                   </SelectTrigger>
@@ -144,20 +143,17 @@ export function EndpointModal({
               </div>
               <div className="space-y-2">
                 <Label htmlFor="framework">Framework</Label>
-                <Select 
-                  value={framework} 
-                  onValueChange={setFramework}
-                  disabled={!language || isLoading}
-                >
+                <Select value={framework} onValueChange={setFramework} disabled={!language || isLoading}>
                   <SelectTrigger id="framework">
                     <SelectValue placeholder="Select framework" />
                   </SelectTrigger>
                   <SelectContent>
-                    {language && frameworks[language as keyof typeof frameworks]?.map((fw) => (
-                      <SelectItem key={fw.value} value={fw.value}>
-                        {fw.label}
-                      </SelectItem>
-                    ))}
+                    {language &&
+                      frameworks[language as keyof typeof frameworks]?.map((fw) => (
+                        <SelectItem key={fw.value} value={fw.value}>
+                          {fw.label}
+                        </SelectItem>
+                      ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -165,11 +161,7 @@ export function EndpointModal({
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="method">Method</Label>
-                <Select 
-                  value={method} 
-                  onValueChange={setMethod}
-                  disabled={isLoading}
-                >
+                <Select value={method} onValueChange={setMethod} disabled={isLoading}>
                   <SelectTrigger id="method">
                     <SelectValue placeholder="Select method" />
                   </SelectTrigger>
@@ -184,8 +176,8 @@ export function EndpointModal({
               </div>
               <div className="space-y-2">
                 <Label htmlFor="endpoint-path">Endpoint Path</Label>
-                <Input 
-                  id="endpoint-path" 
+                <Input
+                  id="endpoint-path"
                   value={endpointPath}
                   onChange={(e) => setEndpointPath(e.target.value)}
                   placeholder="eg. /api/users"
@@ -203,31 +195,30 @@ export function EndpointModal({
                 className="resize-none h-20"
                 disabled={isLoading}
               />
-              <p className="text-xs text-zinc-500 mt-1">
-                This is for documentation purposes only.
-              </p>
+              <p className="text-xs text-zinc-500 mt-1">This is for documentation purposes only.</p>
             </div>
           </div>
           <DialogFooter>
-            <Button 
-              type="button" 
-              variant="outline" 
+            <Button
+              type="button"
+              variant="outline"
               onClick={() => {
-                onClose()
-                resetForm()
+                if (!isLoading) {
+                  onClose()
+                  resetForm()
+                }
               }}
               disabled={isLoading}
             >
               Cancel
             </Button>
-            <Button 
-              type="submit" 
+            <Button
+              type="submit"
               className="bg-[#7dff00] text-black hover:bg-[#9aff33]"
               disabled={!endpointPath.trim() || isLoading}
             >
               {isLoading ? (
                 <div className="flex items-center gap-2">
-                  {/* Adjust the color to make it more visible on green background */}
                   <Loader2 className="h-4 w-4 text-black animate-spin" />
                   <span>Creating...</span>
                 </div>

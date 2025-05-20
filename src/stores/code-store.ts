@@ -1,4 +1,4 @@
-import { create } from 'zustand'
+import { create } from "zustand"
 
 interface CodeState {
   code: string
@@ -7,13 +7,15 @@ interface CodeState {
   endStream: () => void
   handleCode: (value: string) => void
   appendCode: (chunk: string) => void
+  resetCode: () => void
 }
 
 export const useCodeStore = create<CodeState>((set) => ({
-  code: '',
+  code: "",
   isStreaming: false,
-  startStream: () => set({ isStreaming: true, code: '' }),
+  startStream: () => set({ isStreaming: true, code: "" }),
   endStream: () => set({ isStreaming: false }),
   handleCode: (value) => set(() => ({ code: value })),
   appendCode: (chunk) => set((state) => ({ code: state.code + chunk })),
+  resetCode: () => set({ code: "" }),
 }))

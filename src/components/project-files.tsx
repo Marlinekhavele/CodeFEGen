@@ -147,17 +147,31 @@ export function ProjectFiles({
       const normalizedFile = {
         ...file,
         name: normalizedName,
+        // Ensure endpoint files have unique IDs by including the method in the ID
+        // This format should match the format in backend-editor-client.tsx: `endpoint-${path}-${method}`
+        id: file.type === "endpoint" && file.method && !file.id.includes(`-${file.method}`)
+          ? `endpoint-${file.path}-${file.method}`
+          : file.id,
         displayName: normalizedName // Optional: add a displayName property
       };
       
       normalizedFiles.push(normalizedFile);
     }
     
-    // Second pass: deduplicate
+    // Second pass: deduplicate files
     for (const file of normalizedFiles) {
-      const key = file.type + ":" + file.name;
+      // Include the method in the key if it's an endpoint, otherwise use just type+name
+      const key = file.type === "endpoint" && file.method 
+        ? `${file.type}:${file.name}:${file.method}`
+        : `${file.type}:${file.name}`;
       
-      if (!uniqueFiles.has(key)) {
+      // If the entry already exists, only replace it if the current file has code and the existing one doesn't
+      if (uniqueFiles.has(key)) {
+        const existingFile = uniqueFiles.get(key)!;
+        if (!existingFile.code && file.code) {
+          uniqueFiles.set(key, file);
+        }
+      } else {
         uniqueFiles.set(key, file);
       }
     }
@@ -214,7 +228,10 @@ export function ProjectFiles({
         </Button>
       </div>
       
-      <div className="p-2 overflow-auto" style={{ height: "calc(100vh)", width: "100%" }}>
+      <div className="p-2 overflow-auto mobile-scroll-container" style={{ 
+        height: "calc(100% - 56px)", 
+        width: "100%" 
+      }}>
         {files.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full py-6 px-2 text-center space-y-4 animate-pulse">
             <div className="rounded-full bg-zinc-800/50 backdrop-blur-sm p-4">

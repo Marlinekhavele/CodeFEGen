@@ -69,12 +69,6 @@ class EndpointService extends BaseService {
     description: string 
   ): Promise<any> {
     try {
-      console.log('Creating new endpoint:', {
-        projectId,
-        endpointPath,
-        httpMethod,
-        description
-      });
       // Use the axios instance for endpoint creation
       const axiosInstance = createAxiosInstance('/endpoint', 'v1');
       const res = await axiosInstance.post('', {
@@ -83,19 +77,15 @@ class EndpointService extends BaseService {
         method: httpMethod,
         description: description
       });
-      console.log('Endpoint creation response:', res.data);
       return res.data;
     } catch (error) {
-      console.error('Error creating endpoint:', error);
       throw error;
     }
   }
 
   public async getEndpointList(projectId: string) {
     try {
-      console.log('Fetching endpoints for project:', projectId);
       const res = await this.get<EndpointListData>(`/${projectId}/endpoints`);
-      console.log('Endpoint list response:', res);
       
       // Return the full response data including potential content_base64
       if (res.success && res.data) {
@@ -103,13 +93,10 @@ class EndpointService extends BaseService {
           ...endpoint,
           code: endpoint.content_base64 ? atob(endpoint.content_base64) : ''
         }));
-        console.log('Processed endpoints:', endpoints);
         return endpoints;
       }
-      console.log('No endpoints found or unsuccessful response');
       return [];
     } catch (error) {
-      console.error('Error fetching endpoint list:', error);
       throw error;
     }
   }
@@ -117,9 +104,7 @@ class EndpointService extends BaseService {
   // Model management methods
   public async getModelList(projectId: string) {
     try {
-      console.log(`Fetching model list for project: ${projectId}`);
       const res = await this.get<GetModelsResponse>(`/${projectId}/models/`)
-      console.log('Model list response:', res);
       return res.data;
     } catch (error) {
       console.error('Error fetching model list:', error);
@@ -129,11 +114,9 @@ class EndpointService extends BaseService {
 
   public async getModel(projectId: string, modelName: string) {
     try {
-      console.log(`Fetching model ${modelName} for project: ${projectId}`);
       const res = await this.get<SingleModelResponse>(
         `/${projectId}/models/${modelName}/content`
       )
-      console.log('Model content response:', res);
       return res.data;
     } catch (error) {
       console.error('Error fetching model:', error);
@@ -144,9 +127,7 @@ class EndpointService extends BaseService {
   // Schema management methods
   public async getSchemaList(projectId: string) {
     try {
-      console.log(`Fetching schema list for project: ${projectId}`);
       const res = await this.get<GetSchemasResponse>(`/${projectId}/schemas/`)
-      console.log('Schema list response:', res);
       return res.data;
     } catch (error) {
       console.error('Error fetching schema list:', error);
@@ -156,14 +137,11 @@ class EndpointService extends BaseService {
 
   public async getSchema(projectId: string, schemaName: string) {
     try {
-      console.log(`Fetching schema ${schemaName} for project: ${projectId}`);
       const res = await this.get<SingleSchemaResponse>(
         `/${projectId}/schemas/${schemaName}/content`
       )
-      console.log('Schema content response:', res);
       return res.data;
     } catch (error) {
-      console.error('Error fetching schema:', error);
       throw error;
     }
   }
@@ -171,26 +149,20 @@ class EndpointService extends BaseService {
   // Helper management methods
   public async getHelperList(projectId: string) {
     try {
-      console.log(`Fetching helper list for project: ${projectId}`);
       const res = await this.get<GetHelpersResponse>(`/${projectId}/helpers/`)
-      console.log('Helper list response:', res);
       return res.data;
     } catch (error) {
-      console.error('Error fetching helper list:', error);
       throw error;
     }
   }
 
   public async getHelper(projectId: string, helperName: string) {
     try {
-      console.log(`Fetching helper ${helperName} for project: ${projectId}`);
       const res = await this.get<SingleHelperResponse>(
         `/${projectId}/helpers/${helperName}/content`
       )
-      console.log('Helper content response:', res);
       return res.data;
     } catch (error) {
-      console.error('Error fetching helper:', error);
       throw error;
     }
   }
@@ -198,11 +170,8 @@ class EndpointService extends BaseService {
   public async getDoc(projectId: string, docName: string): Promise<string> {
     try {
       if (!projectId) {
-        console.error("Missing required parameter: projectId")
         return "# Error\n\nMissing required project ID to fetch documentation."
       }
-
-      console.log(`Fetching doc ${docName} for project: ${projectId}`)
 
       // First try to fetch the specific documentation
       try {
@@ -212,7 +181,7 @@ class EndpointService extends BaseService {
           return res.data.content
         }
       } catch (error) {
-        console.error(`Error fetching specific doc '${docName}':`, error)
+        throw error
       }
 
       // If that fails, try to fetch the api.md file directly
@@ -269,23 +238,18 @@ class EndpointService extends BaseService {
   // Migration management methods
   public async getMigrationList(projectId: string) {
     try {
-      console.log(`Fetching migration list for project: ${projectId}`);
       const res = await this.get<GetMigrationsResponse>(`/${projectId}/alembic/versions/`)
-      console.log('migration list response:', res);
       return res.data;
     } catch (error) {
-      console.error('Error fetching migration list:', error);
       throw error;
     }
   }
 
   public async getMigration(projectId: string, version_name: string) {
     try {
-      console.log(`Fetching migration ${version_name} for project: ${projectId}`);
       const res = await this.get<SingleMigrationResponse>(
         `/${projectId}/alembic/versions/${version_name}/content`
       )
-      console.log('Migration content response:', res);
       return res.data;
     } catch (error) {
       console.error('Error fetching migration:', error);
@@ -322,7 +286,7 @@ class EndpointService extends BaseService {
   // Database methods
   public async getDatabaseFiles(projectId: string): Promise<any[]> {
     try {
-      console.log(`Fetching database files for project: ${projectId}`);
+      (`Fetching database files for project: ${projectId}`);
       const res = await this.get<DBFileListSuccessResponse>(`/${projectId}/db/files`);
       
       if (res.status_code === 200 && Array.isArray(res.data)) {
@@ -338,11 +302,10 @@ class EndpointService extends BaseService {
 
   public async getDatabaseTables(projectId: string, dbFilename: string): Promise<any[]> {
     try {
-      console.log(`Fetching database tables for ${dbFilename} in project: ${projectId}`);
+      (`Fetching database tables for ${dbFilename} in project: ${projectId}`);
       
       // Get the full database view for complete information
       const fullViewRes = await this.getFullDatabaseView(projectId);
-      console.log("Full DB view response:", fullViewRes);
       
       if (fullViewRes && Array.isArray(fullViewRes)) {
         // Find the current database in the full view
@@ -351,7 +314,6 @@ class EndpointService extends BaseService {
         if (dbInfo && dbInfo.tables) {
           // Process each table from the full view
           const tablesWithDetails = dbInfo.tables.map((table: any) => {
-            console.log(`Processing table ${table.name}, rows:`, table.rows);
             
             // Extract column information from rows
             const columns = this.extractColumnsFromRows(table.rows);
@@ -456,7 +418,7 @@ class EndpointService extends BaseService {
   // Update getFullDatabaseView to return directly the data array
   public async getFullDatabaseView(projectId: string, rowLimit: number = 10): Promise<any[]> {
     try {
-      console.log(`Fetching full database view for project: ${projectId}`);
+      (`Fetching full database view for project: ${projectId}`);
       const res = await this.get<any>(`/${projectId}/db/full-view?row_limit=${rowLimit}`);
       
       if (res.status_code === 200 && Array.isArray(res.data)) {
@@ -472,7 +434,7 @@ class EndpointService extends BaseService {
 
   public async getTableRows(projectId: string, dbFilename: string, tableName: string, limit: number = 50): Promise<any[]> {
     try {
-      console.log(`Fetching rows for table ${tableName} in database ${dbFilename}`);
+      (`Fetching rows for table ${tableName} in database ${dbFilename}`);
       const res = await this.get<TableRowsSuccessResponse>
         (`/${projectId}/db/${dbFilename}/tables/${tableName}/rows?limit=${limit}`);
 

@@ -4,7 +4,6 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
     const { project_id, prompt, language, method, endpoint_path } = body
-    console.log("Generate code request:", { project_id, prompt, language, method, endpoint_path })
 
     // Generate WebSocket URL with timestamp to make it unique
     const protocol = request.headers.get("x-forwarded-proto") === "https" ? "wss" : "ws"
@@ -12,7 +11,6 @@ export async function POST(request: NextRequest) {
     const websocketPath = `/api/v1/generate/stream/${Date.now()}`
     const fullWebsocketUrl = `${protocol}://${host}${websocketPath}`
 
-    console.log("Generated WebSocket URL:", fullWebsocketUrl)
 
     // Return the WebSocket URL in the response
     return NextResponse.json({

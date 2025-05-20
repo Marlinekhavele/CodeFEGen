@@ -341,12 +341,14 @@ export type MethodType = "GET" | "POST" | "PUT" | "DELETE";
 
 // File types in the editor
 export type FileType = {
+  entity_name?: string
   id: string
   name: string
   path: string
   type: "endpoint" | "model" | "schema" | "config" | "migration" | "helpers" | "database" | "docs" | "api_docs"
   code: string
   method?: MethodType
+  file_path?: string
 }
 
 // Generated data structure types

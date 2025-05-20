@@ -8,12 +8,10 @@ import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Input } from "@/components/ui/input" // Added Input for the popup
 import { cn } from "@/lib/utils"
-import type { FileType } from "@/types"
+import type { FileType, MethodType } from "@/types"
 import { useCodeStore } from "@/stores/code-store"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from "@/components/ui/dialog" // Added Dialog components
 import { CodeStreamEffect } from "@/components/code-stream-effect"
-
-// Add this near the top of the file, after the imports
 declare global {
   interface Window {
     revalidatePaths?: (projectId: string) => void
@@ -41,20 +39,29 @@ type AIChartProps = {
   } | null
   projectLanguage?: string
   projectFramework?: string
-  selectedFile?: FileType | null // Add selected file to props
+  selectedFile?: FileType | null 
 }
 
 // Constants for configuration
-const GENERATION_TIMEOUT = 120000 // 2 minutes in milliseconds
-const HEARTBEAT_INTERVAL = 30000 // 30 seconds in milliseconds
+const GENERATION_TIMEOUT = 120000 
+const HEARTBEAT_INTERVAL = 30000 
 
 // Helper function to clean filenames
 const cleanFileName = (fileName: string): string => {
-  // Just return the filename as is, without any filtering
   return fileName
 }
 
-// HTTP methods for dropdown
+// Helper function to format endpoint paths for display
+const formatEndpointPath = (path: string): string => {
+  let cleanPath = path.replace(/^endpoints\//, '');
+  
+  cleanPath = cleanPath.replace(/\.(get|post|put|delete)\.(py|js|ts)$/i, '');
+  
+  cleanPath = cleanPath.replace(/\.(py|js|ts)$/i, '');
+  
+  return cleanPath;
+}
+
 const HTTP_METHODS = ["GET", "POST", "PUT", "DELETE"]
 
 export default function AIChat({
@@ -88,25 +95,6 @@ export default function AIChat({
   // Initialize code store if it exists
   const codeStore = typeof useCodeStore !== "undefined" ? useCodeStore : null
 
-  // Listen for new endpoint details and generate code when they're provided
-  useEffect(() => {
-    if (endpointDetails && !isLoading && codeGenStatus !== "generating") {
-      // Use provided language/framework from endpointDetails or fallback to props
-      const language = projectLanguage
-      const framework = projectFramework
-      const { endpointPath, method, description } = endpointDetails
-      const prompt = description
-
-      // Set input and trigger submission
-      setInput(prompt)
-
-      // Use setTimeout to allow state to update before submitting
-      setTimeout(() => {
-        handleSubmitWithDetails(prompt, language, framework, endpointPath, method)
-      }, 100)
-    }
-  }, [endpointDetails, projectLanguage, projectFramework])
-
   useEffect(() => {
     // Scroll to bottom when messages change
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
@@ -135,6 +123,35 @@ export default function AIChat({
     }
   }, [])
 
+  // Keep this useEffect as it correctly handles endpoint details
+  useEffect(() => {
+    if (endpointDetails && !isLoading && codeGenStatus !== "generating") {
+      // When endpoint details are received from the modal, we need a separate interaction
+      const { language, framework, endpointPath, method } = endpointDetails
+
+      // Focus the input field so user can describe what the endpoint should do
+      if (inputRef.current) {
+        inputRef.current.focus()
+        inputRef.current.placeholder = `Describe what the ${method} endpoint at ${endpointPath} should do...`
+      }
+
+      // If there was already text in the input, use it as the prompt
+      if (input.trim()) {
+        handleSubmitWithDetails(input.trim(), language, framework, endpointPath, method)
+      } else {
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: Date.now().toString(),
+            role: "assistant",
+            content: `I'll help you create a ${method} endpoint at ${endpointPath}. Please describe what this endpoint should do.`,
+            timestamp: new Date(),
+          },
+        ])
+      }
+    }
+  }, [endpointDetails, projectLanguage, projectFramework])
+
   const setupTimeoutHandler = () => {
     // Clear existing timeout if any
     if (timeoutRef.current) {
@@ -143,7 +160,6 @@ export default function AIChat({
 
     // Set new timeout
     timeoutRef.current = setTimeout(() => {
-      console.log("Code generation timed out after", GENERATION_TIMEOUT / 1000, "seconds")
 
       if (wsRef.current) {
         wsRef.current.close()
@@ -172,7 +188,6 @@ export default function AIChat({
 
   // Process the response data and update the state
   const processResponseData = (data: any) => {
-    console.log("Processing response data:", data)
 
     if (data.success && data.data) {
       const files: Record<string, any> = {}
@@ -298,7 +313,7 @@ export default function AIChat({
 
           const file: FileType = {
             id: fileData.endpoint_id || `${key}-${Date.now()}`,
-            name: fileName, // Clean filename
+            name: fileName,
             path: fileData.endpoint_path || fileData.file_path || "",
             type: key as "endpoint" | "model" | "schema" | "migration" | "helpers" | "config",
             code: fileData.generated_code,
@@ -359,7 +374,6 @@ export default function AIChat({
           }),
         )
 
-        // If onFileGenerated callback provided, call it for each file
         if (onFileGenerated) {
           Object.keys(files).forEach((key) => {
             const fileData = files[key]
@@ -369,7 +383,7 @@ export default function AIChat({
 
             const file: FileType = {
               id: fileData.endpoint_id || `${key}-${Date.now()}`,
-              name: fileName, // Clean filename
+              name: fileName, 
               path: fileData.endpoint_path || fileData.file_path || "",
               type: key as "endpoint" | "model" | "schema" | "migration" | "helpers" | "config",
               code: fileData.generated_code,
@@ -413,15 +427,13 @@ export default function AIChat({
     if (selectedFile && selectedFile.type === "endpoint") {
       // For existing endpoints, use the prompt directly with the endpoint's details
       handleSubmitWithDetails(
-        input.trim(), // The prompt is just what the user typed in the chat
+        input.trim(), 
         projectLanguage,
         projectFramework,
         selectedFile.path || "/api/",
         selectedFile.method || "GET",
       )
     } else {
-      // For non-endpoints or when no file is selected,
-      // we'll show the endpoint collection popup
       setPromptText(input.trim())
       setShowEndpointPopup(true)
     }
@@ -448,7 +460,6 @@ export default function AIChat({
       if (inputRef.current) {
         inputRef.current.focus()
 
-        // Optional: Update placeholder to guide the user
         inputRef.current.placeholder = `Describe what the ${method} endpoint at ${endpointPath} should do...`
       }
 
@@ -456,11 +467,6 @@ export default function AIChat({
       if (input.trim()) {
         handleSubmitWithDetails(input.trim(), language, framework, endpointPath, method)
       } else {
-        // Just save the endpoint details for later use when the user types a prompt
-        // You could add state for this if needed
-        // For example: setCurrentEndpointContext({ endpointPath, method });
-
-        // Or simply show a message guiding the user
         setMessages((prev) => [
           ...prev,
           {
@@ -519,8 +525,6 @@ export default function AIChat({
     }
 
     try {
-      // Pass the raw prompt without any resource name extraction
-      // Only use WebSocket for code generation
       const codeGenData = {
         project_id: projectId,
         prompt: promptText.trim(),
@@ -531,8 +535,6 @@ export default function AIChat({
         file_id: selectedFile?.id || null,
         update_existing: !!selectedFile,
       }
-
-      console.log("Connecting to WebSocket with data:", codeGenData)
 
       // Direct WebSocket connection
       const ws = new WebSocket("wss://codebegen.canadacentral.cloudapp.azure.com/api/v1/generate/stream")
@@ -553,10 +555,10 @@ export default function AIChat({
           console.warn(`No activity for ${inactiveTime / 1000} seconds. Connection might be stalled.`)
           setSuccessMessage(`Waiting for server response... (${Math.floor(inactiveTime / 1000)}s)`)
         }
-      }, 10000) // Check every 10 seconds
+      }, 10000) 
 
       ws.onopen = () => {
-        console.log("WebSocket connected, sending data")
+        ("WebSocket connected, sending data")
         setSuccessMessage("Connected to code generation service...")
         lastActivityTime = Date.now()
         ws.send(JSON.stringify(codeGenData))
@@ -566,12 +568,6 @@ export default function AIChat({
         try {
           lastActivityTime = Date.now()
           messageCount++
-
-          // Log raw message for debugging
-          console.log(
-            `WebSocket message #${messageCount} received:`,
-            event.data.substring(0, 100) + (event.data.length > 100 ? "..." : ""),
-          )
 
           const data = JSON.parse(event.data)
 
@@ -588,13 +584,19 @@ export default function AIChat({
             // Skip first chunk if needed
             if (!receivedFirstChunk) {
               receivedFirstChunk = true
-              console.log("First chunk received")
             }
 
-            // Dispatch code chunk event with typewriter effect
+            // Store the HTTP method from the original request to ensure consistency
+            const streamingMethod = method || "GET"
+
+            // Dispatch code chunk event with typewriter effect and consistent HTTP method
             window.dispatchEvent(
               new CustomEvent("code-chunk", {
-                detail: { code: data.token, animate: true },
+                detail: { 
+                  code: data.token, 
+                  animate: true,
+                  method: streamingMethod
+                },
               }),
             )
 
@@ -617,41 +619,50 @@ export default function AIChat({
 
             // Handle completed stages
             if (data.status === "completed" && data.stage && data.result) {
-              console.log(`${data.stage} generation completed:`, data.result)
 
               // Process completed stage data
               if (data.result && data.result.generated_code) {
-                const stageData = data.result
-                const fileType = data.stage as "endpoint" | "model" | "schema" | "migration" | "helpers" | "config"
+                const stageData = data.result;
+                const fileType = data.stage as "endpoint" | "model" | "schema" | "migration" | "helpers" | "config";
 
-                // Start with the data from the result
-                let fileId = stageData.endpoint_id || `${fileType}-${Date.now()}`
-                let filePath = stageData.endpoint_path || stageData.file_path || `/${fileType}`
-
-                // If we have a selected file and it's an endpoint, use its ID and path instead
-                if (selectedFile && selectedFile.type === "endpoint" && fileType === "endpoint") {
-                  fileId = selectedFile.id
-                  filePath = selectedFile.path
-                  console.log("Updating existing endpoint:", selectedFile.path)
+                let fileId = stageData.endpoint_id || `${fileType}-${Date.now()}`;
+                
+                let derivedPath: string;
+                if (fileType === "endpoint" && stageData.endpoint_path) {
+                  // For endpoints, prioritize endpoint_path if available
+                  derivedPath = stageData.endpoint_path;
+                } else if (stageData.file_path) {
+                  derivedPath = stageData.file_path;
+                } else {
+                  // Fallback if neither is available
+                  derivedPath = `/${fileType}`;
                 }
 
-                // Get filename and clean it
-                let fileName = filePath.split("/").pop() || fileType
-                fileName = cleanFileName(fileName)
+                // If we have a selected file and it's an endpoint being updated, use its ID and path
+                if (selectedFile && selectedFile.type === "endpoint" && fileType === "endpoint") {
+                  fileId = selectedFile.id;
+                }
+
+                let derivedName = derivedPath.split("/").pop() || fileType;
+                derivedName = cleanFileName(derivedName); 
 
                 // Create standardized file object
                 const file: FileType = {
-                  id: fileId,
-                  name: fileName,
-                  path: filePath,
+                  id: fileType === "endpoint" && stageData.method
+                    ? `${fileId}-${stageData.method}`
+                    : fileId,
+                  name: derivedName, 
+                  path: derivedPath, 
                   type: fileType,
                   code: stageData.generated_code,
-                  method: (stageData.method as "GET" | "POST" | "PUT" | "DELETE") || "GET",
-                }
+                  method: (stageData.method as MethodType) || (fileType === "endpoint" ? "GET" : undefined), // Ensure method is set for endpoints
+                  file_path: stageData.file_path,
+                  entity_name: stageData.entity_name 
+                };
 
                 // Call the callback directly
                 if (onFileGenerated) {
-                  onFileGenerated(file)
+                  onFileGenerated(file);
                 }
 
                 // Also dispatch an event for each completed file
@@ -659,13 +670,12 @@ export default function AIChat({
                   new CustomEvent("file-generated", {
                     detail: { file },
                   }),
-                )
+                );
               }
             }
 
             // Handle overall completion
             if (data.status === "complete") {
-              console.log("Code generation complete:", data)
 
               // Clear timeout
               if (timeoutRef.current) {
@@ -793,7 +803,6 @@ export default function AIChat({
       }
 
       ws.onclose = (event) => {
-        console.log("WebSocket closed:", event)
 
         // Clear timeout
         if (timeoutRef.current) {
@@ -866,7 +875,7 @@ export default function AIChat({
   const getPlaceholderText = () => {
     if (selectedFile && selectedFile.type === "endpoint") {
       const method = selectedFile.method || "GET"
-      const path = selectedFile.path || "/api"
+      const path = selectedFile.path || ""
       return `How would you like to improve the ${method} endpoint at ${path}?`
     }
     return "Ask me to create an endpoint or describe what you want to build..."
@@ -875,7 +884,7 @@ export default function AIChat({
   return (
     <div className="flex flex-col h-full border border-zinc-200 rounded-lg overflow-hidden dark:border-zinc-800">
       {/* Header with logo, language, and framework information */}
-      <div className="p-3 border-b border-zinc-200 bg-white dark:bg-zinc-900 dark:border-zinc-800 flex items-center justify-between">
+      <div className="p-3 border-b border-zinc-200 bg-white dark:bg-zinc-900 dark:border-zinc-800 flex items-center justify-between file-header">
         <div className="flex items-center space-x-2">
           <Image src="/codeBE-logo.png" alt="CodeBEgen Logo" width={30} height={30} />
           <div className="flex items-center space-x-1">
@@ -886,8 +895,16 @@ export default function AIChat({
         </div>
         {/* Show current endpoint context if available */}
         {selectedFile && selectedFile.type === "endpoint" && (
-          <div className="text-xs py-1 px-2 bg-zinc-100 dark:bg-zinc-800 rounded-full">
-            {selectedFile.method} {selectedFile.path}
+          <div className="text-xs py-1 px-2 bg-zinc-100 dark:bg-zinc-800 rounded-full flex items-center max-w-full overflow-hidden">
+            <span className={`inline-flex items-center justify-center px-2 py-0.5 rounded text-xs font-medium mr-1
+              ${selectedFile.method === "GET" ? "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300" : 
+                selectedFile.method === "POST" ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300" : 
+                selectedFile.method === "PUT" ? "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-300" : 
+                selectedFile.method === "DELETE" ? "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300" : 
+                "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300"}`}>
+              {selectedFile.method}
+            </span>
+            <span className="truncate">{formatEndpointPath(selectedFile.path)}</span>
           </div>
         )}
         <div className="flex items-center gap-1">
@@ -898,101 +915,103 @@ export default function AIChat({
         </div>
       </div>
 
-      {/* Message display area showing conversation history */}
-      <div className="flex-1 overflow-y-auto p-4 bg-zinc-50 dark:bg-zinc-950">
-        {messages.length === 0 ? (
-          <div className="flex items-center justify-center h-full text-zinc-500 dark:text-zinc-400 text-sm">
-            {selectedFile && selectedFile.type === "endpoint"
-              ? `Ask the AI assistant to help improve or modify the ${selectedFile.method} endpoint at ${selectedFile.path}`
-              : "Ask the AI assistant about your code or for help with your backend."}
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {messages.map((message) => (
-              <div
-                key={message.id}
-                className={cn(
-                  "flex flex-col max-w-[80%] rounded-lg p-3",
-                  message.role === "user"
-                    ? "ml-auto bg-[#F8F8F8] text-black dark:bg-neutral-900 dark:text-white"
-                    : "bg-white border border-zinc-200 dark:bg-zinc-900 dark:border-zinc-800 dark:text-zinc-100",
-                )}
-              >
-                {message.role === "assistant" && message.content.includes("```") ? (
-                  // Use CodeStreamEffect for code blocks in assistant messages
-                  <div className="text-sm">
-                    {message.content.split("```").map((part, idx) =>
-                      idx % 2 === 0 ? (
-                        <span key={idx}>{part}</span>
-                      ) : (
-                        <div key={idx} className="bg-zinc-100 dark:bg-zinc-800 p-2 rounded my-2 overflow-x-auto">
-                          <CodeStreamEffect code={part} speed={5} className="text-xs font-mono" />
-                        </div>
-                      ),
-                    )}
-                  </div>
-                ) : (
-                  <div className="text-sm">{message.content}</div>
-                )}
-                {message.role === "assistant" && (
-                  <div className="flex items-center gap-1 mt-2">
-                    <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full">
-                      <ThumbsUp className="h-3 w-3 text-zinc-500 dark:text-zinc-400" />
-                      <span className="sr-only">Like</span>
-                    </Button>
-                    <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full">
-                      <ThumbsDown className="h-3 w-3 text-zinc-500 dark:text-zinc-400" />
-                      <span className="sr-only">Dislike</span>
-                    </Button>
-                    <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full">
-                      <Copy className="h-3 w-3 text-zinc-500 dark:text-zinc-400" />
-                      <span className="sr-only">Copy</span>
-                    </Button>
-                    <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full">
-                      <CornerUpRight className="h-3 w-3 text-zinc-500 dark:text-zinc-400" />
-                      <span className="sr-only">Share</span>
-                    </Button>
-                  </div>
-                )}
-              </div>
-            ))}
-
-            {/* Status indicators (generating, success, failure) */}
-            {codeGenStatus === "generating" && (
-              <div className="animate-fade mt-3 flex items-center gap-2">
-                <div className="animate-spin h-4 w-4 border-2 border-zinc-500 border-t-transparent rounded-full"></div>
-                <span className="text-sm font-medium">{successMessage}</span>
-              </div>
-            )}
-            {codeGenStatus === "generated" && (
-              <div className="animate-fade mt-3 flex flex-col gap-2">
-                <div className="flex items-center gap-2">
-                  <div className="h-4 w-4 rounded-full border-2 border-secondary-400"></div>
-                  <span className="text-sm font-medium">{successMessage}</span>
+      {/* Message display area showing conversation history - fixed height with proper scrolling */}
+      <div className="flex-1 overflow-y-auto p-3 sm:p-4 bg-zinc-50 dark:bg-zinc-950 code-editor-height">
+        <div className="h-full overflow-y-auto">
+          {messages.length === 0 ? (
+            <div className="flex items-center justify-center h-full text-zinc-500 dark:text-zinc-400 text-sm px-2 text-center">
+              {selectedFile && selectedFile.type === "endpoint"
+                ? `Ask the AI assistant to help improve or modify the ${selectedFile.method} endpoint at ${selectedFile.path}`
+                : "Ask the AI assistant about your code or for help with your backend."}
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {messages.map((message) => (
+                <div
+                  key={message.id}
+                  className={cn(
+                    "flex flex-col max-w-[95%] sm:max-w-[80%] rounded-lg p-2 sm:p-3",
+                    message.role === "user"
+                      ? "ml-auto bg-[#F8F8F8] text-black dark:bg-neutral-900 dark:text-white"
+                      : "bg-white border border-zinc-200 dark:bg-zinc-900 dark:border-zinc-800 dark:text-zinc-100",
+                  )}
+                >
+                  {message.role === "assistant" && message.content.includes("```") ? (
+                    // Use CodeStreamEffect for code blocks in assistant messages
+                    <div className="text-xs sm:text-sm">
+                      {message.content.split("```").map((part, idx) =>
+                        idx % 2 === 0 ? (
+                          <span key={idx}>{part}</span>
+                        ) : (
+                          <div key={idx} className="bg-zinc-100 dark:bg-zinc-800 p-2 rounded my-2 overflow-x-auto">
+                            <CodeStreamEffect code={part} speed={5} className="text-xs font-mono" />
+                          </div>
+                        ),
+                      )}
+                    </div>
+                  ) : (
+                    <div className="text-xs sm:text-sm break-words">{message.content}</div>
+                  )}
+                  {message.role === "assistant" && (
+                    <div className="flex items-center gap-1 mt-2">
+                      <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full hidden sm:inline-flex">
+                        <ThumbsUp className="h-3 w-3 text-zinc-500 dark:text-zinc-400" />
+                        <span className="sr-only">Like</span>
+                      </Button>
+                      <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full hidden sm:inline-flex">
+                        <ThumbsDown className="h-3 w-3 text-zinc-500 dark:text-zinc-400" />
+                        <span className="sr-only">Dislike</span>
+                      </Button>
+                      <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full">
+                        <Copy className="h-3 w-3 text-zinc-500 dark:text-zinc-400" />
+                        <span className="sr-only">Copy</span>
+                      </Button>
+                      <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full hidden sm:inline-flex">
+                        <CornerUpRight className="h-3 w-3 text-zinc-500 dark:text-zinc-400" />
+                        <span className="sr-only">Share</span>
+                      </Button>
+                    </div>
+                  )}
                 </div>
-                <p className="text-sm text-neutral-500 dark:text-white">
-                  Your backend is ready to go! You can now review, edit and save your code.
-                </p>
-              </div>
-            )}
-            {codeGenStatus === "generationFailed" && (
-              <div className="animate-fade mt-2 flex items-center gap-2">
-                <TriangleAlert className="h-4 w-4 text-red-500" />
-                <span className="text-sm font-medium text-neutral-500 dark:text-white">
-                  {successMessage || "Failed to generate code."}
-                </span>
-                <Button variant="outline" size="sm" className="ml-2 py-1 text-xs" onClick={handleRetry}>
-                  Try again
-                </Button>
-              </div>
-            )}
-            <div ref={messagesEndRef} />
-          </div>
-        )}
+              ))}
+
+              {/* Status indicators (generating, success, failure) */}
+              {codeGenStatus === "generating" && (
+                <div className="animate-fade mt-3 flex items-center gap-2">
+                  <div className="animate-spin h-4 w-4 border-2 border-zinc-500 border-t-transparent rounded-full"></div>
+                  <span className="text-xs sm:text-sm font-medium">{successMessage}</span>
+                </div>
+              )}
+              {codeGenStatus === "generated" && (
+                <div className="animate-fade mt-3 flex flex-col gap-2">
+                  <div className="flex items-center gap-2">
+                    <div className="h-4 w-4 rounded-full border-2 border-secondary-400"></div>
+                    <span className="text-xs sm:text-sm font-medium">{successMessage}</span>
+                  </div>
+                  <p className="text-xs sm:text-sm text-neutral-500 dark:text-white">
+                    Your backend is ready to go! You can now review, edit and save your code.
+                  </p>
+                </div>
+              )}
+              {codeGenStatus === "generationFailed" && (
+                <div className="animate-fade mt-2 flex flex-wrap items-center gap-2">
+                  <TriangleAlert className="h-4 w-4 text-red-500" />
+                  <span className="text-xs sm:text-sm font-medium text-neutral-500 dark:text-white">
+                    {successMessage || "Failed to generate code."}
+                  </span>
+                  <Button variant="outline" size="sm" className="mt-1 py-1 text-xs" onClick={handleRetry}>
+                    Try again
+                  </Button>
+                </div>
+              )}
+              <div ref={messagesEndRef} />
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Input area with textarea and send button */}
-      <div className="p-3 border-t border-zinc-200 bg-white dark:bg-zinc-900 dark:border-zinc-800">
+      <div className="p-2 sm:p-3 border-t border-zinc-200 bg-white dark:bg-zinc-900 dark:border-zinc-800">
         <form onSubmit={handleSubmit} className="flex items-end">
           <div className="relative flex-1">
             <Textarea
@@ -1005,12 +1024,12 @@ export default function AIChat({
               disabled={isLoading}
             />
 
-            {/* Attach button */}
+            {/* Attach button - hide on smaller screens */}
             <Button
               type="button"
               variant="ghost"
               size="icon"
-              className="absolute right-10 bottom-2 h-7 w-7 rounded-full"
+              className="absolute right-10 bottom-2 h-7 w-7 rounded-full hidden sm:flex"
             >
               <Paperclip className="h-4 w-4 text-zinc-500 dark:text-zinc-400" />
               <span className="sr-only">Attach</span>
@@ -1029,9 +1048,10 @@ export default function AIChat({
           </div>
         </form>
       </div>
+      
       {/* Endpoint Collection Popup Dialog */}
       <Dialog open={showEndpointPopup} onOpenChange={setShowEndpointPopup}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md w-[95vw] sm:w-auto max-w-[95vw]">
           <DialogHeader>
             <DialogTitle>Configure API Endpoint</DialogTitle>
           </DialogHeader>
@@ -1060,7 +1080,7 @@ export default function AIChat({
                     key={method}
                     type="button"
                     onClick={() => setHttpMethod(method)}
-                    className={`rounded-md px-3 py-2 text-sm font-medium ${
+                    className={`rounded-md px-2 sm:px-3 py-2 text-xs sm:text-sm font-medium ${
                       httpMethod === method
                         ? "bg-[#7dff00] text-black"
                         : "bg-zinc-200 text-zinc-700 dark:bg-zinc-700 dark:text-zinc-300"
@@ -1079,15 +1099,17 @@ export default function AIChat({
             </div>
             <div className="space-y-2">
               <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">Your prompt</label>
-              <div className="rounded-md bg-zinc-100 p-2 text-sm dark:bg-zinc-800">{promptText}</div>
+              <div className="rounded-md bg-zinc-100 p-2 text-xs sm:text-sm dark:bg-zinc-800 break-words max-h-24 overflow-y-auto">
+                {promptText}
+              </div>
             </div>
             <DialogFooter className="flex justify-end gap-2 sm:justify-end">
               <DialogClose asChild>
-                <Button type="button" variant="outline">
+                <Button type="button" variant="outline" className="text-xs sm:text-sm">
                   Cancel
                 </Button>
               </DialogClose>
-              <Button type="submit" className="bg-[#7dff00] text-black hover:bg-[#9aff33]">
+              <Button type="submit" className="bg-[#7dff00] text-black hover:bg-[#9aff33] text-xs sm:text-sm">
                 Generate Code
               </Button>
             </DialogFooter>

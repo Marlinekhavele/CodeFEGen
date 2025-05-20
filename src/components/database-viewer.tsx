@@ -52,12 +52,6 @@ export function DatabaseViewer({ projectId, theme, dbFilename }: DatabaseViewerP
   const endpointService = new EndPointService()
   useEffect(() => {
     if (selectedTable) {
-      console.log("Selected table data:", {
-        tableName: selectedTable,
-        tableInfo: tables.find((t) => t.name === selectedTable),
-        rowCount: tables.find((t) => t.name === selectedTable)?.rowCount,
-        actualRowsLength: tableRows.length,
-      })
     }
   }, [selectedTable, tables, tableRows])
 
@@ -100,9 +94,7 @@ export function DatabaseViewer({ projectId, theme, dbFilename }: DatabaseViewerP
       setIsLoading(true)
       setError(null)
       try {
-        console.log(`Fetching tables for ${selectedDbFile} in project ${projectId}`)
         const tables = await endpointService.getDatabaseTables(projectId, selectedDbFile)
-        console.log("Tables response:", tables)
         setTables(tables)
 
         // Auto-select the first table if available
@@ -123,20 +115,17 @@ export function DatabaseViewer({ projectId, theme, dbFilename }: DatabaseViewerP
   useEffect(() => {
     // This ensures we don't lose data when view mode changes
     if (viewMode === "full" && selectedDbFile) {
-      console.log("Loading full view for database:", selectedDbFile)
       const fetchFullDatabaseView = async () => {
         try {
           setIsLoading(true)
 
           // Try to get full database view
           const fullView = await endpointService.getFullDatabaseView(projectId)
-          console.log("Full database view data:", fullView)
 
           if (fullView && fullView.length > 0) {
             // Find the current database in full view
             const dbInfo = fullView.find((db: any) => db.db_file === selectedDbFile)
             if (dbInfo && dbInfo.tables) {
-              console.log(`Processing tables data for ${selectedDbFile}:`, dbInfo.tables)
               setTables(
                 dbInfo.tables.map((table: any) => ({
                   name: table.name,
@@ -203,17 +192,12 @@ export function DatabaseViewer({ projectId, theme, dbFilename }: DatabaseViewerP
       setIsLoading(true)
       setError(null)
       try {
-        console.log(`Fetching rows for table ${selectedTable} in ${selectedDbFile}`)
         const rows = await endpointService.getTableRows(projectId, selectedDbFile, selectedTable)
-        console.log(`Received ${rows.length} rows for table ${selectedTable}:`, rows)
 
         setTableRows(rows)
 
         // IMPORTANT: Update the table's row count in the tables state
         if (tables.find((t) => t.name === selectedTable)?.rowCount !== rows.length) {
-          console.log(
-            `Updating row count for ${selectedTable} from ${tables.find((t) => t.name === selectedTable)?.rowCount} to ${rows.length}`,
-          )
 
           setTables((prevTables) =>
             prevTables.map((table) => (table.name === selectedTable ? { ...table, rowCount: rows.length } : table)),
@@ -241,7 +225,6 @@ export function DatabaseViewer({ projectId, theme, dbFilename }: DatabaseViewerP
   // Get column names from the first row
   const getColumnNames = () => {
     if (tableRows.length === 0) return []
-    console.log("First row in tableRows:", tableRows[0])
     return Object.keys(tableRows[0])
   }
 
@@ -373,11 +356,11 @@ export function DatabaseViewer({ projectId, theme, dbFilename }: DatabaseViewerP
   }
 
   return (
-    <div className="flex flex-col h-full text-[0.9rem] leading-[1.4] bg-zinc-950 rounded-lg border border-zinc-800 overflow-auto">
-      <div className="flex justify-between items-center p-3">
-        <div className="flex items-center space-x-3">
+    <div className="flex flex-col h-full overflow-hidden bg-zinc-950 rounded-lg">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center p-2 sm:p-3 gap-2 border-b border-zinc-800">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center w-full sm:w-auto space-y-2 sm:space-y-0 sm:space-x-3">
           <Select value={selectedDbFile || ""} onValueChange={setSelectedDbFile}>
-            <SelectTrigger className="w-[180px] h-9 text-sm bg-zinc-900 border-zinc-700">
+            <SelectTrigger className="w-full sm:w-[180px] h-9 text-sm bg-zinc-900 border-zinc-700">
               <SelectValue placeholder="Select database" />
             </SelectTrigger>
             <SelectContent>
@@ -389,29 +372,29 @@ export function DatabaseViewer({ projectId, theme, dbFilename }: DatabaseViewerP
             </SelectContent>
           </Select>
 
-          <div className="flex items-center space-x-2">
-            <Tabs value={viewMode} onValueChange={(val) => setViewMode(val as "tables" | "full")}>
-              <TabsList>
+          <div className="flex items-center w-full sm:w-auto">
+            <Tabs value={viewMode} onValueChange={(val) => setViewMode(val as "tables" | "full")} className="w-full sm:w-auto">
+              <TabsList className="w-full sm:w-auto">
                 <TabsTrigger
                   value="tables"
                   onClick={() => {
-                    console.log("Switching to tables view")
+                    ("Switching to tables view")
                     setViewMode("tables")
                   }}
-                  className={`tab-accent ${viewMode === "tables" ? "bg-[#7dff00] text-black" : ""}`}
+                  className="flex-1 sm:flex-none"
                 >
-                  <Table className="h-4 w-4 mr-2" />
+                  <Table className="h-3.5 w-3.5 mr-1.5" />
                   Tables
                 </TabsTrigger>
                 <TabsTrigger
                   value="full"
                   onClick={() => {
-                    console.log("Switching to full view")
+                    ("Switching to full view")
                     setViewMode("full")
                   }}
-                  className={`tab-accent ${viewMode === "full" ? "bg-[#7dff00] text-black" : ""}`}
+                  className="flex-1 sm:flex-none"
                 >
-                  <FileText className="h-3.5 w-3.5 mr-1.5" />
+                  <FileText className="h-3 w-3 mr-1.5" />
                   Full View
                 </TabsTrigger>
               </TabsList>
@@ -419,17 +402,17 @@ export function DatabaseViewer({ projectId, theme, dbFilename }: DatabaseViewerP
           </div>
         </div>
   
-        <div className="flex items-center space-x-2">
-          <div className="relative">
+        <div className="flex items-center space-x-2 w-full sm:w-auto">
+          <div className="relative flex-1 sm:flex-auto">
             <Search className="h-3.5 w-3.5 absolute left-2.5 top-2.5 text-zinc-500" />
             <Input
               placeholder="Search tables..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-8 h-9 text-sm w-[180px]"
+              className="pl-8 h-9 text-xs sm:text-sm w-full sm:w-[180px]"
             />
           </div>
-          <Button variant="ghost" size="icon" className="h-9 w-9" onClick={handleRefresh} disabled={isLoading}>
+          <Button variant="ghost" size="icon" className="h-9 w-9 flex-none" onClick={handleRefresh} disabled={isLoading}>
             {isLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
           </Button>
         </div>
@@ -437,17 +420,13 @@ export function DatabaseViewer({ projectId, theme, dbFilename }: DatabaseViewerP
   
       {isLoading && <div className="bg-yellow-100 dark:bg-yellow-900/20 p-1.5 text-xs">Loading data...</div>}
       {error && <div className="bg-red-100 dark:bg-red-900/20 p-1.5 text-xs">Error: {error}</div>}
-      {!isLoading && !error && tables.length === 0 && (
-        <div className="bg-blue-100 dark:bg-blue-900/20 p-1.5 text-xs">
-          No tables found in database. View mode: {viewMode}
-        </div>
-      )}
       
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex-1 min-h-0 flex overflow-auto">
+        {/* Rest of your content remains the same but will now be scrollable */}
         {viewMode === "tables" ? (
-          <div className="flex flex-1 overflow-hidden">
+          <div className="flex flex-1 flex-col sm:flex-row min-h-0 overflow-hidden w-full">
             {/* Table list sidebar */}
-            <div className="w-56 border-r border-zinc-200 dark:border-zinc-800 overflow-y-auto">
+            <div className="sm:w-56 border-b sm:border-b-0 sm:border-r border-zinc-200 dark:border-zinc-800 overflow-auto sm:h-full flex-shrink-0">
               <div className="p-3">
                 <h3 className="text-xs font-medium text-zinc-500 dark:text-zinc-400 mb-1.5">Tables</h3>
                 <div className="space-y-0.5">
@@ -460,9 +439,9 @@ export function DatabaseViewer({ projectId, theme, dbFilename }: DatabaseViewerP
                       }`}
                       onClick={() => setSelectedTable(table.name)}
                     >
-                      <Table className="h-3.5 w-3.5 mr-1.5" />
+                      <Table className="h-3.5 w-3.5 mr-1.5 flex-none" />
                       <span className="truncate">{table.name}</span>
-                      <Badge variant="outline" className="ml-auto text-[0.7rem] py-0 h-5">
+                      <Badge variant="outline" className="ml-auto text-[0.7rem] py-0 h-5 flex-none">
                         {table.rowCount}
                       </Badge>
                     </Button>
@@ -476,12 +455,12 @@ export function DatabaseViewer({ projectId, theme, dbFilename }: DatabaseViewerP
             </div>
   
             {/* Table content */}
-            <div className="flex-1 overflow-hidden flex flex-col">
+            <div className="flex-1 overflow-auto min-h-0">
               {selectedTable ? (
                 <>
-                  <div className="p-3 border-b border-zinc-200 dark:border-zinc-800">
-                    <h2 className="text-base font-medium flex items-center">
-                      <Table className="h-4 w-4 mr-1.5" />
+                  <div className="p-2 sm:p-3 border-b border-zinc-200 dark:border-zinc-800 flex-shrink-0">
+                    <h2 className="text-sm sm:text-base font-medium flex items-center">
+                      <Table className="h-3.5 w-3.5 mr-1.5" />
                       {selectedTable}
                     </h2>
                     <p className="text-xs text-zinc-500 dark:text-zinc-400">
@@ -490,26 +469,26 @@ export function DatabaseViewer({ projectId, theme, dbFilename }: DatabaseViewerP
                     </p>
                   </div>
   
-                  <div className="flex-1 overflow-auto scrollable">
+                  <div className="flex-1 overflow-auto min-h-0">
                     {isLoading ? (
                       <div className="flex items-center justify-center h-full">
                         <Loader2 className="h-6 w-6 animate-spin text-[#7dff00]" />
                       </div>
                     ) : tableRows.length > 0 ? (
-                      <div className="p-3">
-                        <div className="table-container scrollable max-h-[450px] border rounded-md overflow-hidden">
-                          <div className="overflow-x-auto scrollable">
+                      <div className="p-2 sm:p-3">
+                        <div className="border rounded-md overflow-hidden">
+                          <div className="overflow-x-auto">
                             <table className="w-full">
                               <thead>
                                 <tr className="bg-zinc-50 dark:bg-zinc-800 border-b border-zinc-200 dark:border-zinc-700">
                                   {getColumnNames().map((column) => (
                                     <th
                                       key={column}
-                                      className="px-3 py-1.5 text-left text-[0.7rem] font-medium text-zinc-500 dark:text-zinc-400"
+                                      className="px-2 sm:px-3 py-1 sm:py-1.5 text-left text-[0.65rem] sm:text-[0.7rem] font-medium text-zinc-500 dark:text-zinc-400"
                                     >
-                                      <div className="flex items-center space-x-1.5">
+                                      <div className="flex items-center flex-wrap gap-1 sm:gap-1.5">
                                         <span>{column}</span>
-                                        <Badge className={`${getColumnBadgeClass(getColumnType(column))} text-[0.65rem] py-0 px-1.5 h-4`}>
+                                        <Badge className={`${getColumnBadgeClass(getColumnType(column))} text-[0.65rem] py-0 px-1 sm:px-1.5 h-4`}>
                                           {getColumnType(column)}
                                         </Badge>
                                       </div>
@@ -517,14 +496,14 @@ export function DatabaseViewer({ projectId, theme, dbFilename }: DatabaseViewerP
                                   ))}
                                 </tr>
                               </thead>
-                              <tbody>
+                              <tbody className="text-[0.65rem] sm:text-xs">
                                 {tableRows.map((row, rowIndex) => (
                                   <tr
                                     key={rowIndex}
                                     className="border-b border-zinc-200 dark:border-zinc-700 last:border-0 hover:bg-zinc-50 dark:hover:bg-zinc-800/50"
                                   >
                                     {getColumnNames().map((column) => (
-                                      <td key={`${rowIndex}-${column}`} className="px-3 py-1.5 text-xs">
+                                      <td key={`${rowIndex}-${column}`} className="px-2 sm:px-3 py-1 sm:py-1.5 break-words">
                                         {formatCellValue(row[column], column)}
                                       </td>
                                     ))}
@@ -536,59 +515,59 @@ export function DatabaseViewer({ projectId, theme, dbFilename }: DatabaseViewerP
                         </div>
                       </div>
                     ) : (
-                      <div className="flex items-center justify-center h-full text-xs text-zinc-500 dark:text-zinc-400">
+                      <div className="flex items-center justify-center h-full text-xs text-zinc-500 dark:text-zinc-400 p-4">
                         No rows found in this table
                       </div>
                     )}
                   </div>
                 </>
               ) : (
-                <div className="flex items-center justify-center h-full text-xs text-zinc-500 dark:text-zinc-400">
+                <div className="flex items-center justify-center h-full text-xs text-zinc-500 dark:text-zinc-400 p-4">
                   Select a table to view its data
                 </div>
               )}
             </div>
           </div>
         ) : (
-          <div className="flex-1 overflow-auto p-3 scrollable">
+          <div className="flex-1 overflow-auto min-h-0 p-2 sm:p-3 w-full">
             <Card>
-              <CardHeader className="py-3 px-4">
-                <CardTitle className="text-base flex items-center">
-                  <Database className="h-4 w-4 mr-1.5" />
+              <CardHeader className="py-2 sm:py-3 px-3 sm:px-4">
+                <CardTitle className="text-sm sm:text-base flex items-center">
+                  <Database className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1.5" />
                   Database Structure
                 </CardTitle>
               </CardHeader>
-              <CardContent className="p-3">
+              <CardContent className="p-2 sm:p-3">
                 {tables.length > 0 ? (
-                  <Accordion type="multiple" defaultValue={tables.map((t) => t.name)}>
+                  <Accordion type="multiple" defaultValue={tables.map((t) => t.name)} className="text-[0.7rem] sm:text-xs">
                     {tables.map((table) => (
                       <AccordionItem key={table.name} value={table.name}>
-                        <AccordionTrigger className="hover:bg-zinc-50 dark:hover:bg-zinc-800/50 px-3 text-sm py-1.5">
+                        <AccordionTrigger className="hover:bg-zinc-50 dark:hover:bg-zinc-800/50 px-2 sm:px-3 py-1 sm:py-1.5 text-[0.75rem] sm:text-sm">
                           <div className="flex items-center">
-                            <Table className="h-3.5 w-3.5 mr-1.5" />
-                            <span>{table.name}</span>
-                            <Badge variant="outline" className="ml-1.5 text-xs py-0 px-1.5 h-5">
+                            <Table className="h-3 w-3 sm:h-3.5 sm:w-3.5 mr-1.5" />
+                            <span className="truncate max-w-[150px] sm:max-w-none">{table.name}</span>
+                            <Badge variant="outline" className="ml-1.5 text-[0.65rem] sm:text-xs py-0 px-1 sm:px-1.5 h-4 sm:h-5">
                               {table.rows?.length || table.rowCount} rows
                             </Badge>
                           </div>
                         </AccordionTrigger>
                         <AccordionContent>
-                          <div className="pl-5 pr-3 pb-1.5 space-y-3">
+                          <div className="pl-3 sm:pl-5 pr-2 sm:pr-3 pb-1.5 space-y-3">
                             {/* Column Metadata Table */}
                             <div className="border rounded-md overflow-hidden">
-                              <table className="w-full text-xs">
+                              <table className="w-full text-[0.65rem] sm:text-xs">
                                 <thead className="bg-zinc-50 dark:bg-zinc-800">
                                   <tr>
-                                    <th className="px-3 py-1.5 text-left text-[0.7rem] text-zinc-500 dark:text-zinc-400">
+                                    <th className="px-2 sm:px-3 py-1 sm:py-1.5 text-left text-[0.65rem] sm:text-[0.7rem] text-zinc-500 dark:text-zinc-400">
                                       Column
                                     </th>
-                                    <th className="px-3 py-1.5 text-left text-[0.7rem] text-zinc-500 dark:text-zinc-400">
+                                    <th className="px-2 sm:px-3 py-1 sm:py-1.5 text-left text-[0.65rem] sm:text-[0.7rem] text-zinc-500 dark:text-zinc-400">
                                       Type
                                     </th>
-                                    <th className="px-3 py-1.5 text-left text-[0.7rem] text-zinc-500 dark:text-zinc-400">
+                                    <th className="px-2 sm:px-3 py-1 sm:py-1.5 text-left text-[0.65rem] sm:text-[0.7rem] text-zinc-500 dark:text-zinc-400">
                                       Nullable
                                     </th>
-                                    <th className="px-3 py-1.5 text-left text-[0.7rem] text-zinc-500 dark:text-zinc-400">
+                                    <th className="px-2 sm:px-3 py-1 sm:py-1.5 text-left text-[0.65rem] sm:text-[0.7rem] text-zinc-500 dark:text-zinc-400">
                                       Primary Key
                                     </th>
                                   </tr>
@@ -596,24 +575,24 @@ export function DatabaseViewer({ projectId, theme, dbFilename }: DatabaseViewerP
                                 <tbody>
                                   {table.columns.map((column) => (
                                     <tr key={column.name}>
-                                      <td className="px-3 py-1.5">{column.name}</td>
-                                      <td className="px-3 py-1.5">
-                                        <Badge className={`${getColumnBadgeClass(column.type)} text-[0.7rem] py-0 px-1.5 h-5`}>{column.type}</Badge>
+                                      <td className="px-2 sm:px-3 py-1 sm:py-1.5 truncate max-w-[100px] sm:max-w-none">{column.name}</td>
+                                      <td className="px-2 sm:px-3 py-1 sm:py-1.5">
+                                        <Badge className={`${getColumnBadgeClass(column.type)} text-[0.65rem] sm:text-[0.7rem] py-0 px-1 sm:px-1.5 h-4 sm:h-5`}>{column.type}</Badge>
                                       </td>
-                                      <td className="px-3 py-1.5">
+                                      <td className="px-2 sm:px-3 py-1 sm:py-1.5">
                                         {column.nullable ? (
-                                          <Badge variant="outline" className="bg-zinc-100 dark:bg-zinc-800 text-[0.7rem] py-0 px-1.5 h-5">
+                                          <Badge variant="outline" className="bg-zinc-100 dark:bg-zinc-800 text-[0.65rem] sm:text-[0.7rem] py-0 px-1 sm:px-1.5 h-4 sm:h-5">
                                             YES
                                           </Badge>
                                         ) : (
-                                          <Badge variant="outline" className="bg-amber-100 dark:bg-amber-900/20 text-[0.7rem] py-0 px-1.5 h-5">
+                                          <Badge variant="outline" className="bg-amber-100 dark:bg-amber-900/20 text-[0.65rem] sm:text-[0.7rem] py-0 px-1 sm:px-1.5 h-4 sm:h-5">
                                             NO
                                           </Badge>
                                         )}
                                       </td>
-                                      <td className="px-3 py-1.5">
+                                      <td className="px-2 sm:px-3 py-1 sm:py-1.5">
                                         {column.primaryKey ? (
-                                          <Badge className="bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300 text-[0.7rem] py-0 px-1.5 h-5">
+                                          <Badge className="bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300 text-[0.65rem] sm:text-[0.7rem] py-0 px-1 sm:px-1.5 h-4 sm:h-5">
                                             PK
                                           </Badge>
                                         ) : (
@@ -629,13 +608,13 @@ export function DatabaseViewer({ projectId, theme, dbFilename }: DatabaseViewerP
                             {/* Table Row Data */}
                             {table.rows && table.rows.length > 0 ? (
                               <div className="border rounded-md overflow-x-auto">
-                                <table className="w-full text-xs">
+                                <table className="w-full text-[0.65rem] sm:text-xs">
                                   <thead className="bg-zinc-50 dark:bg-zinc-800">
                                     <tr>
                                       {Object.keys(table.rows[0]).map((col) => (
                                         <th
                                           key={col}
-                                          className="px-3 py-1.5 text-left text-[0.7rem] text-zinc-500 dark:text-zinc-400"
+                                          className="px-2 sm:px-3 py-1 sm:py-1.5 text-left text-[0.65rem] sm:text-[0.7rem] text-zinc-500 dark:text-zinc-400"
                                         >
                                           {col}
                                         </th>
@@ -649,7 +628,7 @@ export function DatabaseViewer({ projectId, theme, dbFilename }: DatabaseViewerP
                                         className="border-b border-zinc-200 dark:border-zinc-700 last:border-0"
                                       >
                                         {Object.keys(row).map((col) => (
-                                          <td key={`${rowIndex}-${col}`} className="px-3 py-1.5">
+                                          <td key={`${rowIndex}-${col}`} className="px-2 sm:px-3 py-1 sm:py-1.5 break-words">
                                             {formatCellValue(row[col], col)}
                                           </td>
                                         ))}
@@ -659,14 +638,14 @@ export function DatabaseViewer({ projectId, theme, dbFilename }: DatabaseViewerP
                                 </table>
                               </div>
                             ) : (
-                              <div className="text-xs text-zinc-400">No rows found in this table</div>
+                              <div className="text-[0.65rem] sm:text-xs text-zinc-400">No rows found in this table</div>
                             )}
   
                             {/* Button to jump to this table in Tables View */}
                             <Button
                               variant="outline"
                               size="sm"
-                              className="mt-3 h-8 text-xs"
+                              className="mt-3 h-7 sm:h-8 text-[0.65rem] sm:text-xs"
                               onClick={() => {
                                 setSelectedTable(table.name)
                                 setViewMode("tables")
@@ -680,16 +659,16 @@ export function DatabaseViewer({ projectId, theme, dbFilename }: DatabaseViewerP
                     ))}
                   </Accordion>
                 ) : (
-                  <div className="p-3 text-center text-xs text-zinc-500 dark:text-zinc-400">
+                  <div className="p-3 text-center text-[0.65rem] sm:text-xs text-zinc-500 dark:text-zinc-400">
                     {isLoading ? (
                       <div className="flex items-center justify-center space-x-2">
-                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        <Loader2 className="h-3 w-3 sm:h-3.5 sm:w-3.5 animate-spin" />
                         <span>Loading tables data...</span>
                       </div>
                     ) : (
                       <>
                         No tables found in this database.
-                        <Button variant="link" className="ml-1.5 text-xs h-7 p-0" onClick={handleRefresh}>
+                        <Button variant="link" className="ml-1.5 text-[0.65rem] sm:text-xs h-6 sm:h-7 p-0" onClick={handleRefresh}>
                           Refresh
                         </Button>
                       </>
@@ -701,6 +680,18 @@ export function DatabaseViewer({ projectId, theme, dbFilename }: DatabaseViewerP
           </div>
         )}
       </div>
+
+      <style jsx>{`
+        /* Custom styles for tabs */
+        :global(.tab-accent.active) {
+          color: #7dff00;
+          border-color: #7dff00;
+        }
+        :global([data-state="active"]) {
+          background-color: #7dff00 !important;
+          color: black !important;
+        }
+      `}</style>
     </div>
   )
 }

@@ -1,8 +1,9 @@
 "use client"
 
 import { useEffect, useState, useRef } from "react"
-import Editor, { Monaco } from "@monaco-editor/react"
+import Editor, { type Monaco } from "@monaco-editor/react"
 import type { editor } from "monaco-editor"
+import { CodeStreamEffect } from "@/components/code-stream-effect"
 
 interface MonacoEditorProps {
   code: string
@@ -13,147 +14,144 @@ interface MonacoEditorProps {
   streaming?: boolean
   streamingCode?: string
   docs?: string
+  onStreamComplete?: () => void // Callback to BackendEditorClient (handleAnimationComplete)
 }
 
 export function MonacoEditor({
   code,
-  docs,
   language = "python",
   onChange,
   readOnly = false,
   theme = "vs-dark",
-  streaming = false,
-  streamingCode = "",
+  streaming = false, // Should be true when BEC.isAnimatingFile is true
+  streamingCode = "", // Should be the code from BEC.codeToAnimate
+  onStreamComplete,
 }: MonacoEditorProps) {
-  const [mounted, setMounted] = useState(false)
-  const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null)
-  const [initialContent] = useState(code) // Use initial code as base, only update in streaming mode
-  
-  // Previous streaming code length to determine what to append
-  const prevStreamingCodeLength = useRef(0)
+  const [mounted, setMounted] = useState(false);
+  const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
+  const [showStreamEffect, setShowStreamEffect] = useState(false);
+
 
   useEffect(() => {
-    setMounted(true)
-  }, [])
+    setMounted(true);
+  }, []);
 
-  // Effect for handling streaming updates
   useEffect(() => {
-    if (streaming && editorRef.current && streamingCode) {
-      // Get what was added since last update
-      const newText = streamingCode.substring(prevStreamingCodeLength.current)
-      if (newText) {
-        // Get current editor model
-        const model = editorRef.current.getModel()
-        if (model) {
-          // Get position at the end of content
-          const lastLine = model.getLineCount()
-          const lastColumn = model.getLineMaxColumn(lastLine)
-          const position = { lineNumber: lastLine, column: lastColumn }
-          
-          // Insert the new text at the end
-          editorRef.current.executeEdits('', [{
-            range: {
-              startLineNumber: position.lineNumber,
-              startColumn: position.column,
-              endLineNumber: position.lineNumber,
-              endColumn: position.column
-            },
-            text: newText
-          }])
-          
-          // Auto-scroll to the end
-          editorRef.current.revealPositionInCenter(position)
-        }
-        
-        // Update the previous length for next comparison
-        prevStreamingCodeLength.current = streamingCode.length
-      }
+    
+    if (streaming && streamingCode && streamingCode.length > 0) {
+      setShowStreamEffect(true);
+    } else {
+      setShowStreamEffect(false);
     }
-  }, [streaming, streamingCode])
+  }, [streaming, streamingCode]);
 
   const handleEditorChange = (value: string | undefined) => {
-    if (onChange && value !== undefined) {
-      onChange(value)
+    // Only allow editor changes if not in streaming mode (overlay active)
+    if (onChange && value !== undefined && !showStreamEffect) {
+      onChange(value);
     }
-  }
-
-  // Reset streaming state when code changes (non-streaming update)
-  useEffect(() => {
-    if (!streaming) {
-      prevStreamingCodeLength.current = 0
-    }
-  }, [code, streaming])
+  };
 
   const handleEditorWillMount = (monaco: Monaco) => {
-    // Configure editor options
     monaco.editor.defineTheme("custom-dark", {
       base: "vs-dark",
       inherit: true,
       rules: [],
       colors: {
-        "editor.background": "#18181b", // zinc-900
+        "editor.background": "#18181b",
       },
-    })
-
+    });
     monaco.editor.defineTheme("custom-light", {
       base: "vs",
       inherit: true,
       rules: [],
       colors: {
-        "editor.background": "#ffffff", // white
+        "editor.background": "#ffffff",
       },
-    })
-  }
+    });
+  };
 
-  const handleEditorDidMount = (editor: editor.IStandaloneCodeEditor) => {
-    editorRef.current = editor
-  }
+  const handleEditorDidMount = (mountedEditor: editor.IStandaloneCodeEditor) => {
+    editorRef.current = mountedEditor;
+  };
 
-  // Map theme to custom theme
   const getTheme = () => {
-    if (theme === "vs-dark") return "custom-dark"
-    if (theme === "vs-light" || theme === "vs") return "custom-light"
-    return theme
-  }
+    if (theme === "vs-dark") return "custom-dark";
+    if (theme === "vs-light" || theme === "vs") return "custom-light";
+    return theme;
+  };
 
-  // Use streaming code in streaming mode, otherwise use regular code
-  const displayCode = streaming ? initialContent : code
+  // This is called by CodeStreamEffect when its animation of `streamingCode` is done
+  const handleStreamAnimationComplete = () => {
+    if (onChange && streamingCode) {
+      onChange(streamingCode);
+    }
+    if (onStreamComplete) {
+      onStreamComplete();
+    }
+  };
+
+  
+  const displayCodeInMainEditor = code;
 
   return (
-    <div className="h-full w-full border-0 bg-transparent overflow-hidden p-5">
+    <div className="h-full w-full border-0 bg-transparent overflow-hidden p-1 relative">
       {mounted ? (
-        <Editor
-          height="100%"
-          width="100%"
-          defaultLanguage={language}
-          defaultValue={displayCode}
-          value={displayCode}
-          onChange={handleEditorChange}
-          theme={getTheme()}
-          beforeMount={handleEditorWillMount}
-          onMount={handleEditorDidMount}
-          options={{
-            readOnly: streaming || readOnly, 
-            minimap: { enabled: true },
-            scrollBeyondLastLine: false,
-            fontSize: 8,
-            fontFamily: "'Fira Code', monospace",
-            cursorBlinking: "smooth",
-            renderLineHighlight: "all",
-            scrollbar: {
-              verticalScrollbarSize: 10,
-              horizontalScrollbarSize: 10,
-            },
-            padding: { top: 10, bottom: 20 },
-            automaticLayout: true,
-          }}
-          className="h-full w-full"
-        />
+        <>
+          <div className={`h-full w-full ${showStreamEffect ? "hidden" : "block"}`}>
+            <Editor
+              height="100%"
+              width="100%"
+              language={language}
+              value={displayCodeInMainEditor} 
+              onChange={handleEditorChange}
+              theme={getTheme()}
+              beforeMount={handleEditorWillMount}
+              onMount={handleEditorDidMount}
+              options={{
+                readOnly: showStreamEffect || readOnly, 
+                minimap: { enabled: false },
+                scrollBeyondLastLine: false,
+                fontSize: 12.5,
+                fontFamily: "'Fira Code', monospace",
+                cursorBlinking: "smooth",
+                renderLineHighlight: "all",
+                scrollbar: {
+                  verticalScrollbarSize: 10,
+                  horizontalScrollbarSize: 10,
+                },
+                padding: { bottom: 20 },
+                automaticLayout: true,
+                lineNumbers: "off",
+              }}
+              className="h-full w-full"
+            />
+          </div>
+
+          {/* CodeStreamEffect overlay */}
+          {(() => {
+            const shouldRenderStreamEffect = showStreamEffect && streamingCode && streamingCode.length > 0;
+            if (shouldRenderStreamEffect) {
+              return (
+                <div className="absolute inset-0 bg-zinc-900 dark:bg-zinc-950 overflow-auto z-10">
+                  <CodeStreamEffect
+                  code={streamingCode}
+                  language={language}
+                  className="h-full w-full text-sm"
+                  speed={0.1}
+                  onComplete={handleStreamAnimationComplete}
+                  />
+                </div>
+              );
+            }
+            return null;
+          })()}
+        </>
       ) : (
         <div className="h-full w-full flex items-center justify-center bg-zinc-900 text-zinc-500 dark:text-zinc-400">
           Loading editor...
         </div>
       )}
     </div>
-  )
+  );
 }
